@@ -4,6 +4,7 @@
 #include "auth.h"
 #include "display.h"
 #include "wifi_manager.h"
+#include "temperature.h"
 #include <EEPROM.h>
 #include <esp_task_wdt.h>
 
@@ -188,6 +189,9 @@ void initializeHardware() {
     analogSetAttenuation(ADC_11db);  // For 0-3.3V range
     analogReadResolution(12);        // 12-bit resolution
     
+    // Initialize temperature sensors
+    initializeTemperatureSensors();
+    
     // Perform hardware self-test
     if (!performHardwareSelfTest()) {
         DEBUG_PRINTLN("WARNING: Hardware self-test failed");
@@ -296,6 +300,15 @@ void loadDefaultConfiguration() {
     g_system_config.hvac.hysteresis = DEFAULT_HYSTERESIS;
     g_system_config.hvac.delta_temperature = 0.5;
     g_system_config.hvac.min_cycle_time = MIN_COMPRESSOR_CYCLE_TIME;
+    
+    // Thermal Control defaults (MAC_SYS compatible)
+    g_system_config.ac_setpoint = 25.0;
+    g_system_config.delta_temperature = 1.0;
+    g_system_config.delivery_compensation = 0.0;
+    g_system_config.operation_mode = 0; // Direct mode
+    g_system_config.central_control_mode = true;
+    g_system_config.ac_control_enabled = true;
+    g_system_config.primary_temp_sensor = 3; // LM35 default
     g_system_config.hvac.max_run_time = MAX_COMPRESSOR_RUN_TIME;
     g_system_config.hvac.operation_mode = MODE_AUTO;
     g_system_config.hvac.enable_schedule = false;
@@ -444,9 +457,8 @@ void systemLoop() {
     // Update WiFi connection status
     g_wifi_connected = isWiFiConnected();
     
-    // Main system processing
-    // This function will be expanded with HVAC control logic, 
-    // Modbus handling, and other system operations
+    // Main system processing - Run temperature control
+    runTemperatureControl();
     
     DEBUG_PRINTF("System Status - State: %d, Uptime: %lu, Free Memory: %lu, Temp: %.1f°C, WiFi: %s\n", 
                  g_system_status.state, g_system_status.uptime, g_system_status.free_memory,
@@ -454,10 +466,9 @@ void systemLoop() {
 }
 
 void readTemperatureSensors() {
-    // Read analog temperature sensor (LM35)
-    int adc_value = analogRead(TEMP_SENSOR_PIN);
-    float voltage = (adc_value * ADC_VREF) / ADC_RESOLUTION;
-    float temperature = voltage / LM35_SCALE;
+    // Use our new temperature system
+    float temperature = readTemperature();
+    g_system_status.current_temperature = temperature;
     
     // Apply basic filtering (simple moving average)
     static float temp_readings[TEMP_FILTER_SAMPLES] = {0};

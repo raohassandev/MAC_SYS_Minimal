@@ -204,6 +204,16 @@ struct SystemConfig {
     HVACConfig hvac;
     ScheduleEntry schedule[MAX_SCHEDULE_ENTRIES];
     UserCredentials user;
+    
+    // Thermal Control Parameters (MAC_SYS compatible)
+    float ac_setpoint;                // Manual setpoint temperature
+    float delta_temperature;          // Hysteresis delta for control
+    float delivery_compensation;      // Sensor compensation offset
+    uint8_t operation_mode;          // 0=Direct, 1=Schedule
+    bool central_control_mode;       // true=Central, false=Local
+    bool ac_control_enabled;         // true=Auto, false=Force-Off
+    uint8_t primary_temp_sensor;     // 1=AM2302, 2=DS18B20, 3=LM35
+    
     uint32_t last_update;
     uint16_t global_checksum;
 };

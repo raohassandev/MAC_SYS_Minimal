@@ -7,7 +7,12 @@
       "Bash(esptool.py:*)",
       "Bash(python3:*)",
       "Bash(cp:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Read(/Users/israrulhaq/Documents/Arduino/**)",
+      "Read(/Users/israrulhaq/Documents/Arduino/MAC_SYS/**)",
+      "Read(/Users/israrulhaq/Documents/Arduino/MAC_SYS/**)",
+      "Read(/Users/israrulhaq/Documents/Arduino/MAC_SYS/**)",
+      "Read(/Users/israrulhaq/Documents/Arduino/MAC_SYS/**)"
     ],
     "deny": [],
     "ask": [],
