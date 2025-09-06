@@ -23,10 +23,26 @@ bool initializeI2C() {
     // Initialize I2C with explicit pins and frequency
     Wire.begin(I2C_SDA_PIN, I2C_SCL_PIN);
     Wire.setClock(I2C_FREQUENCY); // Set I2C frequency for stability
-    delay(100); // Allow I2C bus to stabilize
+    delay(200); // Allow I2C bus to stabilize
     
     i2c_initialized = true;
     DEBUG_PRINTLN("I2C bus initialized successfully");
+    
+    // Scan for I2C devices
+    DEBUG_PRINTLN("Scanning I2C bus...");
+    bool devices_found = false;
+    for (uint8_t addr = 1; addr < 127; addr++) {
+        Wire.beginTransmission(addr);
+        uint8_t error = Wire.endTransmission();
+        if (error == 0) {
+            DEBUG_PRINTF("I2C device found at address 0x%02X\n", addr);
+            devices_found = true;
+        }
+    }
+    
+    if (!devices_found) {
+        DEBUG_PRINTLN("WARNING: No I2C devices found! Check connections and pull-up resistors.");
+    }
     
     return true;
 }
@@ -47,8 +63,7 @@ bool initializeHardware() {
     
     // Initialize PCF8574 devices
     if (!initializePCF8574()) {
-        DEBUG_PRINTLN("ERROR: PCF8574 initialization failed");
-        return false;
+        DEBUG_PRINTLN("WARNING: PCF8574 initialization failed - continuing without I/O expansion");
     }
     
     // Perform hardware self-test

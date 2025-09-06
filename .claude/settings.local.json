@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git commit:*)",
+      "Read(/var/folders/zq/qy5f7lhj4h165_pz6c948gsm0000gn/T/arduino_build_281364/**)",
+      "Bash(cat:*)",
+      "Bash(esptool.py:*)",
+      "Bash(python3:*)",
+      "Bash(cp:*)",
+      "Bash(git add:*)"
+    ],
+    "deny": [],
+    "ask": [],
+    "additionalDirectories": [
+      "/private/var/folders/zq/qy5f7lhj4h165_pz6c948gsm0000gn/T/arduino_build_281364"
+    ]
+  }
+}
