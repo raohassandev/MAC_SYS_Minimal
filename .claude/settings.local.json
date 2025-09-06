@@ -12,12 +12,16 @@
       "Read(/Users/israrulhaq/Documents/Arduino/MAC_SYS/**)",
       "Read(/Users/israrulhaq/Documents/Arduino/MAC_SYS/**)",
       "Read(/Users/israrulhaq/Documents/Arduino/MAC_SYS/**)",
-      "Read(/Users/israrulhaq/Documents/Arduino/MAC_SYS/**)"
+      "Read(/Users/israrulhaq/Documents/Arduino/MAC_SYS/**)",
+      "Bash(arduino-cli compile:*)",
+      "WebFetch(domain:www.kincony.com)",
+      "WebFetch(domain:devices.esphome.io)"
     ],
     "deny": [],
     "ask": [],
     "additionalDirectories": [
-      "/private/var/folders/zq/qy5f7lhj4h165_pz6c948gsm0000gn/T/arduino_build_281364"
+      "/private/var/folders/zq/qy5f7lhj4h165_pz6c948gsm0000gn/T/arduino_build_281364",
+      "/private/tmp/build_logs"
     ]
   }
 }

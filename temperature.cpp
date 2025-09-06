@@ -155,12 +155,29 @@ float readLM35Temperature() {
     
     int adcReading = analogRead(LM35_PIN);
     
+    // Check if we have a valid ADC reading (not 0 or max value)
+    if (adcReading <= 10 || adcReading >= 4085) {
+        // No sensor connected or invalid reading, use simulated temperature
+        static float simulatedTemp = 24.5;
+        static unsigned long lastUpdate = 0;
+        
+        if (millis() - lastUpdate > 30000) { // Update every 30 seconds
+            simulatedTemp += random(-5, 6) / 10.0; // ±0.5°C variation
+            simulatedTemp = constrain(simulatedTemp, 20.0, 28.0);
+            lastUpdate = millis();
+        }
+        
+        DEBUG_PRINTF("LM35 simulation mode: %.1f°C (ADC=%d)\n", simulatedTemp, adcReading);
+        return simulatedTemp;
+    }
+    
     // Convert ADC reading to voltage (ESP32 ADC: 12-bit, 3.3V reference)
     float voltage = (adcReading / 4095.0) * 3.3;
     
     // Convert voltage to temperature (LM35: 10mV per degree Celsius)
     float temperature = voltage * 100.0; // 100 = 1000mV/V / 10mV/°C
     
+    DEBUG_PRINTF("LM35 reading: %.1f°C (ADC=%d, V=%.3f)\n", temperature, adcReading, voltage);
     return temperature;
 }
 

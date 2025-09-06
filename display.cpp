@@ -1,5 +1,6 @@
 #include "display.h"
 #include "network.h"
+#include "temperature.h"
 
 // Global display object
 static Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
@@ -46,11 +47,14 @@ void updateDisplay() {
             case SCREEN_BOOT:
                 showBootScreen();
                 break;
-            case SCREEN_WIFI_STATUS:
-                showWiFiStatus();
+            case SCREEN_TEMPERATURE:
+                showTemperatureScreen();
                 break;
             case SCREEN_SYSTEM_INFO:
                 showSystemInfo();
+                break;
+            case SCREEN_WIFI_STATUS:
+                showWiFiStatus();
                 break;
             case SCREEN_NETWORK_INFO:
                 showNetworkInfo();
@@ -85,6 +89,62 @@ void showBootScreen() {
     drawCenteredText("Industrial HVAC", 35);
     drawCenteredText("Controller", 45);
     drawCenteredText("v" FIRMWARE_VERSION, 55);
+    
+    display.display();
+}
+
+void showTemperatureScreen() {
+    if (!display_initialized) return;
+    
+    display.clearDisplay();
+    
+    // Title
+    display.setTextSize(1);
+    drawCenteredText("Temperature Control", 0);
+    display.drawLine(0, 10, SCREEN_WIDTH, 10, SSD1306_WHITE);
+    
+    // Get current temperature
+    float currentTemp = readTemperature();
+    float setpoint = g_system_config.ac_setpoint;
+    float compensation = g_system_config.delivery_compensation;
+    float compensatedTemp = applyDeliveryCompensation(currentTemp, compensation);
+    
+    // Current Temperature (large display)
+    display.setTextSize(3);
+    display.setCursor(0, 15);
+    display.printf("%.1f", compensatedTemp);
+    display.setTextSize(1);
+    display.print("C");
+    
+    // Setpoint
+    display.setCursor(0, 42);
+    display.setTextSize(1);
+    display.printf("Set: %.1f°C", setpoint);
+    
+    // Operation mode
+    display.setCursor(0, 52);
+    const char* mode = g_system_config.operation_mode == 0 ? "DIRECT" : "SCHEDULE";
+    display.printf("Mode: %s", mode);
+    
+    // Compressor status
+    display.setCursor(80, 42);
+    bool compressorOn = g_system_status.compressor_running;
+    display.printf("AC: %s", compressorOn ? "ON" : "OFF");
+    
+    // Sensor type
+    display.setCursor(80, 52);
+    display.printf("LM35");
+    
+    // Temperature trend indicator
+    static float lastTemp = compensatedTemp;
+    if (compensatedTemp > lastTemp + 0.1) {
+        display.setCursor(110, 20);
+        display.print("^");
+    } else if (compensatedTemp < lastTemp - 0.1) {
+        display.setCursor(110, 20);
+        display.print("v");
+    }
+    lastTemp = compensatedTemp;
     
     display.display();
 }
@@ -299,8 +359,13 @@ DisplayScreen getCurrentScreen() {
 void cycleDisplayScreen() {
     // Skip WiFi setup and error screens in auto-cycle
     do {
-        current_screen = (DisplayScreen)((current_screen + 1) % 6);
+        current_screen = (DisplayScreen)((current_screen + 1) % 7);
     } while (current_screen == SCREEN_WIFI_SETUP || current_screen == SCREEN_ERROR);
+    
+    // After boot screen, always go to temperature screen first
+    if (current_screen == SCREEN_BOOT) {
+        current_screen = SCREEN_TEMPERATURE;
+    }
 }
 
 // Utility functions
