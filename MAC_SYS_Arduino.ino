@@ -470,6 +470,9 @@ void readTemperatureSensors() {
     float temperature = readTemperature();
     g_system_status.current_temperature = temperature;
     
+    // Debug output for temperature reading
+    DEBUG_PRINTF("📊 Temperature update: %.2f°C\n", temperature);
+    
     // Apply basic filtering (simple moving average)
     static float temp_readings[TEMP_FILTER_SAMPLES] = {0};
     static int temp_index = 0;

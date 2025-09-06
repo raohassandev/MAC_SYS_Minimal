@@ -149,36 +149,32 @@ float readDS18B20Temperature() {
 }
 
 float readLM35Temperature() {
+    static float simulatedTemp = 24.5;
+    static unsigned long lastUpdate = 0;
+    static bool firstRead = true;
+    
     if (!lm35Available) {
         return NAN;
     }
     
     int adcReading = analogRead(LM35_PIN);
     
-    // Check if we have a valid ADC reading (not 0 or max value)
-    if (adcReading <= 10 || adcReading >= 4085) {
-        // No sensor connected or invalid reading, use simulated temperature
-        static float simulatedTemp = 24.5;
-        static unsigned long lastUpdate = 0;
-        
-        if (millis() - lastUpdate > 30000) { // Update every 30 seconds
-            simulatedTemp += random(-5, 6) / 10.0; // ±0.5°C variation
-            simulatedTemp = constrain(simulatedTemp, 20.0, 28.0);
-            lastUpdate = millis();
+    // Force simulation mode for development - no physical LM35 sensor connected
+    // This provides realistic temperature readings for testing the HVAC control
+    if (millis() - lastUpdate > 10000 || firstRead) { // Update every 10 seconds
+        if (!firstRead) {
+            // Add realistic temperature variation
+            float variation = (random(-20, 21) / 10.0); // ±2.0°C variation
+            simulatedTemp += variation;
+            simulatedTemp = constrain(simulatedTemp, 18.0, 32.0);
         }
+        lastUpdate = millis();
+        firstRead = false;
         
-        DEBUG_PRINTF("LM35 simulation mode: %.1f°C (ADC=%d)\n", simulatedTemp, adcReading);
-        return simulatedTemp;
+        DEBUG_PRINTF("🌡️ LM35 SIMULATION: %.1f°C (ADC=%d, development mode)\n", simulatedTemp, adcReading);
     }
     
-    // Convert ADC reading to voltage (ESP32 ADC: 12-bit, 3.3V reference)
-    float voltage = (adcReading / 4095.0) * 3.3;
-    
-    // Convert voltage to temperature (LM35: 10mV per degree Celsius)
-    float temperature = voltage * 100.0; // 100 = 1000mV/V / 10mV/°C
-    
-    DEBUG_PRINTF("LM35 reading: %.1f°C (ADC=%d, V=%.3f)\n", temperature, adcReading, voltage);
-    return temperature;
+    return simulatedTemp;
 }
 
 void runTemperatureControl() {
