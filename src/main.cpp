@@ -6,6 +6,7 @@
 #include "wifi_manager.h"
 #include "temperature.h"
 #include "relay_control.h"
+#include "temperature_control.h"
 #include <EEPROM.h>
 #include <esp_task_wdt.h>
 #include <WiFi.h>
@@ -117,6 +118,16 @@ void setup() {
     } else {
         DEBUG_PRINTLN("✅ Relay and I/O system initialized successfully");
     }
+    
+    // Initialize temperature control system
+    temp_controller.begin();
+    
+    // Set up initial zone configuration (Zone 0 as example)
+    temp_controller.getZoneConfig(0).enabled = true;
+    temp_controller.getZoneConfig(0).mode = TEMP_MODE_HEATING;
+    temp_controller.getZoneConfig(0).setpoint = 22.0;
+    temp_controller.getZoneConfig(0).delta = 1.0;
+    DEBUG_PRINTLN("✅ Temperature control system initialized");
     
     DEBUG_PRINTLN("System initialization complete");
     g_system_status.state = STATE_READY;
@@ -564,6 +575,59 @@ void setupDeviceWebServer() {
         html += "</div>";
         html += "</div>";
         
+        // Add temperature control section
+        html += "<h2>🌡️ Temperature Control System</h2>";
+        html += "<div style='background:#f8f9fa;padding:20px;border-radius:5px;margin:15px 0'>";
+        
+        // Zone 0 control
+        ZoneConfig& zone0 = temp_controller.getZoneConfig(0);
+        float currentTemp = temp_controller.getCompensatedTemp(0);
+        String modeStr = "";
+        switch(zone0.mode) {
+            case TEMP_MODE_OFF: modeStr = "OFF"; break;
+            case TEMP_MODE_HEATING: modeStr = "HEATING"; break;
+            case TEMP_MODE_COOLING: modeStr = "COOLING"; break;
+            case TEMP_MODE_AUTO: modeStr = "AUTO"; break;
+            case TEMP_MODE_MANUAL: modeStr = "MANUAL"; break;
+        }
+        
+        html += "<div style='background:white;padding:15px;border-radius:6px;margin:10px 0'>";
+        html += "<h3>Zone 1 Control</h3>";
+        html += "<div class='info'><span class='label'>Current Temperature:</span><span style='font-weight:bold;color:#007bff'>" + String(currentTemp, 1) + "°C</span></div>";
+        html += "<div class='info'><span class='label'>Setpoint:</span><span>" + String(zone0.setpoint, 1) + "°C</span></div>";
+        html += "<div class='info'><span class='label'>Mode:</span><span>" + modeStr + "</span></div>";
+        html += "<div class='info'><span class='label'>Status:</span><span style='color:" + String(zone0.current_state ? "#28a745" : "#dc3545") + "'>" + String(zone0.current_state ? "ACTIVE" : "IDLE") + "</span></div>";
+        
+        // Temperature control form
+        html += "<form method='post' action='/tempcontrol' style='margin-top:15px'>";
+        html += "<input type='hidden' name='zone' value='0'>";
+        
+        html += "<div style='margin:10px 0'>";
+        html += "<label>Setpoint (°C):</label><br>";
+        html += "<input type='number' name='setpoint' value='" + String(zone0.setpoint, 1) + "' min='5' max='40' step='0.5' style='width:100px;padding:5px'>";
+        html += "</div>";
+        
+        html += "<div style='margin:10px 0'>";
+        html += "<label>Delta (±°C):</label><br>";
+        html += "<input type='number' name='delta' value='" + String(zone0.delta, 1) + "' min='0.5' max='5' step='0.5' style='width:100px;padding:5px'>";
+        html += "</div>";
+        
+        html += "<div style='margin:10px 0'>";
+        html += "<label>Mode:</label><br>";
+        html += "<select name='mode' style='padding:5px'>";
+        html += "<option value='0'" + String(zone0.mode == TEMP_MODE_OFF ? " selected" : "") + ">OFF</option>";
+        html += "<option value='1'" + String(zone0.mode == TEMP_MODE_HEATING ? " selected" : "") + ">HEATING</option>";
+        html += "<option value='2'" + String(zone0.mode == TEMP_MODE_COOLING ? " selected" : "") + ">COOLING</option>";
+        html += "<option value='3'" + String(zone0.mode == TEMP_MODE_AUTO ? " selected" : "") + ">AUTO</option>";
+        html += "</select>";
+        html += "</div>";
+        
+        html += "<button type='submit' style='background:#007bff;color:white;padding:8px 16px;border:none;border-radius:4px;cursor:pointer'>Apply Settings</button>";
+        html += "</form>";
+        html += "</div>";
+        
+        html += "</div>";
+        
         html += "<h2>📊 Digital Inputs Status</h2>";
         html += "<div style='background:#f8f9fa;padding:20px;border-radius:5px;margin:15px 0'>";
         html += "<p style='margin:0 0 15px 0;color:#666;font-style:italic'>📡 Real-time status of 6 digital input channels</p>";
@@ -840,6 +904,39 @@ void setupDeviceWebServer() {
         device_server->send(200, "text/html", html);
     });
     
+    // Temperature control endpoint
+    device_server->on("/tempcontrol", HTTP_POST, []() {
+        String zoneStr = device_server->arg("zone");
+        String setpointStr = device_server->arg("setpoint");
+        String deltaStr = device_server->arg("delta");
+        String modeStr = device_server->arg("mode");
+        
+        int zone = zoneStr.toInt();
+        float setpoint = setpointStr.toFloat();
+        float delta = deltaStr.toFloat();
+        int mode = modeStr.toInt();
+        
+        // Apply settings
+        temp_controller.setSetpoint(zone, setpoint);
+        temp_controller.setDelta(zone, delta);
+        temp_controller.setMode(zone, (TempControlMode)mode);
+        
+        String html = "<!DOCTYPE html><html><head><title>Temperature Control Updated</title>";
+        html += "<meta name='viewport' content='width=device-width, initial-scale=1'>";
+        html += "<meta http-equiv='refresh' content='3;url=/'>";
+        html += "<style>body{font-family:Arial;margin:40px;background:#f0f0f0;text-align:center}";
+        html += ".container{background:white;padding:30px;border-radius:10px;box-shadow:0 2px 10px rgba(0,0,0,0.1);display:inline-block}</style></head><body>";
+        html += "<div class='container'>";
+        html += "<h2>✅ Temperature Settings Updated</h2>";
+        html += "<p>Zone " + String(zone + 1) + " configuration saved</p>";
+        html += "<p>Setpoint: " + String(setpoint, 1) + "°C, Delta: ±" + String(delta, 1) + "°C</p>";
+        html += "<p>Redirecting back in 3 seconds...</p>";
+        html += "<a href='/' style='color:#007bff'>← Back to Main</a>";
+        html += "</div></body></html>";
+        
+        device_server->send(200, "text/html", html);
+    });
+    
     // WiFi reset endpoint
     device_server->on("/reset-wifi", HTTP_POST, []() {
         device_server->send(200, "text/plain", "OK");
@@ -892,7 +989,11 @@ void updateIOSystem() {
         last_logged_inputs = current_inputs;
     }
     
-    // TODO: Add temperature-based relay control logic here
-    // This will be implemented in the next phase
+    // Update temperature controller with current temperature
+    float current_temp = g_system_status.current_temperature;
+    temp_controller.updateTemperature(0, current_temp);  // Update zone 0
+    
+    // Process temperature control logic
+    temp_controller.process();
 }
 
