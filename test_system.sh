@@ -223,6 +223,38 @@ fi
 
 echo ""
 
+# 11. Schedule Backup and Restore Tests
+echo "=== 11. SCHEDULE BACKUP/RESTORE TESTS ==="
+
+# Test schedule export
+test_endpoint "Export all schedules JSON" "GET" "/api/schedule/export" "200"
+
+# Test zone-specific export
+test_endpoint "Export zone 0 schedule JSON" "GET" "/api/schedule/export?zone=0" "200"
+
+# Verify exported JSON is valid
+export_json=$(curl -s "$BASE_URL/api/schedule/export" 2>/dev/null)
+if echo "$export_json" | python3 -m json.tool > /dev/null 2>&1; then
+    echo -e "${GREEN}✓ Exported JSON is valid${NC}"
+else
+    echo -e "${RED}✗ Exported JSON is invalid${NC}"
+fi
+
+# Check if backup buttons are present in the web interface
+if echo "$schedule_response" | grep -q "Export All Schedules"; then
+    echo -e "${GREEN}✓ Export button found in web interface${NC}"
+else
+    echo -e "${RED}✗ Export button missing from web interface${NC}"
+fi
+
+if echo "$schedule_response" | grep -q "Import Schedules"; then
+    echo -e "${GREEN}✓ Import button found in web interface${NC}"
+else
+    echo -e "${RED}✗ Import button missing from web interface${NC}"
+fi
+
+echo ""
+
 # Summary
 echo "========================================"
 echo "TEST SUMMARY"

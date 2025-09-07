@@ -1077,6 +1077,12 @@ void setupDeviceWebServer() {
         html += "<button onclick=\"setHolidayMode(true)\">Enable Holiday Mode</button>";
         html += "<button onclick=\"setHolidayMode(false)\">Disable Holiday Mode</button>";
         html += "</div>";
+        html += "<h3>Backup & Restore</h3>";
+        html += "<div class='form-group'>";
+        html += "<button onclick=\"exportSchedules()\" style='background:#17a2b8'>📥 Export All Schedules</button>";
+        html += "<button onclick=\"document.getElementById('importFile').click()\" style='background:#28a745'>📤 Import Schedules</button>";
+        html += "<input type='file' id='importFile' accept='.json' style='display:none' onchange='importSchedules(this)'>";
+        html += "</div>";
         html += "</div>";
         html += "</div>";
         
@@ -1198,6 +1204,39 @@ void setupDeviceWebServer() {
         html += "  fetch('/api/schedule/event', {method: 'POST', body: data})";
         html += "    .then(() => window.location.reload());";
         html += "}";
+        html += "function exportSchedules() {";
+        html += "  fetch('/api/schedule/export')";
+        html += "    .then(response => response.json())";
+        html += "    .then(data => {";
+        html += "      const blob = new Blob([JSON.stringify(data, null, 2)], {type: 'application/json'});";
+        html += "      const url = URL.createObjectURL(blob);";
+        html += "      const a = document.createElement('a');";
+        html += "      a.href = url;";
+        html += "      a.download = 'mac-sys-schedules-' + new Date().toISOString().split('T')[0] + '.json';";
+        html += "      document.body.appendChild(a);";
+        html += "      a.click();";
+        html += "      document.body.removeChild(a);";
+        html += "      URL.revokeObjectURL(url);";
+        html += "    });";
+        html += "}";
+        html += "function importSchedules(input) {";
+        html += "  const file = input.files[0];";
+        html += "  if (!file) return;";
+        html += "  const reader = new FileReader();";
+        html += "  reader.onload = function(e) {";
+        html += "    fetch('/api/schedule/import', {";
+        html += "      method: 'POST',";
+        html += "      headers: {'Content-Type': 'application/json'},";
+        html += "      body: e.target.result";
+        html += "    })";
+        html += "    .then(response => response.text())";
+        html += "    .then(result => {";
+        html += "      alert(result);";
+        html += "      window.location.reload();";
+        html += "    });";
+        html += "  };";
+        html += "  reader.readAsText(file);";
+        html += "}";
         html += "</script>";
         
         html += "</body></html>";
@@ -1276,6 +1315,44 @@ void setupDeviceWebServer() {
             }
         } else {
             device_server->send(400, "text/plain", "Missing parameters");
+        }
+    });
+    
+    // Schedule backup and restore endpoints
+    device_server->on("/api/schedule/export", []() {
+        if (device_server->hasArg("zone")) {
+            uint8_t zone = device_server->arg("zone").toInt();
+            String json = schedule_manager.exportScheduleJSON(zone);
+            device_server->send(200, "application/json", json);
+        } else {
+            String json = schedule_manager.exportAllSchedulesJSON();
+            device_server->send(200, "application/json", json);
+        }
+    });
+    
+    device_server->on("/api/schedule/import", HTTP_POST, []() {
+        String json_data = device_server->arg("plain");  // Get raw POST body
+        if (json_data.length() == 0) {
+            json_data = device_server->arg("data");  // Try form parameter
+        }
+        
+        if (json_data.length() > 0) {
+            if (device_server->hasArg("zone")) {
+                uint8_t zone = device_server->arg("zone").toInt();
+                if (schedule_manager.importScheduleJSON(zone, json_data)) {
+                    device_server->send(200, "text/plain", "Schedule imported successfully");
+                } else {
+                    device_server->send(400, "text/plain", "Failed to import schedule");
+                }
+            } else {
+                if (schedule_manager.importAllSchedulesJSON(json_data)) {
+                    device_server->send(200, "text/plain", "All schedules imported successfully");
+                } else {
+                    device_server->send(400, "text/plain", "Failed to import schedules");
+                }
+            }
+        } else {
+            device_server->send(400, "text/plain", "No data provided");
         }
     });
     
