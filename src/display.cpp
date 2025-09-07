@@ -2,6 +2,7 @@
 #include "network.h"
 #include "temperature.h"
 #include "wifi_manager.h"
+#include "rtc_manager.h"
 #include <WiFi.h>
 
 // Global display object
@@ -78,9 +79,9 @@ void updateDisplay() {
         last_display_update = current_time;
     }
     
-    // Auto-cycle screens every 10 seconds (except error screens)
+    // Auto-cycle screens every 5 seconds (except error screens)
     if (current_screen != SCREEN_ERROR) {
-        if (current_time - display_cycle_time >= 10000) {
+        if (current_time - display_cycle_time >= 5000) {
             cycleDisplayScreen();
             display_cycle_time = current_time;
         }
@@ -107,9 +108,15 @@ void showTemperatureScreen() {
     
     display.clearDisplay();
     
-    // Title
+    // Title and time
     display.setTextSize(1);
     drawCenteredText("Temperature Control", 0);
+    
+    // Show current time in top right
+    String current_time = rtc_manager.getFormattedTime();
+    display.setCursor(SCREEN_WIDTH - 35, 0);
+    display.print(current_time);
+    
     display.drawLine(0, 10, SCREEN_WIDTH, 10, SSD1306_WHITE);
     
     // Get current temperature
@@ -164,8 +171,14 @@ void showWiFiStatus() {
     display.clearDisplay();
     display.setTextSize(1);
     
-    // Title
+    // Title and time
     drawCenteredText("WiFi Manager", 0);
+    
+    // Show current time in top right
+    String current_time = rtc_manager.getFormattedTime();
+    display.setCursor(SCREEN_WIDTH - 35, 0);
+    display.print(current_time);
+    
     display.drawLine(0, 10, SCREEN_WIDTH, 10, SSD1306_WHITE);
     
     // Check if in configuration mode
@@ -219,8 +232,14 @@ void showSystemInfo() {
     display.clearDisplay();
     display.setTextSize(1);
     
-    // Title
+    // Title and time
     drawCenteredText("System Info", 0);
+    
+    // Show current time in top right
+    String current_time = rtc_manager.getFormattedTime();
+    display.setCursor(SCREEN_WIDTH - 35, 0);
+    display.print(current_time);
+    
     display.drawLine(0, 10, SCREEN_WIDTH, 10, SSD1306_WHITE);
     
     // System information
@@ -235,17 +254,8 @@ void showSystemInfo() {
     display.println(" KB");
     
     display.setCursor(0, 35);
-    if (isConfigurationModeActive()) {
-        display.print("AP IP: ");
-        display.println(WiFi.softAPIP().toString());
-    } else if (WiFi.status() == WL_CONNECTED) {
-        display.print("WiFi IP: ");
-        display.println(WiFi.localIP().toString());
-    } else {
-        display.print("Temp: ");
-        display.print(g_system_status.current_temperature, 1);
-        display.println(" C");
-    }
+    display.print("Time: ");
+    display.println(rtc_manager.getFormattedDateTime());
     
     display.setCursor(0, 45);
     display.print("State: ");
@@ -300,8 +310,14 @@ void showNetworkInfo() {
     display.clearDisplay();
     display.setTextSize(1);
     
-    // Title
+    // Title and time
     drawCenteredText("Network", 0);
+    
+    // Show current time in top right
+    String current_time = rtc_manager.getFormattedTime();
+    display.setCursor(SCREEN_WIDTH - 35, 0);
+    display.print(current_time);
+    
     display.drawLine(0, 10, SCREEN_WIDTH, 10, SSD1306_WHITE);
     
     // Network status
@@ -337,8 +353,8 @@ void showNetworkInfo() {
     }
     
     display.setCursor(0, 45);
-    display.print("Hostname: ");
-    display.println(g_system_config.network.hostname);
+    display.print("Date: ");
+    display.println(rtc_manager.getFormattedDate());
     
     display.display();
 }

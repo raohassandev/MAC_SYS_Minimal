@@ -565,6 +565,7 @@ void setupDeviceWebServer() {
         html += "<div><strong>System State:</strong> " + String(g_system_status.state) + "</div>";
         html += "<div><strong>Uptime:</strong> " + String(g_system_status.uptime) + "s</div>";
         html += "<div><strong>Free Memory:</strong> " + String(g_system_status.free_memory/1024) + " KB</div>";
+        html += "<div id='current-time'><strong>Current Time:</strong> " + rtc_manager.getFormattedDateTime() + "</div>";
         html += "<div><strong>WiFi Network:</strong> " + WiFi.SSID() + "</div>";
         html += "<div><strong>IP Address:</strong> " + WiFi.localIP().toString() + "</div>";
         html += "<div><strong>Signal:</strong> " + String(WiFi.RSSI()) + " dBm</div>";
@@ -575,6 +576,51 @@ void setupDeviceWebServer() {
         html += "<button onclick='testNetworkAPI()' style='background:#20c997;color:white;border:none;padding:8px 16px;border-radius:4px;cursor:pointer;margin:3px'>🌐 Network</button>";
         html += "</div>";
         html += "<div id='system-api-result' style='margin-top:10px;padding:10px;background:#f8f9fa;border-radius:4px;font-family:monospace;font-size:11px;display:none;max-height:150px;overflow-y:auto'></div>";
+        html += "</div>";
+        
+        // Schedule Control Card (BACKBONE FEATURE)
+        html += "<div style='background:white;border-radius:8px;box-shadow:0 2px 4px rgba(0,0,0,0.1);padding:20px;margin:15px 0'>";
+        html += "<h2 style='margin:0 0 15px 0;color:#ff6b35;border-bottom:2px solid #ff6b35;padding-bottom:10px'>📅 AC Schedule Control</h2>";
+        html += "<div style='display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:15px;margin:15px 0'>";
+        
+        // Control Mode Status
+        html += "<div><strong>Control Mode:</strong> ";
+        if (g_system_config.central_control_mode) {
+            html += "<span style='color:#28a745;font-weight:bold'>CENTRAL</span>";
+        } else {
+            html += "<span style='color:#ffc107;font-weight:bold'>LOCAL</span>";
+        }
+        html += "</div>";
+        
+        // Setpoint Mode Status  
+        html += "<div><strong>Setpoint Mode:</strong> ";
+        if (g_system_config.operation_mode == 1) {
+            html += "<span style='color:#007bff;font-weight:bold'>SCHEDULE</span>";
+        } else {
+            html += "<span style='color:#6c757d;font-weight:bold'>DIRECT</span>";
+        }
+        html += "</div>";
+        
+        // Current Setpoint
+        html += "<div><strong>Current Setpoint:</strong> " + String(g_system_config.ac_setpoint, 1) + "°C</div>";
+        
+        // AC Status
+        html += "<div><strong>AC Control:</strong> ";
+        if (g_system_config.ac_control_enabled) {
+            html += "<span style='color:#28a745;font-weight:bold'>AUTO</span>";
+        } else {
+            html += "<span style='color:#dc3545;font-weight:bold'>FORCE-OFF</span>";
+        }
+        html += "</div>";
+        
+        html += "</div>";
+        
+        // Quick Control Buttons
+        html += "<div style='margin-top:15px;display:flex;flex-wrap:wrap;gap:10px'>";
+        html += "<button onclick=\"location.href='/schedule'\" style='background:#ff6b35;color:white;border:none;padding:10px 20px;border-radius:4px;cursor:pointer;margin:3px'>📋 Full Schedule Editor</button>";
+        html += "<button onclick='toggleControlMode()' style='background:#007bff;color:white;border:none;padding:10px 20px;border-radius:4px;cursor:pointer;margin:3px'>🔄 Toggle Central/Local</button>";
+        html += "<button onclick='toggleSetpointMode()' style='background:#28a745;color:white;border:none;padding:10px 20px;border-radius:4px;cursor:pointer;margin:3px'>📊 Toggle Direct/Schedule</button>";
+        html += "</div>";
         html += "</div>";
         
         // Relay Control Card
@@ -969,9 +1015,49 @@ void setupDeviceWebServer() {
         html += "  }).catch(err => result.innerHTML = 'Error: ' + err);";
         html += "}";
         
+        // Time update function
+        html += "function updateTime() {";
+        html += "  fetch('/api/time')";
+        html += "    .then(response => response.json())";
+        html += "    .then(data => {";
+        html += "      const timeElement = document.getElementById('current-time');";
+        html += "      if (timeElement) {";
+        html += "        timeElement.innerHTML = '<strong>Current Time:</strong> ' + data.datetime;";
+        html += "      }";
+        html += "    })";
+        html += "    .catch(err => console.log('Time update failed:', err));";
+        html += "}";
+        
+        // Schedule control functions
+        html += "function toggleControlMode() {";
+        html += "  fetch('/api/schedule/control-mode', {method: 'POST'})";
+        html += "    .then(response => response.json())";
+        html += "    .then(data => {";
+        html += "      if (data.success) {";
+        html += "        location.reload();";
+        html += "      } else {";
+        html += "        alert('Failed to toggle control mode: ' + data.message);";
+        html += "      }";
+        html += "    })";
+        html += "    .catch(err => alert('Network error: ' + err));";
+        html += "}";
+        html += "function toggleSetpointMode() {";
+        html += "  fetch('/api/schedule/setpoint-mode', {method: 'POST'})";
+        html += "    .then(response => response.json())";
+        html += "    .then(data => {";
+        html += "      if (data.success) {";
+        html += "        location.reload();";
+        html += "      } else {";
+        html += "        alert('Failed to toggle setpoint mode: ' + data.message);";
+        html += "      }";
+        html += "    })";
+        html += "    .catch(err => alert('Network error: ' + err));";
+        html += "}";
+        
         // Start real-time updates
         html += "setInterval(refreshRelayStates, 5000);"; // Update every 5 seconds
         html += "setInterval(updateTemperatureAPI, 3000);"; // Update temperature via API
+        html += "setInterval(updateTime, 1000);"; // Update time every second
         html += "setTimeout(refreshRelayStates, 1000);"; // Initial update after 1 second
         
         html += "</script>";
@@ -1005,9 +1091,24 @@ void setupDeviceWebServer() {
         json += "\"state\":" + String(g_system_status.state) + ",";
         json += "\"uptime\":" + String(g_system_status.uptime) + ",";
         json += "\"free_memory\":" + String(g_system_status.free_memory) + ",";
+        json += "\"current_time\":\"" + rtc_manager.getFormattedDateTime() + "\",";
         json += "\"wifi_ssid\":\"" + WiFi.SSID() + "\",";
         json += "\"ip_address\":\"" + WiFi.localIP().toString() + "\",";
         json += "\"rssi\":" + String(WiFi.RSSI());
+        json += "}";
+        
+        device_server->send(200, "application/json", json);
+    });
+    
+    // Time API endpoint
+    device_server->on("/api/time", []() {
+        String json = "{";
+        json += "\"datetime\":\"" + rtc_manager.getFormattedDateTime() + "\",";
+        json += "\"date\":\"" + rtc_manager.getFormattedDate() + "\",";
+        json += "\"time\":\"" + rtc_manager.getFormattedTime() + "\",";
+        json += "\"unix_timestamp\":" + String(rtc_manager.getUnixTime()) + ",";
+        json += "\"rtc_available\":" + String(rtc_manager.isRTCAvailable() ? "true" : "false") + ",";
+        json += "\"ntp_synced\":" + String(rtc_manager.isNTPSynced() ? "true" : "false");
         json += "}";
         
         device_server->send(200, "application/json", json);
@@ -1965,6 +2066,33 @@ void setupDeviceWebServer() {
         } else {
             device_server->send(400, "text/plain", "No data provided");
         }
+    });
+    
+    // Schedule quick control endpoints
+    device_server->on("/api/schedule/control-mode", HTTP_POST, []() {
+        g_system_config.central_control_mode = !g_system_config.central_control_mode;
+        saveConfiguration();
+        
+        String json = "{";
+        json += "\"success\":true,";
+        json += "\"control_mode\":\"" + String(g_system_config.central_control_mode ? "CENTRAL" : "LOCAL") + "\",";
+        json += "\"message\":\"Control mode switched to " + String(g_system_config.central_control_mode ? "CENTRAL" : "LOCAL") + "\"";
+        json += "}";
+        
+        device_server->send(200, "application/json", json);
+    });
+    
+    device_server->on("/api/schedule/setpoint-mode", HTTP_POST, []() {
+        g_system_config.operation_mode = (g_system_config.operation_mode == 0) ? 1 : 0;
+        saveConfiguration();
+        
+        String json = "{";
+        json += "\"success\":true,";
+        json += "\"setpoint_mode\":\"" + String(g_system_config.operation_mode == 1 ? "SCHEDULE" : "DIRECT") + "\",";
+        json += "\"message\":\"Setpoint mode switched to " + String(g_system_config.operation_mode == 1 ? "SCHEDULE" : "DIRECT") + "\"";
+        json += "}";
+        
+        device_server->send(200, "application/json", json);
     });
     
     // ========== COMPREHENSIVE RESTful API ENDPOINTS ==========

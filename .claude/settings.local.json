@@ -56,7 +56,9 @@
       "Bash(git diff:*)",
       "Bash(pkill:*)",
       "Bash(ping:*)",
-      "Bash(./test_system.sh:*)"
+      "Bash(./test_system.sh:*)",
+      "Bash(timeout 30 cat /dev/cu.usbserial-110)",
+      "Bash(grep:*)"
     ],
     "deny": [],
     "ask": [],
