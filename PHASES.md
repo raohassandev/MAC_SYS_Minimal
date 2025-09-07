@@ -70,22 +70,11 @@ Transform the ESP32 from a basic AC controller into an **industrial-grade HVAC d
 *Target: 3-4 weeks*
 
 ### 2.1 Advanced Networking
-- [ ] **MQTT Integration**
-  - MQTT client for IoT platforms
-  - Topic structure: `hvac/{device_id}/{sensor_type}/{data}`
-  - QoS levels and retained messages
-  - Last Will Testament for connection monitoring
-
 - [ ] **RESTful API**
   - Complete REST API for all system functions
   - JSON data format with proper HTTP status codes
   - API documentation with examples
   - Rate limiting and authentication
-
-- [ ] **WebSocket Real-time Updates**
-  - Live dashboard updates without page refresh
-  - Real-time sensor data streaming
-  - Event notifications for alarms
 
 ### 2.2 Enhanced Scheduling System
 - [ ] **Astronomical Clock**
@@ -236,7 +225,7 @@ Transform the ESP32 from a basic AC controller into an **industrial-grade HVAC d
 4. ✅ Basic web security
 
 ### **MEDIUM PRIORITY (Should Have)**
-5. 🔄 MQTT integration
+5. 🔄 RESTful API
 6. 🔄 Advanced scheduling
 7. 🔄 User management
 8. 🔄 System diagnostics
@@ -258,7 +247,6 @@ Transform the ESP32 from a basic AC controller into an **industrial-grade HVAC d
 - [ ] Web interface updates in real-time
 
 ### Phase 2 Success Criteria:
-- [ ] MQTT publishes 100+ messages/minute reliably
 - [ ] REST API handles 50+ requests/minute
 - [ ] User roles work correctly with proper access control
 - [ ] System diagnostics detect and report issues

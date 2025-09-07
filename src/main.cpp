@@ -558,64 +558,72 @@ void setupDeviceWebServer() {
         html += "<div class='temp'>Temperature: " + String(g_system_status.current_temperature, 1) + "&deg;C</div>";
         html += "</div>";
         
-        // System Status Section
-        html += "<div class='section'>";
-        html += "<div class='section-header' onclick='toggleSection(\"system\")'>";
-        html += "<span>&#x1F4CA; System Status</span>";
-        html += "<span class='arrow' id='system-arrow'>&#x25B6;</span>";
+        // System Status Card
+        html += "<div style='background:white;border-radius:8px;box-shadow:0 2px 4px rgba(0,0,0,0.1);padding:20px;margin:15px 0'>";
+        html += "<h2 style='margin:0 0 15px 0;color:#007bff;border-bottom:2px solid #007bff;padding-bottom:10px'>🖥️ System Status</h2>";
+        html += "<div style='display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:15px;margin:15px 0'>";
+        html += "<div><strong>System State:</strong> " + String(g_system_status.state) + "</div>";
+        html += "<div><strong>Uptime:</strong> " + String(g_system_status.uptime) + "s</div>";
+        html += "<div><strong>Free Memory:</strong> " + String(g_system_status.free_memory/1024) + " KB</div>";
+        html += "<div><strong>WiFi Network:</strong> " + WiFi.SSID() + "</div>";
+        html += "<div><strong>IP Address:</strong> " + WiFi.localIP().toString() + "</div>";
+        html += "<div><strong>Signal:</strong> " + String(WiFi.RSSI()) + " dBm</div>";
         html += "</div>";
-        html += "<div class='section-content active' id='system-content'>";
-        html += "<div class='info'><span class='label'>System State:</span><span>" + String(g_system_status.state) + "</span></div>";
-        html += "<div class='info'><span class='label'>Uptime:</span><span>" + String(g_system_status.uptime) + "s</span></div>";
-        html += "<div class='info'><span class='label'>Free Memory:</span><span>" + String(g_system_status.free_memory) + " bytes</span></div>";
-        html += "<div class='info'><span class='label'>WiFi Network:</span><span>" + WiFi.SSID() + "</span></div>";
-        html += "<div class='info'><span class='label'>IP Address:</span><span>" + WiFi.localIP().toString() + "</span></div>";
-        html += "<div class='info'><span class='label'>Signal Strength:</span><span>" + String(WiFi.RSSI()) + " dBm</span></div>";
+        html += "<div style='margin-top:15px'>";
+        html += "<button onclick='testSystemAPI()' style='background:#007bff;color:white;border:none;padding:8px 16px;border-radius:4px;cursor:pointer;margin:3px'>📡 System API</button>";
+        html += "<button onclick='testDiagnosticsAPI()' style='background:#6f42c1;color:white;border:none;padding:8px 16px;border-radius:4px;cursor:pointer;margin:3px'>🔧 Diagnostics</button>";
+        html += "<button onclick='testNetworkAPI()' style='background:#20c997;color:white;border:none;padding:8px 16px;border-radius:4px;cursor:pointer;margin:3px'>🌐 Network</button>";
         html += "</div>";
+        html += "<div id='system-api-result' style='margin-top:10px;padding:10px;background:#f8f9fa;border-radius:4px;font-family:monospace;font-size:11px;display:none;max-height:150px;overflow-y:auto'></div>";
         html += "</div>";
         
-        // Relay Control Section
-        html += "<div class='section'>";
-        html += "<div class='section-header' onclick='toggleSection(\"relay\")'>";
-        html += "<span>&#x1F50C; Relay Control - Manual Testing</span>";
-        html += "<span class='arrow' id='relay-arrow'>&#x25B6;</span>";
-        html += "</div>";
-        html += "<div class='section-content' id='relay-content'>";
-        html += "<p style='margin:0 0 15px 0;color:#666;font-style:italic'>Click buttons below to manually control each relay for testing</p>";
+        // Relay Control Card
+        html += "<div style='background:white;border-radius:8px;box-shadow:0 2px 4px rgba(0,0,0,0.1);padding:20px;margin:15px 0'>";
+        html += "<h2 style='margin:0 0 15px 0;color:#28a745;border-bottom:2px solid #28a745;padding-bottom:10px'>🔌 Relay Control</h2>";
         
-        // Add individual relay control cards
-        html += "<div style='display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:15px;margin:20px 0'>";
-        
-        for (int i = 0; i < 6; i++) {
+        // Relay status grid
+        html += "<div style='display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin:15px 0'>";
+        for (int i = 0; i < NUM_RELAYS; i++) {
             bool relayState = relay_controller.getRelayState(i);
             String stateColor = relayState ? "#28a745" : "#dc3545";
             String stateText = relayState ? "ON" : "OFF";
-            String cardBorder = relayState ? "border-left:4px solid #28a745" : "border-left:4px solid #dc3545";
             
-            html += "<div data-relay='" + String(i) + "' style='background:white;padding:15px;border-radius:6px;box-shadow:0 2px 4px rgba(0,0,0,0.1);" + cardBorder + "'>";
-            html += "<h4 style='margin:0 0 10px 0;color:#333'>🔌 Relay " + String(i + 1) + "</h4>";
-            html += "<div style='display:flex;align-items:center;justify-content:space-between;margin:10px 0'>";
-            html += "<span style='font-weight:bold'>Status:</span>";
-            html += "<span class='relay-status' style='color:" + stateColor + ";font-weight:bold;font-size:16px'>" + stateText + "</span>";
-            html += "</div>";
-            
-            // Individual control buttons
-            html += "<div style='display:flex;gap:8px;margin-top:15px'>";
-            html += "<button onclick='setRelay(" + String(i) + ", true)' style='flex:1;padding:8px 12px;border:none;border-radius:4px;background:#28a745;color:white;cursor:pointer;font-weight:bold'>";
-            html += "🟢 Turn ON</button>";
-            html += "<button onclick='setRelay(" + String(i) + ", false)' style='flex:1;padding:8px 12px;border:none;border-radius:4px;background:#dc3545;color:white;cursor:pointer;font-weight:bold'>";
-            html += "🔴 Turn OFF</button>";
+            html += "<div data-relay='" + String(i) + "' style='background:#f8f9fa;padding:12px;border-radius:6px;text-align:center;border:2px solid " + stateColor + "'>";
+            html += "<div style='font-weight:bold;margin-bottom:5px'>Relay " + String(i + 1) + "</div>";
+            html += "<div class='relay-status' style='color:" + stateColor + ";font-weight:bold'>" + stateText + "</div>";
+            html += "<div style='margin-top:8px'>";
+            html += "<button onclick='setRelay(" + String(i) + ", true)' style='background:#28a745;color:white;border:none;padding:4px 8px;border-radius:3px;cursor:pointer;margin:2px;font-size:11px'>ON</button>";
+            html += "<button onclick='setRelay(" + String(i) + ", false)' style='background:#dc3545;color:white;border:none;padding:4px 8px;border-radius:3px;cursor:pointer;margin:2px;font-size:11px'>OFF</button>";
             html += "</div>";
             html += "</div>";
         }
-        
         html += "</div>";
         
-        // Add test all relays buttons
-        html += "<div style='margin:20px 0;text-align:center'>";
-        html += "<button onclick='testAllRelays(true)' style='padding:8px 16px;margin:5px;border:none;border-radius:4px;background:#28a745;color:white;cursor:pointer;font-weight:bold'>🟢 Turn All ON</button>";
-        html += "<button onclick='testAllRelays(false)' style='padding:8px 16px;margin:5px;border:none;border-radius:4px;background:#dc3545;color:white;cursor:pointer;font-weight:bold'>🔴 Turn All OFF</button>";
+        // Bulk controls and API buttons
+        html += "<div style='display:flex;justify-content:space-between;align-items:center;margin-top:15px;flex-wrap:wrap;gap:10px'>";
+        html += "<div>";
+        html += "<button onclick='testAllRelays(true)' style='background:#28a745;color:white;border:none;padding:8px 16px;border-radius:4px;cursor:pointer;margin:3px'>🟢 All ON</button>";
+        html += "<button onclick='testAllRelays(false)' style='background:#dc3545;color:white;border:none;padding:8px 16px;border-radius:4px;cursor:pointer;margin:3px'>🔴 All OFF</button>";
         html += "</div>";
+        html += "<div>";
+        html += "<button onclick='testRelayAPI()' style='background:#007bff;color:white;border:none;padding:8px 16px;border-radius:4px;cursor:pointer;margin:3px'>📡 Relay API</button>";
+        html += "</div>";
+        html += "</div>";
+        html += "<div id='relay-api-result' style='margin-top:10px;padding:10px;background:#f8f9fa;border-radius:4px;font-family:monospace;font-size:11px;display:none;max-height:150px;overflow-y:auto'></div>";
+        html += "</div>";
+        
+        // API Control Buttons for Relays
+        html += "<div style='margin-top:20px;border-top:1px solid #ddd;padding-top:15px'>";
+        html += "<h4 style='margin:0 0 10px 0;color:#333'>🔗 Relay API Controls</h4>";
+        html += "<div style='display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px'>";
+        html += "<button onclick='testRelayAPI()' style='background:#007bff;color:white;border:none;padding:8px 16px;border-radius:4px;cursor:pointer;font-size:12px'>📡 Get Relay Status</button>";
+        html += "<button onclick='testRelayControl()' style='background:#28a745;color:white;border:none;padding:8px 16px;border-radius:4px;cursor:pointer;font-size:12px'>🎛️ API Control Test</button>";
+        html += "<button onclick='testAllRelaysAPI(true)' style='background:#ffc107;color:black;border:none;padding:8px 16px;border-radius:4px;cursor:pointer;font-size:12px'>🟡 API All ON</button>";
+        html += "<button onclick='testAllRelaysAPI(false)' style='background:#6c757d;color:white;border:none;padding:8px 16px;border-radius:4px;cursor:pointer;font-size:12px'>⚫ API All OFF</button>";
+        html += "</div>";
+        html += "<div id='relay-api-result' style='margin-top:10px;padding:10px;background:#f8f9fa;border-radius:4px;font-family:monospace;font-size:11px;display:none;max-height:200px;overflow-y:auto'></div>";
+        html += "</div>";
+        
         html += "</div>";
         html += "</div>";
         
@@ -672,6 +680,19 @@ void setupDeviceWebServer() {
         
         html += "<button type='submit' style='background:#007bff;color:white;padding:8px 16px;border:none;border-radius:4px;cursor:pointer'>Apply Settings</button>";
         html += "</form>";
+        
+        // API Control Buttons for Temperature
+        html += "<div style='margin-top:20px;border-top:1px solid #ddd;padding-top:15px'>";
+        html += "<h4 style='margin:0 0 10px 0;color:#333'>🔗 Temperature API Controls</h4>";
+        html += "<div style='display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px'>";
+        html += "<button onclick='testTemperatureAPI()' style='background:#007bff;color:white;border:none;padding:8px 16px;border-radius:4px;cursor:pointer;font-size:12px'>🌡️ Get Temperature</button>";
+        html += "<button onclick='testSensorDataAPI()' style='background:#28a745;color:white;border:none;padding:8px 16px;border-radius:4px;cursor:pointer;font-size:12px'>📊 Get Sensor Data</button>";
+        html += "<button onclick='testZonesAPI()' style='background:#ffc107;color:black;border:none;padding:8px 16px;border-radius:4px;cursor:pointer;font-size:12px'>🏠 Get Zones</button>";
+        html += "<button onclick='testTempControlAPI()' style='background:#dc3545;color:white;border:none;padding:8px 16px;border-radius:4px;cursor:pointer;font-size:12px'>🎛️ Control Zone</button>";
+        html += "</div>";
+        html += "<div id='temp-api-result' style='margin-top:10px;padding:10px;background:#f8f9fa;border-radius:4px;font-family:monospace;font-size:11px;display:none;max-height:200px;overflow-y:auto'></div>";
+        html += "</div>";
+        
         html += "</div>";
         html += "</div>";
         html += "</div>";
@@ -836,8 +857,16 @@ void setupDeviceWebServer() {
         html += "  });";
         html += "}";
         
+        // Simple API update for temperature display
+        html += "function updateTemperatureAPI() {";
+        html += "  fetch('/api/sensors/data').then(r=>r.json()).then(d=>{";
+        html += "    updateTemperatureDisplay(d.temperature.current);";
+        html += "  }).catch(e=>console.log('API update failed'));";
+        html += "}";
+        
         // Start real-time updates
         html += "setInterval(refreshRelayStates, 5000);"; // Update every 5 seconds
+        html += "setInterval(updateTemperatureAPI, 3000);"; // Update temperature via API
         html += "setTimeout(refreshRelayStates, 1000);"; // Initial update after 1 second
         
         html += "</script>";
@@ -846,9 +875,16 @@ void setupDeviceWebServer() {
         html += "<div class='section' style='margin-top:30px;text-align:center'>";
         html += "<div class='section-header' style='background:#17a2b8'>System Navigation</div>";
         html += "<div class='section-content' style='padding:20px'>";
-        html += "<button onclick=\"location.href='/schedule'\" style='background:#28a745;color:white;padding:15px 30px;border:none;border-radius:5px;cursor:pointer;margin:10px;font-size:16px'>📅 Schedule Configuration</button><br>";
-        html += "<button onclick=\"location.href='/sensors'\" style='background:#ff6b35;color:white;padding:15px 30px;border:none;border-radius:5px;cursor:pointer;margin:10px;font-size:16px'>🌡️ Sensor Configuration</button><br>";
-        html += "<button onclick=\"location.href='/wifi-config'\" style='background:#007bff;color:white;padding:15px 30px;border:none;border-radius:5px;cursor:pointer;margin:10px;font-size:16px'>🌐 WiFi Configuration</button>";
+        html += "<h3 style='margin:0 0 15px 0;color:#17a2b8'>🏛️ Dedicated Control Pages</h3>";
+        html += "<div style='display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:15px;margin-bottom:25px'>";
+        html += "<button onclick=\"location.href='/system'\" style='background:#007bff;color:white;padding:15px 20px;border:none;border-radius:8px;cursor:pointer;font-size:14px;box-shadow:0 2px 5px rgba(0,0,0,0.2)'>🖥️ System Status</button>";
+        html += "<button onclick=\"location.href='/relays'\" style='background:#28a745;color:white;padding:15px 20px;border:none;border-radius:8px;cursor:pointer;font-size:14px;box-shadow:0 2px 5px rgba(0,0,0,0.2)'>🔌 Relay Control</button>";
+        html += "<button onclick=\"location.href='/temperature'\" style='background:#fd7e14;color:white;padding:15px 20px;border:none;border-radius:8px;cursor:pointer;font-size:14px;box-shadow:0 2px 5px rgba(0,0,0,0.2)'>🌡️ Temperature</button>";
+        html += "<button onclick=\"location.href='/sensors'\" style='background:#6f42c1;color:white;padding:15px 20px;border:none;border-radius:8px;cursor:pointer;font-size:14px;box-shadow:0 2px 5px rgba(0,0,0,0.2)'>🔍 Sensor Config</button>";
+        html += "</div>";
+        html += "<h3 style='margin:20px 0 15px 0;color:#17a2b8'>⚙️ Configuration Pages</h3>";
+        html += "<button onclick=\"location.href='/schedule'\" style='background:#28a745;color:white;padding:12px 25px;border:none;border-radius:6px;cursor:pointer;margin:5px;font-size:14px'>📅 Schedule Configuration</button>";
+        html += "<button onclick=\"location.href='/wifi-config'\" style='background:#17a2b8;color:white;padding:12px 25px;border:none;border-radius:6px;cursor:pointer;margin:5px;font-size:14px'>🌐 WiFi Configuration</button>";
         html += "</div>";
         html += "</div>";
         
@@ -1841,6 +1877,314 @@ void setupDeviceWebServer() {
         } else {
             device_server->send(400, "text/plain", "No data provided");
         }
+    });
+    
+    // ========== COMPREHENSIVE RESTful API ENDPOINTS ==========
+    
+    // API Info and Documentation
+    device_server->on("/api", HTTP_GET, []() {
+        String json = "{";
+        json += "\"api_version\":\"1.0\",";
+        json += "\"system\":\"" + String(SYSTEM_NAME) + "\",";
+        json += "\"firmware\":\"" + String(FIRMWARE_VERSION) + "\",";
+        json += "\"manufacturer\":\"" + String(MANUFACTURER) + "\",";
+        json += "\"endpoints\":{";
+        json += "\"system\":\"/api/system\",";
+        json += "\"relays\":\"/api/relays\",";
+        json += "\"sensors\":\"/api/sensors\",";
+        json += "\"temperature\":\"/api/temperature\",";
+        json += "\"schedule\":\"/api/schedule\",";
+        json += "\"network\":\"/api/network\",";
+        json += "\"diagnostics\":\"/api/diagnostics\"";
+        json += "}";
+        json += "}";
+        device_server->send(200, "application/json", json);
+    });
+    
+    // System Information API
+    device_server->on("/api/system", HTTP_GET, []() {
+        String json = "{";
+        json += "\"status\":\"" + String(g_system_status.state) + "\",";
+        json += "\"uptime\":" + String(g_system_status.uptime) + ",";
+        json += "\"free_memory\":" + String(g_system_status.free_memory) + ",";
+        json += "\"firmware_version\":\"" + String(FIRMWARE_VERSION) + "\",";
+        json += "\"system_name\":\"" + String(SYSTEM_NAME) + "\",";
+        json += "\"manufacturer\":\"" + String(MANUFACTURER) + "\",";
+        json += "\"chip_model\":\"ESP32\",";
+        json += "\"mac_address\":\"" + WiFi.macAddress() + "\",";
+        json += "\"flash_size\":" + String(ESP.getFlashChipSize()) + ",";
+        json += "\"cpu_frequency\":" + String(ESP.getCpuFreqMHz()) + ",";
+        json += "\"timestamp\":\"" + String(millis()) + "\"";
+        json += "}";
+        device_server->send(200, "application/json", json);
+    });
+    
+    // System Control API
+    device_server->on("/api/system/restart", HTTP_POST, []() {
+        String json = "{\"success\":true,\"message\":\"System restart initiated\"}";
+        device_server->send(200, "application/json", json);
+        delay(1000);
+        ESP.restart();
+    });
+    
+    // Relay Control API - GET all relays
+    device_server->on("/api/relays", HTTP_GET, []() {
+        String json = "{\"relays\":[";
+        for (int i = 0; i < NUM_RELAYS; i++) {
+            if (i > 0) json += ",";
+            json += "{";
+            json += "\"id\":" + String(i) + ",";
+            json += "\"name\":\"Relay " + String(i + 1) + "\",";
+            json += "\"state\":" + String(getRelayState(i) ? "true" : "false") + ",";
+            json += "\"manual_override\":false"; // Manual override not implemented yet
+            json += "}";
+        }
+        json += "]}";
+        device_server->send(200, "application/json", json);
+    });
+    
+    // Relay Control API - GET specific relay (using query parameter)
+    device_server->on("/api/relays/info", HTTP_GET, []() {
+        String json = "{\"success\":false,\"error\":\"Invalid relay ID\"}";
+        int statusCode = 400;
+        
+        if (device_server->hasArg("id")) {
+            int relayId = device_server->arg("id").toInt();
+            if (relayId >= 0 && relayId < NUM_RELAYS) {
+                json = "{";
+                json += "\"success\":true,";
+                json += "\"id\":" + String(relayId) + ",";
+                json += "\"name\":\"Relay " + String(relayId + 1) + "\",";
+                json += "\"state\":" + String(getRelayState(relayId) ? "true" : "false") + ",";
+                json += "\"manual_override\":false"; // Manual override not implemented yet
+                json += "}";
+                statusCode = 200;
+            }
+        }
+        device_server->send(statusCode, "application/json", json);
+    });
+    
+    // Relay Control API - SET relay state
+    device_server->on("/api/relays/control", HTTP_POST, []() {
+        String json = "{\"success\":false,\"error\":\"Invalid parameters\"}";
+        int statusCode = 400;
+        
+        if (device_server->hasArg("relay") && device_server->hasArg("state")) {
+            int relayId = device_server->arg("relay").toInt();
+            bool state = device_server->arg("state").equalsIgnoreCase("true") || 
+                        device_server->arg("state") == "1";
+            
+            if (relayId >= 0 && relayId < NUM_RELAYS) {
+                setRelayState(relayId, state);
+                // Manual override implementation pending
+                
+                json = "{";
+                json += "\"success\":true,";
+                json += "\"relay\":" + String(relayId) + ",";
+                json += "\"state\":" + String(state ? "true" : "false") + ",";
+                json += "\"message\":\"Relay " + String(relayId + 1) + " set to " + String(state ? "ON" : "OFF") + "\"";
+                json += "}";
+                statusCode = 200;
+            }
+        }
+        device_server->send(statusCode, "application/json", json);
+    });
+    
+    // Relay Bulk Control API
+    device_server->on("/api/relays/all", HTTP_POST, []() {
+        String json = "{\"success\":false,\"error\":\"Invalid parameters\"}";
+        int statusCode = 400;
+        
+        if (device_server->hasArg("state")) {
+            bool state = device_server->arg("state").equalsIgnoreCase("true") || 
+                        device_server->arg("state") == "1";
+            
+            for (int i = 0; i < NUM_RELAYS; i++) {
+                setRelayState(i, state);
+                // Manual override implementation pending
+            }
+            
+            json = "{";
+            json += "\"success\":true,";
+            json += "\"state\":" + String(state ? "true" : "false") + ",";
+            json += "\"message\":\"All relays set to " + String(state ? "ON" : "OFF") + "\"";
+            json += "}";
+            statusCode = 200;
+        }
+        device_server->send(statusCode, "application/json", json);
+    });
+    
+    // Temperature Control API - GET current temperature data
+    device_server->on("/api/temperature", HTTP_GET, []() {
+        String json = "{";
+        json += "\"current_temperature\":" + String(g_system_status.current_temperature, 2) + ",";
+        json += "\"sensor_type\":\"" + String(getTemperatureSensorName(currentTempSensorType)) + "\",";
+        json += "\"sensor_available\":" + String(isTemperatureSensorAvailable() ? "true" : "false") + ",";
+        json += "\"last_read_time\":" + String(lastTempReadTime) + ",";
+        json += "\"sensors_initialized\":" + String(temperatureSensorsInitialized ? "true" : "false") + ",";
+        json += "\"available_sensors\":{";
+        json += "\"ds18b20\":" + String(isDS18B20Available() ? "true" : "false") + ",";
+        json += "\"am2302\":" + String(isAM2302Available() ? "true" : "false") + ",";
+        json += "\"lm35\":" + String(isLM35Available() ? "true" : "false");
+        json += "}";
+        json += "}";
+        device_server->send(200, "application/json", json);
+    });
+    
+    // Temperature Control API - GET zone configuration
+    device_server->on("/api/temperature/zones", HTTP_GET, []() {
+        String json = "{\"zones\":[";
+        for (int i = 0; i < MAX_ZONES; i++) {
+            if (i > 0) json += ",";
+            ZoneConfig& zone = temp_controller.getZoneConfig(i);
+            json += "{";
+            json += "\"id\":" + String(i) + ",";
+            json += "\"name\":\"Zone " + String(i + 1) + "\",";
+            json += "\"enabled\":" + String(zone.enabled ? "true" : "false") + ",";
+            json += "\"setpoint\":" + String(zone.setpoint, 1) + ",";
+            json += "\"mode\":\"" + String(zone.mode) + "\",";
+            json += "\"current_state\":" + String(zone.current_state ? "true" : "false") + ",";
+            json += "\"current_temp\":" + String(temp_controller.getCompensatedTemp(i), 1);
+            json += "}";
+        }
+        json += "]}";
+        device_server->send(200, "application/json", json);
+    });
+    
+    // Temperature Control API - SET zone configuration
+    device_server->on("/api/temperature/control", HTTP_POST, []() {
+        String json = "{\"success\":false,\"error\":\"Invalid parameters\"}";
+        int statusCode = 400;
+        
+        if (device_server->hasArg("zone")) {
+            int zoneId = device_server->arg("zone").toInt();
+            if (zoneId >= 0 && zoneId < MAX_ZONES) {
+                ZoneConfig& zone = temp_controller.getZoneConfig(zoneId);
+                bool configChanged = false;
+                
+                if (device_server->hasArg("setpoint")) {
+                    float setpoint = device_server->arg("setpoint").toFloat();
+                    if (setpoint >= 10.0 && setpoint <= 40.0) {
+                        zone.setpoint = setpoint;
+                        configChanged = true;
+                    }
+                }
+                
+                if (device_server->hasArg("mode")) {
+                    String mode = device_server->arg("mode");
+                    if (mode == "OFF") zone.mode = TEMP_MODE_OFF;
+                    else if (mode == "HEATING") zone.mode = TEMP_MODE_HEATING;
+                    else if (mode == "COOLING") zone.mode = TEMP_MODE_COOLING;
+                    else if (mode == "AUTO") zone.mode = TEMP_MODE_AUTO;
+                    else if (mode == "MANUAL") zone.mode = TEMP_MODE_MANUAL;
+                    configChanged = true;
+                }
+                
+                if (device_server->hasArg("enabled")) {
+                    zone.enabled = device_server->arg("enabled").equalsIgnoreCase("true") || 
+                                  device_server->arg("enabled") == "1";
+                    configChanged = true;
+                }
+                
+                if (configChanged) {
+                    // Zone config save implementation pending
+                    json = "{";
+                    json += "\"success\":true,";
+                    json += "\"zone\":" + String(zoneId) + ",";
+                    json += "\"message\":\"Zone " + String(zoneId + 1) + " configuration updated\"";
+                    json += "}";
+                    statusCode = 200;
+                }
+            }
+        }
+        device_server->send(statusCode, "application/json", json);
+    });
+    
+    // Network Information API
+    device_server->on("/api/network", HTTP_GET, []() {
+        String json = "{";
+        json += "\"wifi_connected\":" + String(g_wifi_connected ? "true" : "false") + ",";
+        json += "\"ip_address\":\"" + WiFi.localIP().toString() + "\",";
+        json += "\"mac_address\":\"" + WiFi.macAddress() + "\",";
+        json += "\"ssid\":\"" + WiFi.SSID() + "\",";
+        json += "\"rssi\":" + String(WiFi.RSSI()) + ",";
+        json += "\"gateway\":\"" + WiFi.gatewayIP().toString() + "\",";
+        json += "\"dns\":\"" + WiFi.dnsIP().toString() + "\",";
+        json += "\"subnet\":\"" + WiFi.subnetMask().toString() + "\"";
+        json += "}";
+        device_server->send(200, "application/json", json);
+    });
+    
+    // Diagnostics API
+    device_server->on("/api/diagnostics", HTTP_GET, []() {
+        String json = "{";
+        json += "\"uptime\":" + String(millis() / 1000) + ",";
+        json += "\"free_memory\":" + String(ESP.getFreeHeap()) + ",";
+        json += "\"total_memory\":" + String(ESP.getHeapSize()) + ",";
+        json += "\"memory_usage\":" + String(100 - (ESP.getFreeHeap() * 100 / ESP.getHeapSize())) + ",";
+        json += "\"cpu_frequency\":" + String(ESP.getCpuFreqMHz()) + ",";
+        json += "\"flash_size\":" + String(ESP.getFlashChipSize()) + ",";
+        json += "\"flash_speed\":" + String(ESP.getFlashChipSpeed()) + ",";
+        json += "\"chip_revision\":" + String(ESP.getChipRevision()) + ",";
+        json += "\"sdk_version\":\"" + String(ESP.getSdkVersion()) + "\",";
+        json += "\"wifi_rssi\":" + String(WiFi.RSSI()) + ",";
+        json += "\"temperature_sensors_ok\":" + String(temperatureSensorsInitialized ? "true" : "false") + ",";
+        json += "\"relay_count\":" + String(NUM_RELAYS);
+        json += "}";
+        device_server->send(200, "application/json", json);
+    });
+    
+    // Digital Inputs API
+    device_server->on("/api/inputs", HTTP_GET, []() {
+        String json = "{\"inputs\":[";
+        for (int i = 0; i < NUM_DIGITAL_INPUTS; i++) {
+            if (i > 0) json += ",";
+            json += "{";
+            json += "\"id\":" + String(i) + ",";
+            json += "\"name\":\"Input " + String(i + 1) + "\",";
+            json += "\"state\":" + String(getInputState(i) ? "true" : "false");
+            json += "}";
+        }
+        json += "]}";
+        device_server->send(200, "application/json", json);
+    });
+    
+    // Enhanced Sensor Data API (improved version of existing /api/sensors)
+    device_server->on("/api/sensors/data", HTTP_GET, []() {
+        String json = "{";
+        json += "\"timestamp\":" + String(millis()) + ",";
+        json += "\"temperature\":{";
+        json += "\"current\":" + String(g_system_status.current_temperature, 2) + ",";
+        json += "\"sensor_type\":\"" + String(getTemperatureSensorName(currentTempSensorType)) + "\",";
+        json += "\"available\":" + String(isTemperatureSensorAvailable() ? "true" : "false");
+        json += "},";
+        
+        // Individual sensor readings
+        json += "\"sensors\":{";
+        json += "\"ds18b20\":{";
+        json += "\"available\":" + String(isDS18B20Available() ? "true" : "false");
+        if (isDS18B20Available()) {
+            json += ",\"temperature\":" + String(readDS18B20Temperature(), 2);
+        }
+        json += "},";
+        
+        json += "\"am2302\":{";
+        json += "\"available\":" + String(isAM2302Available() ? "true" : "false");
+        if (isAM2302Available()) {
+            json += ",\"temperature\":" + String(readAM2302Temperature(), 2);
+            json += ",\"humidity\":" + String(readAM2302Humidity(), 1);
+        }
+        json += "},";
+        
+        json += "\"lm35\":{";
+        json += "\"available\":" + String(isLM35Available() ? "true" : "false");
+        if (isLM35Available()) {
+            json += ",\"temperature\":" + String(readLM35Temperature(), 2);
+        }
+        json += "}";
+        json += "}";
+        json += "}";
+        device_server->send(200, "application/json", json);
     });
     
     device_server->begin();
