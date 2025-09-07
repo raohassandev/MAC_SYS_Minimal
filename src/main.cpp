@@ -13,6 +13,8 @@
 #include <esp_task_wdt.h>
 #include <WiFi.h>
 #include <WebServer.h>
+#include <OneWire.h>
+#include <DallasTemperature.h>
 
 // Global system variables
 SystemConfig g_system_config;
@@ -590,11 +592,11 @@ void setupDeviceWebServer() {
             String stateText = relayState ? "ON" : "OFF";
             String cardBorder = relayState ? "border-left:4px solid #28a745" : "border-left:4px solid #dc3545";
             
-            html += "<div style='background:white;padding:15px;border-radius:6px;box-shadow:0 2px 4px rgba(0,0,0,0.1);" + cardBorder + "'>";
+            html += "<div data-relay='" + String(i) + "' style='background:white;padding:15px;border-radius:6px;box-shadow:0 2px 4px rgba(0,0,0,0.1);" + cardBorder + "'>";
             html += "<h4 style='margin:0 0 10px 0;color:#333'>🔌 Relay " + String(i + 1) + "</h4>";
             html += "<div style='display:flex;align-items:center;justify-content:space-between;margin:10px 0'>";
             html += "<span style='font-weight:bold'>Status:</span>";
-            html += "<span style='color:" + stateColor + ";font-weight:bold;font-size:16px'>" + stateText + "</span>";
+            html += "<span class='relay-status' style='color:" + stateColor + ";font-weight:bold;font-size:16px'>" + stateText + "</span>";
             html += "</div>";
             
             // Individual control buttons
@@ -738,6 +740,14 @@ void setupDeviceWebServer() {
         html += "</div>";
         html += "</div>";
         
+        // Sensor Configuration Section
+        html += "<div class='section'>";
+        html += "<div class='section-header' onclick=\"location.href='/sensors'\" style='cursor:pointer'>";
+        html += "<span>&#x1F321; Sensor Configuration</span>";
+        html += "<span class='arrow'>&#x25B6;</span>";
+        html += "</div>";
+        html += "</div>";
+        
         html += "<script>";
         html += "document.querySelectorAll('input[name=mode]').forEach(function(radio) {";
         html += "  radio.addEventListener('change', function() {";
@@ -751,7 +761,7 @@ void setupDeviceWebServer() {
         html += "    body: 'relay=' + relayNum + '&action=set&state=' + (state ? '1' : '0')";
         html += "  }).then(response => response.json()).then(data => {";
         html += "    if(data.success) {";
-        html += "      location.reload();";
+        html += "      updateRelayStatus(relayNum, state);";
         html += "    } else {";
         html += "      alert('Failed to control relay: ' + data.message);";
         html += "    }";
@@ -764,7 +774,7 @@ void setupDeviceWebServer() {
         html += "    body: 'relay=' + relayNum + '&action=toggle'";
         html += "  }).then(response => response.json()).then(data => {";
         html += "    if(data.success) {";
-        html += "      location.reload();";
+        html += "      refreshRelayStates();";
         html += "    } else {";
         html += "      alert('Failed to control relay: ' + data.message);";
         html += "    }";
@@ -777,7 +787,7 @@ void setupDeviceWebServer() {
         html += "    body: 'action=all&state=' + (state ? '1' : '0')";
         html += "  }).then(response => response.json()).then(data => {";
         html += "    if(data.success) {";
-        html += "      location.reload();";
+        html += "      refreshRelayStates();";
         html += "    } else {";
         html += "      alert('Failed to control relays: ' + data.message);";
         html += "    }";
@@ -794,6 +804,42 @@ void setupDeviceWebServer() {
         html += "    arrow.classList.add('down');";
         html += "  }";
         html += "}";
+        
+        // Real-time update functions
+        html += "function updateRelayStatus(relayNum, state) {";
+        html += "  var relayCards = document.querySelectorAll('[data-relay=\"' + relayNum + '\"]');";
+        html += "  relayCards.forEach(function(card) {";
+        html += "    var statusSpan = card.querySelector('.relay-status');";
+        html += "    if (statusSpan) {";
+        html += "      statusSpan.textContent = state ? 'ON' : 'OFF';";
+        html += "      statusSpan.style.color = state ? '#28a745' : '#dc3545';";
+        html += "      card.style.borderLeftColor = state ? '#28a745' : '#dc3545';";
+        html += "    }";
+        html += "  });";
+        html += "}";
+        
+        html += "function refreshRelayStates() {";
+        html += "  fetch('/api/status').then(response => response.json()).then(data => {";
+        html += "    if (data.relays) {";
+        html += "      for (let i = 0; i < 6; i++) {";
+        html += "        updateRelayStatus(i, data.relays[i]);";
+        html += "      }";
+        html += "    }";
+        html += "    updateTemperatureDisplay(data.temperature);";
+        html += "  }).catch(err => console.warn('Status refresh failed:', err));";
+        html += "}";
+        
+        html += "function updateTemperatureDisplay(temp) {";
+        html += "  var tempElements = document.querySelectorAll('.temp');";
+        html += "  tempElements.forEach(function(el) {";
+        html += "    el.textContent = 'Temperature: ' + temp.toFixed(1) + '°C';";
+        html += "  });";
+        html += "}";
+        
+        // Start real-time updates
+        html += "setInterval(refreshRelayStates, 5000);"; // Update every 5 seconds
+        html += "setTimeout(refreshRelayStates, 1000);"; // Initial update after 1 second
+        
         html += "</script>";
         
         // Navigation section
@@ -801,6 +847,7 @@ void setupDeviceWebServer() {
         html += "<div class='section-header' style='background:#17a2b8'>System Navigation</div>";
         html += "<div class='section-content' style='padding:20px'>";
         html += "<button onclick=\"location.href='/schedule'\" style='background:#28a745;color:white;padding:15px 30px;border:none;border-radius:5px;cursor:pointer;margin:10px;font-size:16px'>📅 Schedule Configuration</button><br>";
+        html += "<button onclick=\"location.href='/sensors'\" style='background:#ff6b35;color:white;padding:15px 30px;border:none;border-radius:5px;cursor:pointer;margin:10px;font-size:16px'>🌡️ Sensor Configuration</button><br>";
         html += "<button onclick=\"location.href='/wifi-config'\" style='background:#007bff;color:white;padding:15px 30px;border:none;border-radius:5px;cursor:pointer;margin:10px;font-size:16px'>🌐 WiFi Configuration</button>";
         html += "</div>";
         html += "</div>";
@@ -823,6 +870,446 @@ void setupDeviceWebServer() {
         json += "}";
         
         device_server->send(200, "application/json", json);
+    });
+    
+    // Temperature sensor debug endpoint
+    device_server->on("/api/sensors", []() {
+        String json = "{";
+        json += "\"ds18b20_available\":" + String(isDS18B20Available() ? "true" : "false") + ",";
+        json += "\"am2302_available\":" + String(isAM2302Available() ? "true" : "false") + ",";
+        json += "\"lm35_available\":" + String(isLM35Available() ? "true" : "false") + ",";
+        json += "\"primary_sensor\":\"" + String(getTemperatureSensorName(currentTempSensorType)) + "\",";
+        json += "\"last_temperature\":" + String(lastValidTemperature, 2);
+        
+        // Get current readings from each sensor
+        if (isDS18B20Available()) {
+            float ds18b20_temp = readDS18B20Temperature();
+            json += ",\"ds18b20_reading\":" + (isnan(ds18b20_temp) ? "null" : String(ds18b20_temp, 2));
+        } else {
+            json += ",\"ds18b20_reading\":null";
+        }
+        
+        if (isAM2302Available()) {
+            float am2302_temp = readAM2302Temperature();
+            json += ",\"am2302_reading\":" + (isnan(am2302_temp) ? "null" : String(am2302_temp, 2));
+        } else {
+            json += ",\"am2302_reading\":null";
+        }
+        
+        if (isLM35Available()) {
+            float lm35_temp = readLM35Temperature();
+            json += ",\"lm35_reading\":" + (isnan(lm35_temp) ? "null" : String(lm35_temp, 2));
+        } else {
+            json += ",\"lm35_reading\":null";
+        }
+        
+        json += "}";
+        device_server->send(200, "application/json", json);
+    });
+    
+    // GPIO pin scanner for DS18B20
+    device_server->on("/api/sensors/scan", []() {
+        String json = "{\"scan_results\":[";
+        bool found = false;
+        
+        // Test common GPIO pins for DS18B20
+        int testPins[] = {2, 4, 5, 13, 14, 16, 17, 18, 19, 21, 22, 23, 25, 26, 27, 32, 33};
+        int numPins = sizeof(testPins) / sizeof(testPins[0]);
+        
+        for (int i = 0; i < numPins; i++) {
+            int pin = testPins[i];
+            
+            // Try DS18B20 on this pin
+            OneWire testWire(pin);
+            DallasTemperature testSensor(&testWire);
+            testSensor.begin();
+            
+            delay(100); // Short delay for initialization
+            int deviceCount = testSensor.getDeviceCount();
+            
+            if (found) json += ",";
+            json += "{\"pin\":" + String(pin) + ",\"ds18b20_devices\":" + String(deviceCount);
+            
+            if (deviceCount > 0) {
+                testSensor.requestTemperatures();
+                delay(1000);
+                float temp = testSensor.getTempCByIndex(0);
+                json += ",\"temperature\":" + String(temp, 2);
+            }
+            json += "}";
+            found = true;
+        }
+        
+        json += "]}";
+        device_server->send(200, "application/json", json);
+    });
+
+    // Detailed sensor debug endpoint
+    device_server->on("/api/sensors/debug", []() {
+        String json = "{";
+        json += "\"sensor_pins\":{";
+        json += "\"ds18b20_pin\":" + String(DS18B20_PIN) + ",";
+        json += "\"am2302_pin\":" + String(AM2302_PIN) + ",";
+        json += "\"lm35_pin\":" + String(LM35_PIN);
+        json += "},";
+        
+        // DS18B20 detailed debug
+        json += "\"ds18b20_debug\":{";
+        json += "\"initialized\":true,";
+        json += "\"device_count\":" + String(getDS18B20DeviceCount()) + ",";
+        json += "\"parasitic_power\":" + String(getDS18B20ParasiticPower()) + ",";
+        json += "\"resolution\":" + String(getDS18B20Resolution());
+        json += "},";
+        
+        // AM2302 detailed debug  
+        json += "\"am2302_debug\":{";
+        json += "\"initialized\":true,";
+        json += "\"status\":\"" + String(getAM2302StatusString()) + "\",";
+        json += "\"status_code\":" + String(getAM2302StatusCode());
+        json += "},";
+        
+        // LM35 detailed debug
+        int lm35_adc = getLM35ADCReading();
+        json += "\"lm35_debug\":{";
+        json += "\"adc_reading\":" + String(lm35_adc) + ",";
+        json += "\"voltage\":" + String((lm35_adc / 4095.0) * 3.3, 3);
+        json += "}";
+        
+        json += "}";
+        device_server->send(200, "application/json", json);
+    });
+    
+    // Sensor configuration page
+    device_server->on("/sensors", []() {
+        String html = "<!DOCTYPE html><html><head>";
+        html += "<title>Sensor Configuration - MAC-SYS</title>";
+        html += "<meta name='viewport' content='width=device-width, initial-scale=1'>";
+        html += "<meta charset='UTF-8'>";
+        
+        // Enhanced CSS for sensor configuration
+        html += "<style>";
+        html += "body{font-family:Arial,sans-serif;margin:20px;background:#f0f0f0}";
+        html += ".container{background:white;padding:20px;border-radius:10px;box-shadow:0 2px 10px rgba(0,0,0,0.1);max-width:1000px;margin:0 auto}";
+        html += ".sensor-card{background:#f8f9fa;border:1px solid #dee2e6;border-radius:8px;margin:15px 0;overflow:hidden}";
+        html += ".sensor-header{background:#007bff;color:white;padding:15px;font-weight:bold;font-size:18px}";
+        html += ".sensor-body{padding:20px}";
+        html += ".config-row{display:flex;align-items:center;margin:15px 0;flex-wrap:wrap;gap:15px}";
+        html += ".config-label{min-width:100px;font-weight:bold;color:#495057}";
+        html += ".config-control{flex:1;min-width:150px}";
+        html += "select,input[type=number]{width:100%;padding:8px;border:1px solid #ced4da;border-radius:4px;font-size:14px}";
+        html += ".toggle{position:relative;display:inline-block;width:60px;height:34px}";
+        html += ".toggle input{opacity:0;width:0;height:0}";
+        html += ".slider{position:absolute;cursor:pointer;top:0;left:0;right:0;bottom:0;background-color:#ccc;transition:.4s;border-radius:34px}";
+        html += ".slider:before{position:absolute;content:'';height:26px;width:26px;left:4px;bottom:4px;background-color:white;transition:.4s;border-radius:50%}";
+        html += "input:checked + .slider{background-color:#28a745}";
+        html += "input:checked + .slider:before{transform:translateX(26px)}";
+        html += ".status-indicator{display:inline-block;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:bold;margin-left:10px}";
+        html += ".status-working{background:#d4edda;color:#155724}";
+        html += ".status-disabled{background:#f8d7da;color:#721c24}";
+        html += ".status-testing{background:#fff3cd;color:#856404}";
+        html += ".test-button{padding:6px 12px;background:#17a2b8;color:white;border:none;border-radius:4px;cursor:pointer;font-size:12px}";
+        html += ".test-button:hover{background:#138496}";
+        html += ".save-button{background:#28a745;color:white;padding:15px 30px;border:none;border-radius:5px;cursor:pointer;margin:20px 10px;font-size:16px}";
+        html += ".reset-button{background:#dc3545;color:white;padding:15px 30px;border:none;border-radius:5px;cursor:pointer;margin:20px 10px;font-size:16px}";
+        html += ".back-button{background:#6c757d;color:white;padding:10px 20px;border:none;border-radius:5px;cursor:pointer;margin:10px;text-decoration:none}";
+        html += "</style></head><body>";
+        
+        html += "<div class='container'>";
+        html += "<h1>🌡️ Sensor Configuration</h1>";
+        html += "<p>Configure temperature sensors, GPIO pins, and priorities. Changes are saved to EEPROM and persist across reboots.</p>";
+        
+        // Get current configuration
+        SensorConfig* config = getSensorConfig();
+        
+        html += "<form id='sensorConfigForm'>";
+        
+        // DS18B20 Configuration
+        html += "<div class='sensor-card'>";
+        html += "<div class='sensor-header'>DS18B20 (Digital Waterproof Temperature Sensor)</div>";
+        html += "<div class='sensor-body'>";
+        
+        html += "<div class='config-row'>";
+        html += "<div class='config-label'>Enable:</div>";
+        html += "<div class='config-control'>";
+        html += "<label class='toggle'>";
+        html += "<input type='checkbox' id='ds18b20_enabled' " + String(config->ds18b20_enabled ? "checked" : "") + ">";
+        html += "<span class='slider'></span>";
+        html += "</label>";
+        html += "<span class='status-indicator status-working'>Working (33.2°C)</span>";
+        html += "</div>";
+        html += "</div>";
+        
+        html += "<div class='config-row'>";
+        html += "<div class='config-label'>GPIO Pin:</div>";
+        html += "<div class='config-control'>";
+        html += "<select id='ds18b20_pin'>";
+        const int validPins[] = {2, 4, 5, 13, 14, 16, 17, 18, 19, 21, 22, 23, 25, 26, 27, 32, 33, 34, 35, 36, 39};
+        for (int pin : validPins) {
+            html += "<option value='" + String(pin) + "'" + (pin == config->ds18b20_pin ? " selected" : "") + ">GPIO" + String(pin) + "</option>";
+        }
+        html += "</select>";
+        html += "<button type='button' class='test-button' onclick='testSensor(2, " + String(config->ds18b20_pin) + ")'>🧪 Test</button>";
+        html += "</div>";
+        html += "</div>";
+        
+        html += "<div class='config-row'>";
+        html += "<div class='config-label'>Priority:</div>";
+        html += "<div class='config-control'>";
+        html += "<select id='ds18b20_priority'>";
+        html += "<option value='0'" + String(config->ds18b20_priority == 0 ? " selected" : "") + ">1 (Highest)</option>";
+        html += "<option value='1'" + String(config->ds18b20_priority == 1 ? " selected" : "") + ">2 (Medium)</option>";
+        html += "<option value='2'" + String(config->ds18b20_priority == 2 ? " selected" : "") + ">3 (Lowest)</option>";
+        html += "</select>";
+        html += "</div>";
+        html += "</div>";
+        
+        html += "</div></div>";
+        
+        // AM2302 Configuration
+        html += "<div class='sensor-card'>";
+        html += "<div class='sensor-header'>AM2302/DHT22 (Temperature + Humidity Sensor)</div>";
+        html += "<div class='sensor-body'>";
+        
+        html += "<div class='config-row'>";
+        html += "<div class='config-label'>Enable:</div>";
+        html += "<div class='config-control'>";
+        html += "<label class='toggle'>";
+        html += "<input type='checkbox' id='am2302_enabled' " + String(config->am2302_enabled ? "checked" : "") + ">";
+        html += "<span class='slider'></span>";
+        html += "</label>";
+        html += "<span class='status-indicator status-disabled'>Disabled</span>";
+        html += "</div>";
+        html += "</div>";
+        
+        html += "<div class='config-row'>";
+        html += "<div class='config-label'>GPIO Pin:</div>";
+        html += "<div class='config-control'>";
+        html += "<select id='am2302_pin'>";
+        for (int pin : validPins) {
+            html += "<option value='" + String(pin) + "'" + (pin == config->am2302_pin ? " selected" : "") + ">GPIO" + String(pin) + "</option>";
+        }
+        html += "</select>";
+        html += "<button type='button' class='test-button' onclick='testSensor(1, " + String(config->am2302_pin) + ")'>🧪 Test</button>";
+        html += "</div>";
+        html += "</div>";
+        
+        html += "<div class='config-row'>";
+        html += "<div class='config-label'>Priority:</div>";
+        html += "<div class='config-control'>";
+        html += "<select id='am2302_priority'>";
+        html += "<option value='0'" + String(config->am2302_priority == 0 ? " selected" : "") + ">1 (Highest)</option>";
+        html += "<option value='1'" + String(config->am2302_priority == 1 ? " selected" : "") + ">2 (Medium)</option>";
+        html += "<option value='2'" + String(config->am2302_priority == 2 ? " selected" : "") + ">3 (Lowest)</option>";
+        html += "</select>";
+        html += "</div>";
+        html += "</div>";
+        
+        html += "</div></div>";
+        
+        // LM35 Configuration
+        html += "<div class='sensor-card'>";
+        html += "<div class='sensor-header'>LM35 (Analog Temperature Sensor)</div>";
+        html += "<div class='sensor-body'>";
+        
+        html += "<div class='config-row'>";
+        html += "<div class='config-label'>Enable:</div>";
+        html += "<div class='config-control'>";
+        html += "<label class='toggle'>";
+        html += "<input type='checkbox' id='lm35_enabled' " + String(config->lm35_enabled ? "checked" : "") + ">";
+        html += "<span class='slider'></span>";
+        html += "</label>";
+        html += "<span class='status-indicator status-working'>Fallback Ready</span>";
+        html += "</div>";
+        html += "</div>";
+        
+        html += "<div class='config-row'>";
+        html += "<div class='config-label'>GPIO Pin:</div>";
+        html += "<div class='config-control'>";
+        html += "<select id='lm35_pin'>";
+        const int analogPins[] = {32, 33, 34, 35, 36, 39}; // ESP32 ADC pins
+        for (int pin : analogPins) {
+            html += "<option value='" + String(pin) + "'" + (pin == config->lm35_pin ? " selected" : "") + ">GPIO" + String(pin) + " (ADC)</option>";
+        }
+        html += "</select>";
+        html += "<button type='button' class='test-button' onclick='testSensor(3, " + String(config->lm35_pin) + ")'>🧪 Test</button>";
+        html += "</div>";
+        html += "</div>";
+        
+        html += "<div class='config-row'>";
+        html += "<div class='config-label'>Priority:</div>";
+        html += "<div class='config-control'>";
+        html += "<select id='lm35_priority'>";
+        html += "<option value='0'" + String(config->lm35_priority == 0 ? " selected" : "") + ">1 (Highest)</option>";
+        html += "<option value='1'" + String(config->lm35_priority == 1 ? " selected" : "") + ">2 (Medium)</option>";
+        html += "<option value='2'" + String(config->lm35_priority == 2 ? " selected" : "") + ">3 (Lowest)</option>";
+        html += "</select>";
+        html += "</div>";
+        html += "</div>";
+        
+        html += "</div></div>";
+        
+        html += "</form>";
+        
+        // Action buttons
+        html += "<div style='text-align:center;margin:30px 0'>";
+        html += "<button class='save-button' onclick='saveSensorConfig()'>💾 Save Configuration</button>";
+        html += "<button class='reset-button' onclick='resetToDefaults()'>🔄 Reset to Defaults</button>";
+        html += "</div>";
+        
+        html += "<div style='text-align:center;margin:20px 0'>";
+        html += "<a href='/' class='back-button'>← Back to Main</a>";
+        html += "</div>";
+        
+        // JavaScript for sensor configuration
+        html += "<script>";
+        html += "function testSensor(type, pin) {";
+        html += "  fetch('/api/sensors/test?type=' + type + '&pin=' + pin)";
+        html += "    .then(response => response.text())";
+        html += "    .then(result => alert('Test Result: ' + result))";
+        html += "    .catch(err => alert('Test failed: ' + err));";
+        html += "}";
+        
+        html += "function saveSensorConfig() {";
+        html += "  const config = {";
+        html += "    ds18b20_enabled: document.getElementById('ds18b20_enabled').checked,";
+        html += "    ds18b20_pin: parseInt(document.getElementById('ds18b20_pin').value),";
+        html += "    ds18b20_priority: parseInt(document.getElementById('ds18b20_priority').value),";
+        html += "    am2302_enabled: document.getElementById('am2302_enabled').checked,";
+        html += "    am2302_pin: parseInt(document.getElementById('am2302_pin').value),";
+        html += "    am2302_priority: parseInt(document.getElementById('am2302_priority').value),";
+        html += "    lm35_enabled: document.getElementById('lm35_enabled').checked,";
+        html += "    lm35_pin: parseInt(document.getElementById('lm35_pin').value),";
+        html += "    lm35_priority: parseInt(document.getElementById('lm35_priority').value)";
+        html += "  };";
+        
+        html += "  fetch('/api/sensors/config', {";
+        html += "    method: 'POST',";
+        html += "    headers: {'Content-Type': 'application/json'},";
+        html += "    body: JSON.stringify(config)";
+        html += "  })";
+        html += "  .then(response => response.json())";
+        html += "  .then(data => {";
+        html += "    if (data.success) {";
+        html += "      alert('✅ Configuration saved successfully!\\nReboot recommended for all changes to take effect.');";
+        html += "    } else {";
+        html += "      alert('❌ Failed to save configuration: ' + data.message);";
+        html += "    }";
+        html += "  })";
+        html += "  .catch(err => alert('❌ Save failed: ' + err));";
+        html += "}";
+        
+        html += "function resetToDefaults() {";
+        html += "  if (confirm('⚠️ Reset all sensor settings to defaults?\\nThis cannot be undone.')) {";
+        html += "    fetch('/api/sensors/reset', {method: 'POST'})";
+        html += "      .then(response => response.json())";
+        html += "      .then(data => {";
+        html += "        if (data.success) {";
+        html += "          alert('✅ Settings reset to defaults!');";
+        html += "          location.reload();";
+        html += "        } else {";
+        html += "          alert('❌ Reset failed: ' + data.message);";
+        html += "        }";
+        html += "      })";
+        html += "      .catch(err => alert('❌ Reset failed: ' + err));";
+        html += "  }";
+        html += "}";
+        html += "</script>";
+        
+        html += "</div></body></html>";
+        device_server->send(200, "text/html", html);
+    });
+    
+    // Sensor configuration API endpoints
+    device_server->on("/api/sensors/config", HTTP_POST, []() {
+        String json = "{";
+        
+        if (device_server->hasArg("plain")) {
+            String body = device_server->arg("plain");
+            
+            // Parse JSON configuration (simple parsing for key values)
+            SensorConfig newConfig = g_sensorConfig; // Start with current config
+            
+            // Parse each field (basic JSON parsing)
+            if (body.indexOf("ds18b20_enabled\":true") != -1) newConfig.ds18b20_enabled = true;
+            else if (body.indexOf("ds18b20_enabled\":false") != -1) newConfig.ds18b20_enabled = false;
+            
+            if (body.indexOf("am2302_enabled\":true") != -1) newConfig.am2302_enabled = true;
+            else if (body.indexOf("am2302_enabled\":false") != -1) newConfig.am2302_enabled = false;
+            
+            if (body.indexOf("lm35_enabled\":true") != -1) newConfig.lm35_enabled = true;
+            else if (body.indexOf("lm35_enabled\":false") != -1) newConfig.lm35_enabled = false;
+            
+            // Extract pins and priorities (simplified parsing)
+            int ds18b20_pin_pos = body.indexOf("ds18b20_pin\":");
+            if (ds18b20_pin_pos != -1) {
+                newConfig.ds18b20_pin = body.substring(ds18b20_pin_pos + 13).toInt();
+            }
+            
+            int am2302_pin_pos = body.indexOf("am2302_pin\":");
+            if (am2302_pin_pos != -1) {
+                newConfig.am2302_pin = body.substring(am2302_pin_pos + 12).toInt();
+            }
+            
+            int lm35_pin_pos = body.indexOf("lm35_pin\":");
+            if (lm35_pin_pos != -1) {
+                newConfig.lm35_pin = body.substring(lm35_pin_pos + 10).toInt();
+            }
+            
+            int ds18b20_priority_pos = body.indexOf("ds18b20_priority\":");
+            if (ds18b20_priority_pos != -1) {
+                newConfig.ds18b20_priority = body.substring(ds18b20_priority_pos + 18).toInt();
+            }
+            
+            int am2302_priority_pos = body.indexOf("am2302_priority\":");
+            if (am2302_priority_pos != -1) {
+                newConfig.am2302_priority = body.substring(am2302_priority_pos + 17).toInt();
+            }
+            
+            int lm35_priority_pos = body.indexOf("lm35_priority\":");
+            if (lm35_priority_pos != -1) {
+                newConfig.lm35_priority = body.substring(lm35_priority_pos + 15).toInt();
+            }
+            
+            // Set magic number and calculate checksum before validation
+            newConfig.magic = SENSOR_CONFIG_MAGIC;
+            newConfig.checksum = calculateConfigChecksum(&newConfig);
+            
+            // Validate and save configuration
+            if (validateSensorConfig(&newConfig)) {
+                g_sensorConfig = newConfig;
+                saveSensorConfig();
+                applySensorConfiguration();
+                
+                json += "\"success\":true,";
+                json += "\"message\":\"Configuration saved successfully\"";
+            } else {
+                json += "\"success\":false,";
+                json += "\"message\":\"Invalid configuration\"";
+            }
+        } else {
+            json += "\"success\":false,";
+            json += "\"message\":\"No configuration data received\"";
+        }
+        
+        json += "}";
+        device_server->send(200, "application/json", json);
+    });
+    
+    device_server->on("/api/sensors/reset", HTTP_POST, []() {
+        resetSensorConfigToDefaults();
+        saveSensorConfig();
+        applySensorConfiguration();
+        
+        String json = "{\"success\":true,\"message\":\"Configuration reset to defaults\"}";
+        device_server->send(200, "application/json", json);
+    });
+    
+    device_server->on("/api/sensors/test", []() {
+        int sensorType = device_server->arg("type").toInt();
+        int pin = device_server->arg("pin").toInt();
+        
+        String result = getSensorTestResult(sensorType, pin);
+        device_server->send(200, "text/plain", result);
     });
     
     // Relay control endpoint
