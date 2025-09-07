@@ -514,31 +514,55 @@ void setupDeviceWebServer() {
     device_server->on("/", []() {
         String html = "<!DOCTYPE html><html><head><title>MAC-SYS Device Status</title>";
         html += "<meta name='viewport' content='width=device-width, initial-scale=1'>";
-        html += "<style>body{font-family:Arial;margin:40px;background:#f0f0f0}";
-        html += ".container{background:white;padding:30px;border-radius:10px;box-shadow:0 2px 10px rgba(0,0,0,0.1)}";
+        html += "<meta charset='UTF-8'>";
+        html += "<style>body{font-family:Arial,sans-serif;margin:20px;background:#f0f0f0}";
+        html += ".container{background:white;padding:20px;border-radius:10px;box-shadow:0 2px 10px rgba(0,0,0,0.1);max-width:1200px;margin:0 auto}";
         html += ".status{background:#e8f5e8;padding:15px;border-radius:5px;margin:10px 0}";
         html += ".temp{font-size:24px;color:#2c5234;font-weight:bold}";
-        html += ".info{display:flex;justify-content:space-between;margin:10px 0}";
-        html += ".label{font-weight:bold;color:#666}</style></head><body>";
+        html += ".info{display:flex;justify-content:space-between;margin:10px 0;padding:5px 0;border-bottom:1px solid #eee}";
+        html += ".label{font-weight:bold;color:#666}";
+        html += ".section{background:#f8f9fa;border-radius:8px;margin:20px 0;overflow:hidden;border:1px solid #dee2e6}";
+        html += ".section-header{background:#007bff;color:white;padding:12px 20px;cursor:pointer;user-select:none;display:flex;justify-content:space-between;align-items:center}";
+        html += ".section-header:hover{background:#0056b3}";
+        html += ".section-content{padding:20px;display:none}";
+        html += ".section-content.active{display:block}";
+        html += ".arrow{transition:transform 0.3s}";
+        html += ".arrow.down{transform:rotate(90deg)}";
+        html += "button{transition:all 0.3s}";
+        html += "button:hover{opacity:0.8;transform:translateY(-2px)}";
+        html += "</style></head><body>";
         
         html += "<div class='container'>";
         html += "<h1>MAC-SYS Industrial Controller</h1>";
         
         html += "<div class='status'>";
-        html += "<div class='temp'>Temperature: " + String(g_system_status.current_temperature, 1) + "°C</div>";
+        html += "<div class='temp'>Temperature: " + String(g_system_status.current_temperature, 1) + "&deg;C</div>";
         html += "</div>";
         
-        html += "<h2>System Status</h2>";
+        // System Status Section
+        html += "<div class='section'>";
+        html += "<div class='section-header' onclick='toggleSection(\"system\")'>";
+        html += "<span>&#x1F4CA; System Status</span>";
+        html += "<span class='arrow' id='system-arrow'>&#x25B6;</span>";
+        html += "</div>";
+        html += "<div class='section-content active' id='system-content'>";
         html += "<div class='info'><span class='label'>System State:</span><span>" + String(g_system_status.state) + "</span></div>";
         html += "<div class='info'><span class='label'>Uptime:</span><span>" + String(g_system_status.uptime) + "s</span></div>";
         html += "<div class='info'><span class='label'>Free Memory:</span><span>" + String(g_system_status.free_memory) + " bytes</span></div>";
         html += "<div class='info'><span class='label'>WiFi Network:</span><span>" + WiFi.SSID() + "</span></div>";
         html += "<div class='info'><span class='label'>IP Address:</span><span>" + WiFi.localIP().toString() + "</span></div>";
         html += "<div class='info'><span class='label'>Signal Strength:</span><span>" + String(WiFi.RSSI()) + " dBm</span></div>";
+        html += "</div>";
+        html += "</div>";
         
-        html += "<h2>🔌 Relay Control - Manual Testing</h2>";
-        html += "<div style='background:#f8f9fa;padding:20px;border-radius:5px;margin:15px 0'>";
-        html += "<p style='margin:0 0 15px 0;color:#666;font-style:italic'>⚡ Click buttons below to manually control each relay for testing</p>";
+        // Relay Control Section
+        html += "<div class='section'>";
+        html += "<div class='section-header' onclick='toggleSection(\"relay\")'>";
+        html += "<span>&#x1F50C; Relay Control - Manual Testing</span>";
+        html += "<span class='arrow' id='relay-arrow'>&#x25B6;</span>";
+        html += "</div>";
+        html += "<div class='section-content' id='relay-content'>";
+        html += "<p style='margin:0 0 15px 0;color:#666;font-style:italic'>Click buttons below to manually control each relay for testing</p>";
         
         // Add individual relay control cards
         html += "<div style='display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:15px;margin:20px 0'>";
@@ -574,10 +598,15 @@ void setupDeviceWebServer() {
         html += "<button onclick='testAllRelays(false)' style='padding:8px 16px;margin:5px;border:none;border-radius:4px;background:#dc3545;color:white;cursor:pointer;font-weight:bold'>🔴 Turn All OFF</button>";
         html += "</div>";
         html += "</div>";
+        html += "</div>";
         
-        // Add temperature control section
-        html += "<h2>🌡️ Temperature Control System</h2>";
-        html += "<div style='background:#f8f9fa;padding:20px;border-radius:5px;margin:15px 0'>";
+        // Temperature Control Section
+        html += "<div class='section'>";
+        html += "<div class='section-header' onclick='toggleSection(\"temp\")'>";
+        html += "<span>&#x1F321; Temperature Control System</span>";
+        html += "<span class='arrow' id='temp-arrow'>&#x25B6;</span>";
+        html += "</div>";
+        html += "<div class='section-content' id='temp-content'>";
         
         // Zone 0 control
         ZoneConfig& zone0 = temp_controller.getZoneConfig(0);
@@ -625,12 +654,17 @@ void setupDeviceWebServer() {
         html += "<button type='submit' style='background:#007bff;color:white;padding:8px 16px;border:none;border-radius:4px;cursor:pointer'>Apply Settings</button>";
         html += "</form>";
         html += "</div>";
-        
+        html += "</div>";
         html += "</div>";
         
-        html += "<h2>📊 Digital Inputs Status</h2>";
-        html += "<div style='background:#f8f9fa;padding:20px;border-radius:5px;margin:15px 0'>";
-        html += "<p style='margin:0 0 15px 0;color:#666;font-style:italic'>📡 Real-time status of 6 digital input channels</p>";
+        // Digital Inputs Section
+        html += "<div class='section'>";
+        html += "<div class='section-header' onclick='toggleSection(\"inputs\")'>";
+        html += "<span>&#x1F4CA; Digital Inputs Status</span>";
+        html += "<span class='arrow' id='inputs-arrow'>&#x25B6;</span>";
+        html += "</div>";
+        html += "<div class='section-content' id='inputs-content'>";
+        html += "<p style='margin:0 0 15px 0;color:#666;font-style:italic'>Real-time status of 6 digital input channels</p>";
         
         // Add input status indicators
         for (int i = 0; i < 6; i++) {
@@ -643,9 +677,15 @@ void setupDeviceWebServer() {
             html += "<span style='color:" + stateColor + ";font-weight:bold'>" + stateText + "</span></div>";
         }
         html += "</div>";
+        html += "</div>";
         
-        html += "<h2>WiFi Management</h2>";
-        html += "<div style='background:#f8f9fa;padding:20px;border-radius:5px;margin:15px 0'>";
+        // WiFi Management Section  
+        html += "<div class='section'>";
+        html += "<div class='section-header' onclick='toggleSection(\"wifi\")'>";
+        html += "<span>&#x1F4F6; WiFi Management</span>";
+        html += "<span class='arrow' id='wifi-arrow'>&#x25B6;</span>";
+        html += "</div>";
+        html += "<div class='section-content' id='wifi-content'>";
         html += "<h3>Network Configuration</h3>";
         html += "<form method='post' action='/wifi'>";
         html += "<div style='margin:10px 0'><label><strong>Network Mode:</strong></label><br>";
@@ -665,11 +705,21 @@ void setupDeviceWebServer() {
         html += "<h3>Change WiFi Network</h3>";
         html += "<button onclick=\"location.href='/wifi-config'\" style='background:#28a745;color:white;padding:10px 20px;border:none;border-radius:5px;cursor:pointer'>Configure WiFi Network</button>";
         html += "</div>";
+        html += "</div>";
+        html += "</div>";
         
-        html += "<h2>Device Information</h2>";
+        // Device Information Section
+        html += "<div class='section'>";
+        html += "<div class='section-header' onclick='toggleSection(\"device\")'>";
+        html += "<span>&#x1F4BB; Device Information</span>";
+        html += "<span class='arrow' id='device-arrow'>&#x25B6;</span>";
+        html += "</div>";
+        html += "<div class='section-content' id='device-content'>";
         html += "<div class='info'><span class='label'>Chip Model:</span><span>ESP32</span></div>";
         html += "<div class='info'><span class='label'>MAC Address:</span><span>" + WiFi.macAddress() + "</span></div>";
         html += "<div class='info'><span class='label'>Flash Size:</span><span>" + String(ESP.getFlashChipSize() / 1024) + " KB</span></div>";
+        html += "</div>";
+        html += "</div>";
         
         html += "<script>";
         html += "document.querySelectorAll('input[name=mode]').forEach(function(radio) {";
@@ -715,6 +765,17 @@ void setupDeviceWebServer() {
         html += "      alert('Failed to control relays: ' + data.message);";
         html += "    }";
         html += "  }).catch(err => alert('Network error: ' + err));";
+        html += "}";
+        html += "function toggleSection(sectionId) {";
+        html += "  var content = document.getElementById(sectionId + '-content');";
+        html += "  var arrow = document.getElementById(sectionId + '-arrow');";
+        html += "  if (content.classList.contains('active')) {";
+        html += "    content.classList.remove('active');";
+        html += "    arrow.classList.remove('down');";
+        html += "  } else {";
+        html += "    content.classList.add('active');";
+        html += "    arrow.classList.add('down');";
+        html += "  }";
         html += "}";
         html += "</script>";
         
