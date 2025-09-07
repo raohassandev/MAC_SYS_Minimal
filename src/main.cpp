@@ -7,6 +7,7 @@
 #include "temperature.h"
 #include <EEPROM.h>
 #include <esp_task_wdt.h>
+#include <WiFi.h>
 
 // Global system variables
 SystemConfig g_system_config;
@@ -423,9 +424,18 @@ void systemLoop() {
     // Main system processing - Run temperature control
     runTemperatureControl();
     
-    DEBUG_PRINTF("System Status - State: %d, Uptime: %lu, Free Memory: %lu, Temp: %.1f°C, WiFi: %s\n", 
-                 g_system_status.state, g_system_status.uptime, g_system_status.free_memory,
-                 g_system_status.current_temperature, g_wifi_connected ? "OK" : "FAIL");
+    String statusMsg = "System Status - State: " + String(g_system_status.state) + 
+                      ", Uptime: " + String(g_system_status.uptime) + 
+                      ", Free Memory: " + String(g_system_status.free_memory) + 
+                      ", Temp: " + String(g_system_status.current_temperature, 1) + "°C";
+    
+    if (g_wifi_connected) {
+        statusMsg += ", WiFi: OK (IP: " + WiFi.localIP().toString() + ")";
+    } else {
+        statusMsg += ", WiFi: FAIL";
+    }
+    
+    DEBUG_PRINTLN(statusMsg);
 }
 
 void readTemperatureSensors() {

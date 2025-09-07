@@ -12,6 +12,16 @@
 SystemConfig g_system_config;
 SystemStatus g_system_status;
 
+// Utility functions
+uint16_t calculateChecksum(const void* data, size_t len) {
+    uint16_t checksum = 0;
+    const uint8_t* bytes = (const uint8_t*)data;
+    for (size_t i = 0; i < len; i++) {
+        checksum += bytes[i];
+    }
+    return checksum;
+}
+
 // Timing variables
 unsigned long last_system_update = 0;
 unsigned long last_temp_reading = 0;
@@ -27,7 +37,7 @@ unsigned long last_led_toggle = 0;
 
 // Forward declarations
 void initializeSystem();
-void initializeHardware();
+bool initializeHardware();
 void initializeNetwork();
 void loadConfiguration();
 void loadDefaultConfiguration();
@@ -52,12 +62,8 @@ void setup() {
     system_start_time = millis();
     
     // Initialize watchdog timer (ESP32 v3.x compatible)
-    esp_task_wdt_config_t wdt_config = {
-        .timeout_ms = WATCHDOG_TIMEOUT,
-        .idle_core_mask = (1 << portNUM_PROCESSORS) - 1,
-        .trigger_panic = true
-    };
-    esp_task_wdt_init(&wdt_config);
+    // Initialize watchdog timer (simplified for ESP32 v3.2.0 compatibility)
+    esp_task_wdt_init(WATCHDOG_TIMEOUT / 1000, true);
     esp_task_wdt_add(NULL);
     
     // Initialize system status
@@ -156,50 +162,7 @@ void initializeSystem() {
     DEBUG_PRINTLN("System components initialized");
 }
 
-void initializeHardware() {
-    DEBUG_PRINTLN("Initializing hardware interfaces...");
-    
-    // Configure status LED
-    pinMode(STATUS_LED_PIN, OUTPUT);
-    digitalWrite(STATUS_LED_PIN, LOW);
-    
-    // Initialize I2C bus
-    if (Wire.begin(I2C_SDA_PIN, I2C_SCL_PIN, I2C_FREQUENCY)) {
-        i2c_initialized = true;
-        DEBUG_PRINTLN("I2C bus initialized successfully");
-        
-        // Initialize PCF8574 I/O expanders
-        if (!initializePCF8574()) {
-            DEBUG_PRINTLN("ERROR: PCF8574 initialization failed");
-            g_system_status.last_error = ERROR_I2C;
-        }
-        
-        // Initialize RTC
-        if (!initializeRTC()) {
-            DEBUG_PRINTLN("ERROR: RTC initialization failed");
-            g_system_status.last_error = ERROR_RTC;
-        }
-        
-    } else {
-        DEBUG_PRINTLN("ERROR: I2C initialization failed");
-        g_system_status.last_error = ERROR_I2C;
-    }
-    
-    // Configure ADC for temperature sensor
-    analogSetAttenuation(ADC_11db);  // For 0-3.3V range
-    analogReadResolution(12);        // 12-bit resolution
-    
-    // Initialize temperature sensors
-    initializeTemperatureSensors();
-    
-    // Perform hardware self-test
-    if (!performHardwareSelfTest()) {
-        DEBUG_PRINTLN("WARNING: Hardware self-test failed");
-        g_system_status.error_count++;
-    }
-    
-    DEBUG_PRINTLN("Hardware initialization complete");
-}
+// initializeHardware() function is implemented in hardware.cpp
 
 void initializeNetwork() {
     DEBUG_PRINTLN("Initializing network interface...");
@@ -489,17 +452,6 @@ void readTemperatureSensors() {
     g_system_status.current_temperature = filtered_temp;
     g_system_status.setpoint_temperature = g_system_config.hvac.setpoint_temperature;
     
-    DEBUG_PRINTF("Temperature: %.2f°C (ADC: %d, Voltage: %.3fV)\n", 
-                 filtered_temp, adc_value, voltage);
+    DEBUG_PRINTF("Temperature: %.2f°C\n", filtered_temp);
 }
 
-uint16_t calculateChecksum(const void* data, size_t length) {
-    const uint8_t* bytes = (const uint8_t*)data;
-    uint16_t checksum = 0;
-    
-    for (size_t i = 0; i < length; i++) {
-        checksum += bytes[i];
-    }
-    
-    return checksum;
-}

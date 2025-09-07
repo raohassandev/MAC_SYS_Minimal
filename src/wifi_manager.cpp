@@ -5,6 +5,7 @@
 #include <WebServer.h>
 #include <EEPROM.h>
 #include <DNSServer.h>
+#include <esp_task_wdt.h>
 
 // WiFi Manager - Complete Implementation
 
@@ -140,12 +141,16 @@ void stopConfigurationMode() {
     DEBUG_PRINTLN("Stopping WiFi configuration mode...");
     config_mode_active = false;
     
-    // Stop servers
+    // Stop servers and cleanup memory
     if (config_server) {
         config_server->stop();
+        delete config_server;
+        config_server = nullptr;
     }
     if (dns_server) {
         dns_server->stop();
+        delete dns_server;
+        dns_server = nullptr;
     }
     
     // Stop Access Point
@@ -247,39 +252,106 @@ NetworkStatus getNetworkStatus() {
     }
 }
 
-// Configuration portal routes
+// External functions from new simple portal
+extern void handleSimpleConfigRoot();
+extern void handleSimpleConnect();
+extern void handleSimpleScan();
+extern void handleSimpleReset();
+
+// Configuration portal routes - Simplified approach
 void setupConfigPortalRoutes() {
     if (!config_server) return;
     
-    config_server->on("/", handleConfigRoot);
-    config_server->on("/scan", handleWiFiScan);
-    config_server->on("/save", HTTP_POST, handleConfigSave);
-    config_server->on("/status", handleConfigStatus);
-    config_server->on("/reset", handleConfigReset);
-    config_server->onNotFound(handleConfigRoot); // Captive portal
+    // Main portal page - simple manual entry
+    config_server->on("/", handleSimpleConfigRoot);
+    config_server->on("/connect", HTTP_POST, handleSimpleConnect);
+    config_server->on("/scan", handleSimpleScan);
+    config_server->on("/reset", handleSimpleReset);
     
-    DEBUG_PRINTLN("Configuration portal routes setup complete");
+    // Mobile captive portal detection endpoints
+    config_server->on("/generate_204", handleSimpleConfigRoot);        // Android
+    config_server->on("/fwlink", handleSimpleConfigRoot);              // Microsoft  
+    config_server->on("/hotspot-detect.html", handleSimpleConfigRoot); // Apple iOS
+    config_server->on("/connecttest.txt", handleSimpleConfigRoot);     // Windows
+    config_server->on("/redirect", handleSimpleConfigRoot);            // Generic
+    
+    config_server->onNotFound(handleSimpleConfigRoot); // Captive portal fallback
+    
+    DEBUG_PRINTLN("Simple configuration portal routes setup complete");
 }
 
 bool attemptWiFiConnection(const char* ssid, const char* password) {
-    DEBUG_PRINTF("Connecting to WiFi: %s\\n", ssid);
+    DEBUG_PRINTF("Attempting WiFi connection to: '%s'\n", ssid);
+    DEBUG_PRINTF("Password length: %d\n", strlen(password));
     
+    // Disconnect any existing connections
+    WiFi.disconnect(true);
+    delay(100);
+    
+    // Set WiFi mode to STA for connection
+    WiFi.mode(WIFI_STA);
+    delay(100);
+    
+    // Begin connection
     WiFi.begin(ssid, password);
     
-    // Wait for connection with timeout
+    // Wait for connection with timeout and watchdog resets
     unsigned long connect_start = millis();
+    unsigned long last_dot = 0;
+    unsigned long last_status_check = 0;
+    
     while (WiFi.status() != WL_CONNECTED && millis() - connect_start < WIFI_CONNECT_TIMEOUT) {
-        delay(500);
-        DEBUG_PRINT(".");
+        // Reset watchdog timer to prevent restart
+        esp_task_wdt_reset();
+        
+        // Status debugging every 5 seconds
+        if (millis() - last_status_check > 5000) {
+            DEBUG_PRINTF("WiFi status: %d\n", WiFi.status());
+            last_status_check = millis();
+        }
+        
+        // Non-blocking delay with progress indication
+        if (millis() - last_dot > 1000) {
+            DEBUG_PRINT(".");
+            last_dot = millis();
+        }
+        
+        delay(100); // Shorter delay to allow watchdog resets
     }
     DEBUG_PRINTLN();
     
     if (WiFi.status() == WL_CONNECTED) {
-        DEBUG_PRINTF("WiFi connected successfully: %s (IP: %s)\\n", 
-                   WiFi.SSID().c_str(), WiFi.localIP().toString().c_str());
+        String connectedIP = WiFi.localIP().toString();
+        DEBUG_PRINTF("WiFi connected successfully: %s (IP: %s)\n", 
+                   WiFi.SSID().c_str(), connectedIP.c_str());
+        
+        // Log IP address prominently for easy identification
+        DEBUG_PRINTLN("=================================");
+        DEBUG_PRINTF("🌐 WIFI CONNECTED - IP: %s\n", connectedIP.c_str());
+        DEBUG_PRINTF("📡 Network: %s\n", WiFi.SSID().c_str());
+        DEBUG_PRINTF("📊 Signal: %d dBm\n", WiFi.RSSI());
+        DEBUG_PRINTLN("=================================");
+        
+        // Switch back to AP+STA mode to maintain config portal
+        WiFi.mode(WIFI_AP_STA);
+        WiFi.softAP(DEFAULT_AP_SSID, DEFAULT_AP_PASSWORD);
+        
         return true;
     } else {
-        DEBUG_PRINTF("WiFi connection failed: status=%d\\n", WiFi.status());
+        DEBUG_PRINTF("WiFi connection failed: status=%d (", WiFi.status());
+        switch(WiFi.status()) {
+            case WL_NO_SSID_AVAIL: DEBUG_PRINT("NO_SSID"); break;
+            case WL_CONNECT_FAILED: DEBUG_PRINT("CONNECT_FAILED"); break;
+            case WL_CONNECTION_LOST: DEBUG_PRINT("CONNECTION_LOST"); break;
+            case WL_DISCONNECTED: DEBUG_PRINT("DISCONNECTED"); break;
+            default: DEBUG_PRINTF("UNKNOWN_%d", WiFi.status()); break;
+        }
+        DEBUG_PRINTLN(")");
+        
+        // Switch back to AP+STA mode
+        WiFi.mode(WIFI_AP_STA);
+        WiFi.softAP(DEFAULT_AP_SSID, DEFAULT_AP_PASSWORD);
+        
         return false;
     }
 }

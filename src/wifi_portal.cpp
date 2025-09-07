@@ -3,6 +3,7 @@
 #include <WiFi.h>
 #include <WebServer.h>
 #include <EEPROM.h>
+#include <esp_task_wdt.h>
 
 extern WebServer* config_server;
 
@@ -30,20 +31,58 @@ void handleWiFiScan() {
     if (!config_server) return;
     
     DEBUG_PRINTLN("Scanning for WiFi networks...");
-    int networks = WiFi.scanNetworks();
+    
+    // Reset watchdog before potentially long scan
+    esp_task_wdt_reset();
+    
+    // CRITICAL: Temporarily stop AP for reliable scanning
+    String ap_ssid = WiFi.softAPSSID();
+    String ap_pass = "admin123"; // We know the password
+    IPAddress ap_ip = WiFi.softAPIP();
+    
+    // Stop AP completely for scanning
+    WiFi.softAPdisconnect(true);
+    WiFi.mode(WIFI_STA);
+    delay(500); // Allow mode change to settle
+    
+    // Clear any previous scan results
+    WiFi.scanDelete();
+    
+    // Scan networks with timeout protection
+    int networks = WiFi.scanNetworks(false, false); // async=false, show_hidden=false
+    
+    // Reset watchdog after scan
+    esp_task_wdt_reset();
+    
+    DEBUG_PRINTF("WiFi scan completed: %d networks found\n", networks);
+    
+    // Restart AP immediately after scan
+    WiFi.mode(WIFI_AP);
+    delay(100);
+    WiFi.softAP(ap_ssid.c_str(), ap_pass.c_str());
+    delay(200);
     
     String json = "[";
-    for (int i = 0; i < networks; i++) {
-        if (i > 0) json += ",";
-        json += "{";
-        json += "\"ssid\":\"" + WiFi.SSID(i) + "\",";
-        json += "\"rssi\":" + String(WiFi.RSSI(i)) + ",";
-        json += "\"secure\":" + String(WiFi.encryptionType(i) != WIFI_AUTH_OPEN);
-        json += "}";
+    if (networks > 0) {
+        DEBUG_PRINTF("Found %d WiFi networks\n", networks);
+        for (int i = 0; i < networks && i < 20; i++) { // Limit to 20 networks max
+            if (i > 0) json += ",";
+            json += "{";
+            json += "\"ssid\":\"" + WiFi.SSID(i) + "\",";
+            json += "\"rssi\":" + String(WiFi.RSSI(i)) + ",";
+            json += "\"secure\":" + String(WiFi.encryptionType(i) != WIFI_AUTH_OPEN);
+            json += "}";
+        }
+    } else if (networks == 0) {
+        DEBUG_PRINTLN("No WiFi networks found - may be interference or location issue");
+    } else {
+        DEBUG_PRINTF("WiFi scan failed with error: %d\n", networks);
     }
     json += "]";
     
     config_server->send(200, "application/json", json);
+    
+    DEBUG_PRINTLN("AP restarted after scan");
 }
 
 void handleConfigSave() {
@@ -122,17 +161,41 @@ String generateConfigPage() {
     html += "<label>Password:</label>";
     html += "<input type='password' name='password' placeholder='WiFi Password'>";
     html += "<button type='submit'>Connect</button></form>";
-    html += "<button onclick='scan()'>Scan Networks</button>";
+    html += "<button id='scanBtn' onclick='scan()'>Scan Networks</button>";
     html += "<button onclick='reset()'>Reset Config</button>";
-    html += "<div id='status'></div></div>";
-    html += "<script>function scan(){fetch('/scan').then(r=>r.json()).then(nets=>{";
-    html += "const s=document.getElementById('ssid');s.innerHTML='<option value=\"\">Select...</option>';";
-    html += "nets.forEach(n=>s.innerHTML+='<option value=\"'+n.ssid+'\">'+n.ssid+' ('+n.rssi+' dBm)</option>');});}";
-    html += "function reset(){if(confirm('Reset WiFi?'))fetch('/reset').then(()=>location.reload());}";
-    html += "scan();setInterval(()=>{fetch('/status').then(r=>r.json()).then(s=>{";
-    html += "document.getElementById('status').innerHTML=s.connected?";
-    html += "'<p style=\"color:green\">Connected: '+s.ssid+' ('+s.ip+')</p>':";
-    html += "'<p style=\"color:red\">Not connected</p>';});},5000);</script></body></html>";
+    html += "<div id='scanStatus'></div><div id='status'></div></div>";
+    html += "<script>";
+    html += "var scanning=false;";
+    html += "function scan(){";
+    html += "if(scanning)return;";
+    html += "scanning=true;";
+    html += "var btn=document.getElementById('scanBtn');";
+    html += "var status=document.getElementById('scanStatus');";
+    html += "btn.disabled=true;";
+    html += "btn.innerHTML='Scanning...';";
+    html += "status.innerHTML='<p style=color:blue>Scanning networks...</p>';";
+    html += "fetch('/scan').then(function(r){return r.json();}).then(function(nets){";
+    html += "var s=document.getElementById('ssid');";
+    html += "s.innerHTML='<option value=\"\">Select network...</option>';";
+    html += "for(var i=0;i<nets.length;i++){";
+    html += "var opt='<option value=\"'+nets[i].ssid+'\">'+nets[i].ssid+' ('+nets[i].rssi+' dBm)</option>';";
+    html += "s.innerHTML+=opt;}";
+    html += "status.innerHTML='<p style=color:green>Found '+nets.length+' networks</p>';";
+    html += "}).catch(function(e){";
+    html += "status.innerHTML='<p style=color:red>Scan failed. Try again.</p>';";
+    html += "}).finally(function(){";
+    html += "btn.disabled=false;";
+    html += "btn.innerHTML='Scan Networks';";
+    html += "scanning=false;";
+    html += "});";
+    html += "}";
+    html += "function reset(){";
+    html += "if(confirm('Reset WiFi config?')){";
+    html += "fetch('/reset').then(function(){location.reload();});";
+    html += "}";
+    html += "}";
+    html += "window.onload=function(){scan();};";
+    html += "</script></body></html>";
     
     return html;
 }

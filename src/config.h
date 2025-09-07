@@ -50,7 +50,7 @@
 #define DEFAULT_AP_SSID "MACSYS-CONFIG"
 #define DEFAULT_AP_PASSWORD "admin123"
 #define DEFAULT_HOSTNAME "macsys-minimal"
-#define WIFI_CONNECT_TIMEOUT 30000
+#define WIFI_CONNECT_TIMEOUT 20000
 #define WIFI_RECONNECT_INTERVAL 60000
 
 // WiFi Manager Configuration
