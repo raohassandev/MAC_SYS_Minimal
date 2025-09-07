@@ -415,7 +415,7 @@ void startWiFi() {
 #### Access Point Mode
 
 - **SSID**: MAC-SYS-[MAC_SUFFIX]
-- **Password**: KC868[MAC_DIGITS]!
+- **Password**: MAC-SYS[MAC_DIGITS]!
 - **IP Range**: 192.168.4.1/24
 - **DHCP**: Enabled for client devices
 

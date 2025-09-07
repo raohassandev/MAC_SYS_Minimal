@@ -69,7 +69,7 @@
 - Graceful failure recovery
 
 ### 5. **Hardware Integration**
-✅ **KC868-A6 Compatibility**
+✅ **MAC-SYS Board Compatibility**
 - I2C OLED at address 0x3C
 - Temperature sensors (DS18B20, AM2302B)
 - PCF8574 I/O expanders

@@ -5,6 +5,7 @@
 #include "display.h"
 #include "wifi_manager.h"
 #include "temperature.h"
+#include "relay_control.h"
 #include <EEPROM.h>
 #include <esp_task_wdt.h>
 #include <WiFi.h>
@@ -29,6 +30,7 @@ unsigned long last_system_update = 0;
 unsigned long last_temp_reading = 0;
 unsigned long last_status_update = 0;
 unsigned long last_display_update = 0;
+unsigned long last_io_update = 0;
 unsigned long system_start_time = 0;
 
 // Hardware state variables
@@ -54,6 +56,7 @@ void systemLoop();
 void readTemperatureSensors();
 void setupDeviceWebServer();
 void handleDeviceWebServer();
+void updateIOSystem();
 
 void setup() {
     // Initialize serial communication
@@ -107,6 +110,14 @@ void setup() {
         DEBUG_PRINTLN("WARNING: WiFi Manager initialization failed");
     }
     
+    // Initialize relay and I/O system
+    if (!relay_controller.begin()) {
+        DEBUG_PRINTLN("WARNING: Relay controller initialization failed");
+        g_system_status.state = STATE_ERROR;
+    } else {
+        DEBUG_PRINTLN("✅ Relay and I/O system initialized successfully");
+    }
+    
     DEBUG_PRINTLN("System initialization complete");
     g_system_status.state = STATE_READY;
     
@@ -143,6 +154,12 @@ void loop() {
     
     // Display update loop
     updateDisplay();
+    
+    // I/O system update loop
+    if (current_time - last_io_update >= 100) {  // Update I/O every 100ms
+        updateIOSystem();
+        last_io_update = current_time;
+    }
     
     // Handle WiFi Manager
     handleWiFiManager();
@@ -500,12 +517,68 @@ void setupDeviceWebServer() {
         html += "<div class='temp'>Temperature: " + String(g_system_status.current_temperature, 1) + "°C</div>";
         html += "</div>";
         
+        html += "<h2>System Status</h2>";
         html += "<div class='info'><span class='label'>System State:</span><span>" + String(g_system_status.state) + "</span></div>";
         html += "<div class='info'><span class='label'>Uptime:</span><span>" + String(g_system_status.uptime) + "s</span></div>";
         html += "<div class='info'><span class='label'>Free Memory:</span><span>" + String(g_system_status.free_memory) + " bytes</span></div>";
         html += "<div class='info'><span class='label'>WiFi Network:</span><span>" + WiFi.SSID() + "</span></div>";
         html += "<div class='info'><span class='label'>IP Address:</span><span>" + WiFi.localIP().toString() + "</span></div>";
         html += "<div class='info'><span class='label'>Signal Strength:</span><span>" + String(WiFi.RSSI()) + " dBm</span></div>";
+        
+        html += "<h2>🔌 Relay Control - Manual Testing</h2>";
+        html += "<div style='background:#f8f9fa;padding:20px;border-radius:5px;margin:15px 0'>";
+        html += "<p style='margin:0 0 15px 0;color:#666;font-style:italic'>⚡ Click buttons below to manually control each relay for testing</p>";
+        
+        // Add individual relay control cards
+        html += "<div style='display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:15px;margin:20px 0'>";
+        
+        for (int i = 0; i < 6; i++) {
+            bool relayState = relay_controller.getRelayState(i);
+            String stateColor = relayState ? "#28a745" : "#dc3545";
+            String stateText = relayState ? "ON" : "OFF";
+            String cardBorder = relayState ? "border-left:4px solid #28a745" : "border-left:4px solid #dc3545";
+            
+            html += "<div style='background:white;padding:15px;border-radius:6px;box-shadow:0 2px 4px rgba(0,0,0,0.1);" + cardBorder + "'>";
+            html += "<h4 style='margin:0 0 10px 0;color:#333'>🔌 Relay " + String(i + 1) + "</h4>";
+            html += "<div style='display:flex;align-items:center;justify-content:space-between;margin:10px 0'>";
+            html += "<span style='font-weight:bold'>Status:</span>";
+            html += "<span style='color:" + stateColor + ";font-weight:bold;font-size:16px'>" + stateText + "</span>";
+            html += "</div>";
+            
+            // Individual control buttons
+            html += "<div style='display:flex;gap:8px;margin-top:15px'>";
+            html += "<button onclick='setRelay(" + String(i) + ", true)' style='flex:1;padding:8px 12px;border:none;border-radius:4px;background:#28a745;color:white;cursor:pointer;font-weight:bold'>";
+            html += "🟢 Turn ON</button>";
+            html += "<button onclick='setRelay(" + String(i) + ", false)' style='flex:1;padding:8px 12px;border:none;border-radius:4px;background:#dc3545;color:white;cursor:pointer;font-weight:bold'>";
+            html += "🔴 Turn OFF</button>";
+            html += "</div>";
+            html += "</div>";
+        }
+        
+        html += "</div>";
+        
+        // Add test all relays buttons
+        html += "<div style='margin:20px 0;text-align:center'>";
+        html += "<button onclick='testAllRelays(true)' style='padding:8px 16px;margin:5px;border:none;border-radius:4px;background:#28a745;color:white;cursor:pointer;font-weight:bold'>🟢 Turn All ON</button>";
+        html += "<button onclick='testAllRelays(false)' style='padding:8px 16px;margin:5px;border:none;border-radius:4px;background:#dc3545;color:white;cursor:pointer;font-weight:bold'>🔴 Turn All OFF</button>";
+        html += "</div>";
+        html += "</div>";
+        
+        html += "<h2>📊 Digital Inputs Status</h2>";
+        html += "<div style='background:#f8f9fa;padding:20px;border-radius:5px;margin:15px 0'>";
+        html += "<p style='margin:0 0 15px 0;color:#666;font-style:italic'>📡 Real-time status of 6 digital input channels</p>";
+        
+        // Add input status indicators
+        for (int i = 0; i < 6; i++) {
+            bool inputState = relay_controller.getInputState(i);
+            String stateColor = inputState ? "#dc3545" : "#28a745";
+            String stateText = inputState ? "ACTIVE" : "INACTIVE";
+            
+            html += "<div class='info' style='margin:8px 0'>";
+            html += "<span class='label'>Input " + String(i + 1) + ":</span>";
+            html += "<span style='color:" + stateColor + ";font-weight:bold'>" + stateText + "</span></div>";
+        }
+        html += "</div>";
         
         html += "<h2>WiFi Management</h2>";
         html += "<div style='background:#f8f9fa;padding:20px;border-radius:5px;margin:15px 0'>";
@@ -540,6 +613,45 @@ void setupDeviceWebServer() {
         html += "    document.getElementById('static-config').style.display = this.value === 'static' ? 'block' : 'none';";
         html += "  });";
         html += "});";
+        html += "function setRelay(relayNum, state) {";
+        html += "  fetch('/relay', {";
+        html += "    method: 'POST',";
+        html += "    headers: {'Content-Type': 'application/x-www-form-urlencoded'},";
+        html += "    body: 'relay=' + relayNum + '&action=set&state=' + (state ? '1' : '0')";
+        html += "  }).then(response => response.json()).then(data => {";
+        html += "    if(data.success) {";
+        html += "      location.reload();";
+        html += "    } else {";
+        html += "      alert('Failed to control relay: ' + data.message);";
+        html += "    }";
+        html += "  }).catch(err => alert('Network error: ' + err));";
+        html += "}";
+        html += "function toggleRelay(relayNum) {";
+        html += "  fetch('/relay', {";
+        html += "    method: 'POST',";
+        html += "    headers: {'Content-Type': 'application/x-www-form-urlencoded'},";
+        html += "    body: 'relay=' + relayNum + '&action=toggle'";
+        html += "  }).then(response => response.json()).then(data => {";
+        html += "    if(data.success) {";
+        html += "      location.reload();";
+        html += "    } else {";
+        html += "      alert('Failed to control relay: ' + data.message);";
+        html += "    }";
+        html += "  }).catch(err => alert('Network error: ' + err));";
+        html += "}";
+        html += "function testAllRelays(state) {";
+        html += "  fetch('/relay', {";
+        html += "    method: 'POST',";
+        html += "    headers: {'Content-Type': 'application/x-www-form-urlencoded'},";
+        html += "    body: 'action=all&state=' + (state ? '1' : '0')";
+        html += "  }).then(response => response.json()).then(data => {";
+        html += "    if(data.success) {";
+        html += "      location.reload();";
+        html += "    } else {";
+        html += "      alert('Failed to control relays: ' + data.message);";
+        html += "    }";
+        html += "  }).catch(err => alert('Network error: ' + err));";
+        html += "}";
         html += "</script>";
         
         html += "</div></body></html>";
@@ -560,6 +672,68 @@ void setupDeviceWebServer() {
         json += "}";
         
         device_server->send(200, "application/json", json);
+    });
+    
+    // Relay control endpoint
+    device_server->on("/relay", HTTP_POST, []() {
+        String relayStr = device_server->arg("relay");
+        String action = device_server->arg("action");
+        String stateStr = device_server->arg("state");
+        
+        String response = "{";
+        
+        if (action == "all") {
+            // Control all relays
+            bool state = (stateStr == "1");
+            uint8_t allStates = state ? 0x3F : 0x00; // 0x3F = all 6 relays ON, 0x00 = all OFF
+            relay_controller.setAllRelays(allStates);
+            
+            response += "\"success\":true,";
+            response += "\"action\":\"all\",";
+            response += "\"state\":" + String(state ? "true" : "false") + ",";
+            response += "\"message\":\"All relays " + String(state ? "ON" : "OFF") + "\"";
+            
+        } else if (action == "set") {
+            // Direct relay control
+            int relayNum = relayStr.toInt();
+            bool state = (stateStr == "1");
+            
+            if (relayNum >= 0 && relayNum < 6) {
+                bool success = relay_controller.setRelay(relayNum, state);
+                
+                response += "\"success\":" + String(success ? "true" : "false") + ",";
+                response += "\"relay\":" + String(relayNum) + ",";
+                response += "\"state\":" + String(state ? "true" : "false") + ",";
+                response += "\"message\":\"";
+                response += (success ? ("Relay " + String(relayNum + 1) + " turned " + String(state ? "ON" : "OFF")) : "Failed to control relay");
+                response += "\"";
+            } else {
+                response += "\"success\":false,\"message\":\"Invalid relay number\"";
+            }
+            
+        } else if (action == "toggle") {
+            // Single relay control
+            int relayNum = relayStr.toInt();
+            
+            if (relayNum >= 0 && relayNum < 6) {
+                bool currentState = relay_controller.getRelayState(relayNum);
+                bool success = relay_controller.setRelay(relayNum, !currentState);
+                
+                response += "\"success\":" + String(success ? "true" : "false") + ",";
+                response += "\"relay\":" + String(relayNum) + ",";
+                response += "\"state\":" + String(!currentState ? "true" : "false") + ",";
+                response += "\"message\":\"";
+                response += (success ? "Relay toggled successfully" : "Failed to control relay");
+                response += "\"";
+            } else {
+                response += "\"success\":false,\"message\":\"Invalid relay number\"";
+            }
+        } else {
+            response += "\"success\":false,\"message\":\"Invalid action\"";
+        }
+        
+        response += "}";
+        device_server->send(200, "application/json", response);
     });
     
     // WiFi configuration endpoint
@@ -702,5 +876,23 @@ void handleDeviceWebServer() {
     if (device_server != nullptr) {
         device_server->handleClient();
     }
+}
+
+void updateIOSystem() {
+    // Update digital inputs with debouncing
+    relay_controller.updateInputs();
+    
+    // Log input state changes
+    static uint8_t last_logged_inputs = 0xFF;
+    uint8_t current_inputs = relay_controller.getAllInputStates();
+    
+    if (current_inputs != last_logged_inputs) {
+        DEBUG_PRINTF("📊 I/O Status Changed: 0x%02X\n", current_inputs);
+        DEBUG_PRINTLN(relay_controller.getInputStatusString());
+        last_logged_inputs = current_inputs;
+    }
+    
+    // TODO: Add temperature-based relay control logic here
+    // This will be implemented in the next phase
 }
 
