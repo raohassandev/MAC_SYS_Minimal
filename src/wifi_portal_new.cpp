@@ -51,7 +51,10 @@ String generateSimpleConfigPage() {
     html += "<label for='ssid'>WiFi Network Name (SSID):</label>";
     html += "<input type='text' id='ssid' name='ssid' placeholder='Enter your WiFi network name' required>";
     html += "<label for='password'>WiFi Password:</label>";
-    html += "<input type='password' id='password' name='password' placeholder='Enter WiFi password'>";
+    html += "<div style='position:relative;'>";
+    html += "<input type='password' id='password' name='password' placeholder='Enter WiFi password' style='padding-right:60px;width:calc(100% - 70px);'>";
+    html += "<button type='button' onclick='togglePassword()' style='position:absolute;right:5px;top:50%;transform:translateY(-50%);background:#007bff;color:white;border:none;cursor:pointer;padding:5px 10px;border-radius:3px;font-size:12px;' id='toggleBtn'>Show</button>";
+    html += "</div>";
     html += "<button type='submit' class='btn btn-primary'>Connect to WiFi</button>";
     html += "</form>";
     
@@ -109,7 +112,7 @@ String generateSimpleConfigPage() {
     html += "var btn=document.createElement('button');";
     html += "btn.className='btn btn-secondary';";
     html += "btn.style.marginBottom='5px';";
-    html += "btn.innerHTML=n.ssid+' ('+n.rssi+' dBm) '+(n.secure?'🔒':'🔓');";
+    html += "btn.innerHTML=n.ssid+' ('+n.rssi+' dBm) '+(n.secure?'[Secured]':'[Open]');";
     html += "btn.onclick=function(){document.getElementById('ssid').value=n.ssid;hideStatus();};";
     html += "div.appendChild(btn);});";
     html += "document.getElementById('scanResults').classList.remove('hidden');";
@@ -121,6 +124,13 @@ String generateSimpleConfigPage() {
     html += "function resetConfig(){";
     html += "if(confirm('Forget saved WiFi settings?')){";
     html += "fetch('/reset').then(()=>{showStatus('WiFi settings cleared!','success');});}}";
+    
+    html += "function togglePassword(){";
+    html += "var pwd=document.getElementById('password');";
+    html += "var btn=document.getElementById('toggleBtn');";
+    html += "if(pwd.type==='password'){";
+    html += "pwd.type='text';btn.innerHTML='Hide';";
+    html += "}else{pwd.type='password';btn.innerHTML='Show';}}";
     
     html += "</script></div></body></html>";
     
@@ -138,6 +148,16 @@ void handleSimpleConnect() {
     
     String ssid = config_server->arg("ssid");
     String password = config_server->arg("password");
+    
+    DEBUG_PRINTF("Connect request - SSID: %s\n", ssid.c_str());
+    DEBUG_PRINTF("Password length received: %d\n", password.length());
+    
+    // Debug: Show each character code
+    DEBUG_PRINT("Password chars (ASCII): ");
+    for(int i = 0; i < password.length(); i++) {
+        DEBUG_PRINTF("%d ", (int)password.charAt(i));
+    }
+    DEBUG_PRINTLN("");
     
     if (ssid.length() == 0) {
         config_server->send(400, "text/plain", "ERROR: No SSID provided");
@@ -161,16 +181,25 @@ void handleSimpleConnect() {
     EEPROM.put(100, creds); // WIFI_CREDENTIALS_ADDR = 100
     EEPROM.commit();
     
-    // Attempt connection
-    config_server->send(200, "text/plain", "Attempting connection...");
+    // Send immediate response before attempting connection
+    config_server->send(200, "text/plain", "Credentials saved. Attempting connection... Check status in 30 seconds.");
     
-    // Try to connect in background
-    delay(100);
+    DEBUG_PRINTLN("Starting connection attempt in background...");
+    
+    // Delay to let the HTTP response complete, then attempt connection
+    delay(1000);
+    
+    DEBUG_PRINTF("Attempting connection to: %s\n", ssid.c_str());
+    DEBUG_PRINTF("Password: %s\n", password.c_str());
+    
+    // Attempt connection
     if (attemptWiFiConnection(ssid.c_str(), password.c_str())) {
-        // Success - but don't stop AP mode, let user verify
-        config_server->send(200, "text/plain", "SUCCESS: Connected to " + ssid);
+        DEBUG_PRINTLN("✅ WiFi connection successful!");
+        // Restart to switch from AP mode to STA mode
+        delay(1000);
+        ESP.restart();
     } else {
-        config_server->send(200, "text/plain", "FAILED: Could not connect to " + ssid + ". Check password and try again.");
+        DEBUG_PRINTLN("❌ WiFi connection failed, staying in AP mode");
     }
 }
 

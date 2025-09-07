@@ -83,7 +83,20 @@ bool initializeWiFiManager() {
     // Try to connect with saved credentials
     char saved_ssid[64], saved_password[64];
     if (loadWiFiCredentials(saved_ssid, saved_password)) {
-        DEBUG_PRINTF("Connecting to: %s\n", saved_ssid);
+        DEBUG_PRINTF("Connecting to saved network: %s\n", saved_ssid);
+        DEBUG_PRINTF("Password length: %d\n", strlen(saved_password));
+        
+        // Debug: Show password characters (masked for security)
+        DEBUG_PRINT("Password (masked): ");
+        for(int i = 0; i < strlen(saved_password); i++) {
+            if(i < 2 || i >= strlen(saved_password) - 2) {
+                DEBUG_PRINTF("%c", saved_password[i]);
+            } else {
+                DEBUG_PRINT("*");
+            }
+        }
+        DEBUG_PRINTLN("");
+        
         if (attemptWiFiConnection(saved_ssid, saved_password)) {
             wifi_connected = true;
             DEBUG_PRINTLN("WiFi connected");
