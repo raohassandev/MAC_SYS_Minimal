@@ -8,6 +8,7 @@
 #include <EEPROM.h>
 #include <esp_task_wdt.h>
 #include <WiFi.h>
+#include <WebServer.h>
 
 // Global system variables
 SystemConfig g_system_config;
@@ -36,6 +37,9 @@ bool g_wifi_connected = false;
 bool status_led_state = false;
 unsigned long last_led_toggle = 0;
 
+// Web server for device management
+WebServer* device_server = nullptr;
+
 // Forward declarations
 void initializeSystem();
 bool initializeHardware();
@@ -48,6 +52,8 @@ void updateSystemStatus();
 void handleStatusLED();
 void systemLoop();
 void readTemperatureSensors();
+void setupDeviceWebServer();
+void handleDeviceWebServer();
 
 void setup() {
     // Initialize serial communication
@@ -140,6 +146,9 @@ void loop() {
     
     // Handle WiFi Manager
     handleWiFiManager();
+    
+    // Handle device web server
+    handleDeviceWebServer();
     
     // Small delay to prevent watchdog issues
     delay(10);
@@ -463,5 +472,235 @@ void readTemperatureSensors() {
     g_system_status.setpoint_temperature = g_system_config.hvac.setpoint_temperature;
     
     DEBUG_PRINTF("Temperature: %.2f°C\n", filtered_temp);
+}
+
+void setupDeviceWebServer() {
+    if (!g_wifi_connected || device_server != nullptr) {
+        return;  // Only start when WiFi is connected and not already running
+    }
+    
+    DEBUG_PRINTLN("Starting device web server...");
+    device_server = new WebServer(80);
+    
+    // Main device status page
+    device_server->on("/", []() {
+        String html = "<!DOCTYPE html><html><head><title>MAC-SYS Device Status</title>";
+        html += "<meta name='viewport' content='width=device-width, initial-scale=1'>";
+        html += "<style>body{font-family:Arial;margin:40px;background:#f0f0f0}";
+        html += ".container{background:white;padding:30px;border-radius:10px;box-shadow:0 2px 10px rgba(0,0,0,0.1)}";
+        html += ".status{background:#e8f5e8;padding:15px;border-radius:5px;margin:10px 0}";
+        html += ".temp{font-size:24px;color:#2c5234;font-weight:bold}";
+        html += ".info{display:flex;justify-content:space-between;margin:10px 0}";
+        html += ".label{font-weight:bold;color:#666}</style></head><body>";
+        
+        html += "<div class='container'>";
+        html += "<h1>MAC-SYS Industrial Controller</h1>";
+        
+        html += "<div class='status'>";
+        html += "<div class='temp'>Temperature: " + String(g_system_status.current_temperature, 1) + "°C</div>";
+        html += "</div>";
+        
+        html += "<div class='info'><span class='label'>System State:</span><span>" + String(g_system_status.state) + "</span></div>";
+        html += "<div class='info'><span class='label'>Uptime:</span><span>" + String(g_system_status.uptime) + "s</span></div>";
+        html += "<div class='info'><span class='label'>Free Memory:</span><span>" + String(g_system_status.free_memory) + " bytes</span></div>";
+        html += "<div class='info'><span class='label'>WiFi Network:</span><span>" + WiFi.SSID() + "</span></div>";
+        html += "<div class='info'><span class='label'>IP Address:</span><span>" + WiFi.localIP().toString() + "</span></div>";
+        html += "<div class='info'><span class='label'>Signal Strength:</span><span>" + String(WiFi.RSSI()) + " dBm</span></div>";
+        
+        html += "<h2>WiFi Management</h2>";
+        html += "<div style='background:#f8f9fa;padding:20px;border-radius:5px;margin:15px 0'>";
+        html += "<h3>Network Configuration</h3>";
+        html += "<form method='post' action='/wifi'>";
+        html += "<div style='margin:10px 0'><label><strong>Network Mode:</strong></label><br>";
+        html += "<label><input type='radio' name='mode' value='dhcp' checked> DHCP (Automatic)</label><br>";
+        html += "<label><input type='radio' name='mode' value='static'> Static IP</label></div>";
+        
+        html += "<div id='static-config' style='display:none;margin:15px 0;padding:15px;background:#e9ecef;border-radius:5px'>";
+        html += "<div style='margin:8px 0'><label>IP Address:</label><br><input type='text' name='static_ip' placeholder='192.168.1.100' style='width:200px;padding:5px'></div>";
+        html += "<div style='margin:8px 0'><label>Gateway:</label><br><input type='text' name='gateway' placeholder='192.168.1.1' style='width:200px;padding:5px'></div>";
+        html += "<div style='margin:8px 0'><label>Subnet Mask:</label><br><input type='text' name='subnet' placeholder='255.255.255.0' style='width:200px;padding:5px'></div>";
+        html += "<div style='margin:8px 0'><label>DNS Server:</label><br><input type='text' name='dns' placeholder='8.8.8.8' style='width:200px;padding:5px'></div>";
+        html += "</div>";
+        
+        html += "<div style='margin:15px 0'><button type='submit' style='background:#007bff;color:white;padding:10px 20px;border:none;border-radius:5px;cursor:pointer'>Apply Network Settings</button></div>";
+        html += "</form>";
+        
+        html += "<h3>Change WiFi Network</h3>";
+        html += "<button onclick=\"location.href='/wifi-config'\" style='background:#28a745;color:white;padding:10px 20px;border:none;border-radius:5px;cursor:pointer'>Configure WiFi Network</button>";
+        html += "</div>";
+        
+        html += "<h2>Device Information</h2>";
+        html += "<div class='info'><span class='label'>Chip Model:</span><span>ESP32</span></div>";
+        html += "<div class='info'><span class='label'>MAC Address:</span><span>" + WiFi.macAddress() + "</span></div>";
+        html += "<div class='info'><span class='label'>Flash Size:</span><span>" + String(ESP.getFlashChipSize() / 1024) + " KB</span></div>";
+        
+        html += "<script>";
+        html += "document.querySelectorAll('input[name=mode]').forEach(function(radio) {";
+        html += "  radio.addEventListener('change', function() {";
+        html += "    document.getElementById('static-config').style.display = this.value === 'static' ? 'block' : 'none';";
+        html += "  });";
+        html += "});";
+        html += "</script>";
+        
+        html += "</div></body></html>";
+        
+        device_server->send(200, "text/html", html);
+    });
+    
+    // JSON API endpoint
+    device_server->on("/api/status", []() {
+        String json = "{";
+        json += "\"temperature\":" + String(g_system_status.current_temperature, 1) + ",";
+        json += "\"state\":" + String(g_system_status.state) + ",";
+        json += "\"uptime\":" + String(g_system_status.uptime) + ",";
+        json += "\"free_memory\":" + String(g_system_status.free_memory) + ",";
+        json += "\"wifi_ssid\":\"" + WiFi.SSID() + "\",";
+        json += "\"ip_address\":\"" + WiFi.localIP().toString() + "\",";
+        json += "\"rssi\":" + String(WiFi.RSSI());
+        json += "}";
+        
+        device_server->send(200, "application/json", json);
+    });
+    
+    // WiFi configuration endpoint
+    device_server->on("/wifi", HTTP_POST, []() {
+        String mode = device_server->arg("mode");
+        String message = "";
+        
+        if (mode == "static") {
+            String static_ip = device_server->arg("static_ip");
+            String gateway = device_server->arg("gateway");
+            String subnet = device_server->arg("subnet");
+            String dns = device_server->arg("dns");
+            
+            // Validate IP addresses
+            IPAddress ip, gw, sn, dn;
+            if (ip.fromString(static_ip) && gw.fromString(gateway) && 
+                sn.fromString(subnet) && dn.fromString(dns)) {
+                
+                if (WiFi.config(ip, gw, sn, dn)) {
+                    message = "✅ Static IP configuration applied successfully!<br>Reconnecting...";
+                    DEBUG_PRINTF("Static IP configured: %s\n", static_ip.c_str());
+                } else {
+                    message = "❌ Failed to apply static IP configuration";
+                }
+            } else {
+                message = "❌ Invalid IP address format";
+            }
+        } else {
+            // Switch to DHCP
+            if (WiFi.config(0U, 0U, 0U)) {  // Reset to DHCP
+                message = "✅ DHCP mode enabled successfully!<br>Reconnecting...";
+                DEBUG_PRINTLN("DHCP mode configured");
+            } else {
+                message = "❌ Failed to enable DHCP mode";
+            }
+        }
+        
+        String html = "<!DOCTYPE html><html><head><title>Network Configuration</title>";
+        html += "<meta name='viewport' content='width=device-width, initial-scale=1'>";
+        html += "<meta http-equiv='refresh' content='5;url=/'>";
+        html += "<style>body{font-family:Arial;margin:40px;background:#f0f0f0;text-align:center}";
+        html += ".container{background:white;padding:30px;border-radius:10px;box-shadow:0 2px 10px rgba(0,0,0,0.1);display:inline-block}</style></head><body>";
+        html += "<div class='container'>";
+        html += "<h2>Network Configuration</h2>";
+        html += "<div style='margin:20px 0;font-size:18px'>" + message + "</div>";
+        html += "<p>Redirecting back to main page in 5 seconds...</p>";
+        html += "<a href='/' style='color:#007bff;text-decoration:none'>← Back to Main Page</a>";
+        html += "</div></body></html>";
+        
+        device_server->send(200, "text/html", html);
+        
+        // Reconnect WiFi with new settings after response
+        if (message.indexOf("✅") >= 0) {
+            delay(2000);  // Give time for response to be sent
+            WiFi.reconnect();
+        }
+    });
+    
+    // WiFi network change page
+    device_server->on("/wifi-config", []() {
+        String html = "<!DOCTYPE html><html><head><title>WiFi Configuration</title>";
+        html += "<meta name='viewport' content='width=device-width, initial-scale=1'>";
+        html += "<style>body{font-family:Arial;margin:40px;background:#f0f0f0}";
+        html += ".container{background:white;padding:30px;border-radius:10px;box-shadow:0 2px 10px rgba(0,0,0,0.1)}";
+        html += ".warning{background:#fff3cd;border:1px solid #ffeaa7;color:#856404;padding:15px;border-radius:5px;margin:15px 0}";
+        html += "button{background:#dc3545;color:white;padding:10px 20px;border:none;border-radius:5px;cursor:pointer;margin:10px 5px}</style></head><body>";
+        
+        html += "<div class='container'>";
+        html += "<h2>WiFi Network Configuration</h2>";
+        
+        html += "<div class='warning'>⚠️ <strong>Warning:</strong> Changing WiFi settings will disconnect the current connection and start configuration mode.</div>";
+        
+        html += "<h3>Current Connection</h3>";
+        html += "<p><strong>Network:</strong> " + WiFi.SSID() + "</p>";
+        html += "<p><strong>IP Address:</strong> " + WiFi.localIP().toString() + "</p>";
+        html += "<p><strong>Signal:</strong> " + String(WiFi.RSSI()) + " dBm</p>";
+        
+        html += "<h3>Change Network</h3>";
+        html += "<p>To change the WiFi network:</p>";
+        html += "<ol>";
+        html += "<li>Click <strong>Reset WiFi Settings</strong> below</li>";
+        html += "<li>Device will restart in configuration mode</li>";
+        html += "<li>Connect to <strong>MAC-SYS-CONFIG</strong> network (password: admin123)</li>";
+        html += "<li>Configure new network settings</li>";
+        html += "</ol>";
+        
+        html += "<div style='margin:30px 0;text-align:center'>";
+        html += "<button onclick=\"location.href='/'\" style='background:#6c757d'>← Back to Main</button>";
+        html += "<button onclick='resetWiFi()'>Reset WiFi Settings</button>";
+        html += "</div>";
+        
+        html += "<script>";
+        html += "function resetWiFi() {";
+        html += "  if(confirm('Are you sure? This will disconnect the current WiFi and restart configuration mode.')) {";
+        html += "    fetch('/reset-wifi', {method:'POST'}).then(()=>{";
+        html += "      alert('WiFi settings reset! Device restarting in configuration mode...');";
+        html += "    });";
+        html += "  }";
+        html += "}";
+        html += "</script>";
+        
+        html += "</div></body></html>";
+        
+        device_server->send(200, "text/html", html);
+    });
+    
+    // WiFi reset endpoint
+    device_server->on("/reset-wifi", HTTP_POST, []() {
+        device_server->send(200, "text/plain", "OK");
+        DEBUG_PRINTLN("WiFi reset requested via web interface");
+        delay(1000);
+        
+        // Clear stored credentials and restart
+        EEPROM.write(0, 0);  // Clear checksum
+        EEPROM.commit();
+        DEBUG_PRINTLN("WiFi credentials cleared, restarting...");
+        ESP.restart();
+    });
+    
+    device_server->begin();
+    DEBUG_PRINTLN("✅ Device web server started on port 80");
+    DEBUG_PRINTF("🌐 Access at: http://%s/\n", WiFi.localIP().toString().c_str());
+}
+
+void handleDeviceWebServer() {
+    // Start server if WiFi connected and not running
+    if (g_wifi_connected && device_server == nullptr) {
+        setupDeviceWebServer();
+    }
+    
+    // Stop server if WiFi disconnected
+    if (!g_wifi_connected && device_server != nullptr) {
+        DEBUG_PRINTLN("Stopping device web server (WiFi disconnected)");
+        device_server->stop();
+        delete device_server;
+        device_server = nullptr;
+    }
+    
+    // Handle client requests
+    if (device_server != nullptr) {
+        device_server->handleClient();
+    }
 }
 
