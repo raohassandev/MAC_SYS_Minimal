@@ -30,6 +30,11 @@ test_endpoint() {
     local data="$4"
     local expected_code="$5"
     
+    # Default to 200 if no expected code provided
+    if [ -z "$expected_code" ]; then
+        expected_code="200"
+    fi
+    
     echo -n "Testing: $description ... "
     
     if [ "$method" == "GET" ]; then
@@ -39,7 +44,7 @@ test_endpoint() {
     fi
     
     http_code=$(echo "$response" | tail -1)
-    body=$(echo "$response" | head -n -1)
+    body=$(echo "$response" | sed '$d')
     
     if [ "$http_code" == "$expected_code" ]; then
         echo -e "${GREEN}✓ PASSED${NC} (HTTP $http_code)"
@@ -153,6 +158,69 @@ sleep 3
 # Check if heating activated
 echo "Checking system status..."
 curl -s "$BASE_URL/" | grep -q "ACTIVE" && echo -e "${GREEN}✓ Heating activated${NC}" || echo -e "${YELLOW}⚠ Heating may not have activated${NC}"
+echo ""
+
+# 9. Schedule Management Tests
+echo "=== 9. SCHEDULE MANAGEMENT TESTS ==="
+
+# Test schedule page access
+test_endpoint "Schedule configuration page" "GET" "/schedule" "200"
+
+# Test global schedule controls
+test_endpoint "Enable global schedule" "POST" "/api/schedule/global" "enabled=true" "200"
+sleep 1
+test_endpoint "Disable global schedule" "POST" "/api/schedule/global" "enabled=false" "200"
+sleep 1
+test_endpoint "Re-enable global schedule" "POST" "/api/schedule/global" "enabled=true" "200"
+sleep 1
+
+# Test holiday mode
+test_endpoint "Enable holiday mode" "POST" "/api/schedule/holiday" "enabled=true" "200"
+sleep 1
+test_endpoint "Disable holiday mode" "POST" "/api/schedule/holiday" "enabled=false" "200"
+sleep 1
+
+# Test zone schedule controls
+test_endpoint "Enable zone 0 schedule" "POST" "/api/schedule/zone" "zone=0&enabled=true" "200"
+sleep 1
+test_endpoint "Disable zone 0 schedule" "POST" "/api/schedule/zone" "zone=0&enabled=false" "200"
+sleep 1
+test_endpoint "Re-enable zone 0 schedule" "POST" "/api/schedule/zone" "zone=0&enabled=true" "200"
+sleep 1
+
+# Test schedule event management
+echo "Testing schedule event creation..."
+event_data="zone=0&desc=TestEvent2&time=16:00&temp=23.0&delta=1.0&mode=1&days=32"  # Friday only (binary: 100000 = 32)
+test_endpoint "Add schedule event" "POST" "/api/schedule/event" "$event_data" "200"
+sleep 2
+
+# Test schedule event removal (the newly added event should be at index 5 since zone 0 already has 5 events)
+test_endpoint "Remove schedule event" "DELETE" "/api/schedule/event" "zone=0&index=5" "200"
+echo ""
+
+# 10. RTC and Time Management Tests  
+echo "=== 10. RTC AND TIME MANAGEMENT TESTS ==="
+echo "Checking schedule page for time information..."
+schedule_response=$(curl -s "$BASE_URL/schedule" 2>/dev/null)
+
+if echo "$schedule_response" | grep -q "Current Time:"; then
+    echo -e "${GREEN}✓ Schedule page accessible with time display${NC}"
+else
+    echo -e "${RED}✗ Schedule page time display issue${NC}"
+fi
+
+if echo "$schedule_response" | grep -q "RTC Status:"; then
+    echo -e "${GREEN}✓ RTC status displayed${NC}"  
+else
+    echo -e "${RED}✗ RTC status not displayed${NC}"
+fi
+
+if echo "$schedule_response" | grep -q "NTP Status:"; then
+    echo -e "${GREEN}✓ NTP status displayed${NC}"
+else
+    echo -e "${RED}✗ NTP status not displayed${NC}"
+fi
+
 echo ""
 
 # Summary

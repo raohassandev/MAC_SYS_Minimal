@@ -7,6 +7,8 @@
 #include "temperature.h"
 #include "relay_control.h"
 #include "temperature_control.h"
+#include "rtc_manager.h"
+#include "schedule_manager.h"
 #include <EEPROM.h>
 #include <esp_task_wdt.h>
 #include <WiFi.h>
@@ -172,6 +174,12 @@ void loop() {
         last_io_update = current_time;
     }
     
+    // Update RTC manager (for NTP sync)
+    rtc_manager.updateTime();
+    
+    // Process schedule manager
+    schedule_manager.process();
+    
     // Handle WiFi Manager
     handleWiFiManager();
     
@@ -190,6 +198,12 @@ void initializeSystem() {
     
     // Initialize hardware components
     initializeHardware();
+    
+    // Initialize RTC manager for scheduling
+    rtc_manager.begin();
+    
+    // Initialize schedule manager
+    schedule_manager.begin();
     
     // Initialize network components
     initializeNetwork();
@@ -244,6 +258,9 @@ void initializeNetwork() {
             g_wifi_connected = true;
             DEBUG_PRINTF("WiFi connected: IP %s, RSSI %d dBm\n", 
                         "N/A", getCurrentRSSI());
+            
+            // Synchronize time with NTP servers
+            rtc_manager.syncWithNTP();
             
             // Start mDNS service
             if (startMDNS(g_system_config.network.hostname)) {
@@ -779,6 +796,15 @@ void setupDeviceWebServer() {
         html += "}";
         html += "</script>";
         
+        // Navigation section
+        html += "<div class='section' style='margin-top:30px;text-align:center'>";
+        html += "<div class='section-header' style='background:#17a2b8'>System Navigation</div>";
+        html += "<div class='section-content' style='padding:20px'>";
+        html += "<button onclick=\"location.href='/schedule'\" style='background:#28a745;color:white;padding:15px 30px;border:none;border-radius:5px;cursor:pointer;margin:10px;font-size:16px'>📅 Schedule Configuration</button><br>";
+        html += "<button onclick=\"location.href='/wifi-config'\" style='background:#007bff;color:white;padding:15px 30px;border:none;border-radius:5px;cursor:pointer;margin:10px;font-size:16px'>🌐 WiFi Configuration</button>";
+        html += "</div>";
+        html += "</div>";
+        
         html += "</div></body></html>";
         
         device_server->send(200, "text/html", html);
@@ -1009,6 +1035,248 @@ void setupDeviceWebServer() {
         EEPROM.commit();
         DEBUG_PRINTLN("WiFi credentials cleared, restarting...");
         ESP.restart();
+    });
+
+    // Schedule management endpoints
+    device_server->on("/schedule", []() {
+        String html = "<!DOCTYPE html><html><head><title>MAC-SYS Schedule Configuration</title>";
+        html += "<meta name='viewport' content='width=device-width, initial-scale=1'>";
+        html += "<meta charset='UTF-8'>";
+        html += "<style>body{font-family:Arial,sans-serif;margin:20px;background:#f0f0f0}";
+        html += ".container{background:white;padding:20px;border-radius:10px;box-shadow:0 2px 10px rgba(0,0,0,0.1);max-width:1000px;margin:0 auto}";
+        html += ".section{background:#f8f9fa;border-radius:8px;margin:20px 0;overflow:hidden;border:1px solid #dee2e6}";
+        html += ".section-header{background:#007bff;color:white;padding:15px;font-weight:bold;cursor:pointer;user-select:none}";
+        html += ".section-content{padding:20px;display:block}";
+        html += ".form-group{margin:15px 0}";
+        html += "label{display:block;margin-bottom:5px;font-weight:bold}";
+        html += "input,select{width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;box-sizing:border-box}";
+        html += "button{background:#007bff;color:white;padding:10px 15px;border:none;border-radius:4px;cursor:pointer;margin:5px}";
+        html += "button:hover{background:#0056b3}";
+        html += ".schedule-event{background:#e9ecef;padding:10px;margin:10px 0;border-radius:4px}";
+        html += ".status{background:#e8f5e8;padding:15px;border-radius:5px;margin:10px 0}";
+        html += "</style></head><body>";
+        
+        html += "<div class='container'>";
+        html += "<h1>MAC-SYS Schedule Configuration</h1>";
+        
+        // Current time and status
+        html += "<div class='status'>";
+        html += "<strong>📅 Current Time:</strong> " + rtc_manager.getFormattedDateTime() + "<br>";
+        html += "<strong>📊 Schedule Status:</strong> " + String(schedule_manager.isScheduleActive() ? "ACTIVE" : "INACTIVE") + "<br>";
+        html += "<strong>🌐 RTC Status:</strong> " + String(rtc_manager.isRTCAvailable() ? "Available" : "Not Available") + "<br>";
+        html += "<strong>⏰ NTP Status:</strong> " + String(rtc_manager.isNTPSynced() ? "Synchronized" : "Not Synchronized");
+        html += "</div>";
+        
+        // Global controls
+        html += "<div class='section'>";
+        html += "<div class='section-header'>Global Schedule Controls</div>";
+        html += "<div class='section-content'>";
+        html += "<div class='form-group'>";
+        html += "<button onclick=\"setGlobalSchedule(true)\">Enable Global Schedule</button>";
+        html += "<button onclick=\"setGlobalSchedule(false)\">Disable Global Schedule</button>";
+        html += "<button onclick=\"setHolidayMode(true)\">Enable Holiday Mode</button>";
+        html += "<button onclick=\"setHolidayMode(false)\">Disable Holiday Mode</button>";
+        html += "</div>";
+        html += "</div>";
+        html += "</div>";
+        
+        // Zone schedules
+        for (int zone = 0; zone < 4; zone++) {
+            WeeklySchedule& schedule = schedule_manager.getZoneSchedule(zone);
+            html += "<div class='section'>";
+            html += "<div class='section-header'>Zone " + String(zone + 1) + " Schedule (" + String(schedule.zone_name) + ")</div>";
+            html += "<div class='section-content'>";
+            
+            // Zone enable/disable
+            html += "<div class='form-group'>";
+            html += "<button onclick=\"setZoneSchedule(" + String(zone) + ", true)\">Enable Zone</button>";
+            html += "<button onclick=\"setZoneSchedule(" + String(zone) + ", false)\">Disable Zone</button>";
+            html += "</div>";
+            
+            // Current events
+            html += "<h3>Current Events (" + String(schedule.active_events) + "/" + String(MAX_SCHEDULE_EVENTS) + ")</h3>";
+            for (int i = 0; i < schedule.active_events; i++) {
+                ScheduleEvent& event = schedule.events[i];
+                html += "<div class='schedule-event'>";
+                html += "<strong>" + String(event.description) + "</strong><br>";
+                html += "Time: " + schedule_manager.formatTimeFromMinutes(event.time_minutes);
+                html += " | Days: " + schedule_manager.formatDayMask(event.day_mask);
+                html += " | " + String(event.enabled ? "ENABLED" : "DISABLED");
+                if (event.event_type == SCHEDULE_TEMP_SETPOINT) {
+                    html += " | Setpoint: " + String(event.value1, 1) + "°C";
+                }
+                html += "<br><button onclick=\"removeEvent(" + String(zone) + ", " + String(i) + ")\">Remove</button>";
+                html += "</div>";
+            }
+            
+            // Add new event form
+            html += "<h3>Add New Event</h3>";
+            html += "<div class='form-group'>";
+            html += "<label>Description:</label>";
+            html += "<input type='text' id='desc_" + String(zone) + "' placeholder='Event description' maxlength='30'>";
+            html += "</div>";
+            html += "<div class='form-group'>";
+            html += "<label>Time (HH:MM):</label>";
+            html += "<input type='time' id='time_" + String(zone) + "' value='08:00'>";
+            html += "</div>";
+            html += "<div class='form-group'>";
+            html += "<label>Days:</label>";
+            html += "<div>";
+            html += "<label><input type='checkbox' id='sun_" + String(zone) + "'> Sunday</label>";
+            html += "<label><input type='checkbox' id='mon_" + String(zone) + "' checked> Monday</label>";
+            html += "<label><input type='checkbox' id='tue_" + String(zone) + "' checked> Tuesday</label>";
+            html += "<label><input type='checkbox' id='wed_" + String(zone) + "' checked> Wednesday</label>";
+            html += "<label><input type='checkbox' id='thu_" + String(zone) + "' checked> Thursday</label>";
+            html += "<label><input type='checkbox' id='fri_" + String(zone) + "' checked> Friday</label>";
+            html += "<label><input type='checkbox' id='sat_" + String(zone) + "'> Saturday</label>";
+            html += "</div>";
+            html += "</div>";
+            html += "<div class='form-group'>";
+            html += "<label>Temperature Setpoint (°C):</label>";
+            html += "<input type='number' id='temp_" + String(zone) + "' min='5' max='40' step='0.5' value='22'>";
+            html += "</div>";
+            html += "<div class='form-group'>";
+            html += "<label>Delta (°C):</label>";
+            html += "<input type='number' id='delta_" + String(zone) + "' min='0.5' max='5' step='0.1' value='1'>";
+            html += "</div>";
+            html += "<div class='form-group'>";
+            html += "<label>Mode:</label>";
+            html += "<select id='mode_" + String(zone) + "'>";
+            html += "<option value='0'>OFF</option>";
+            html += "<option value='1' selected>HEATING</option>";
+            html += "<option value='2'>COOLING</option>";
+            html += "<option value='3'>AUTO</option>";
+            html += "</select>";
+            html += "</div>";
+            html += "<button onclick=\"addEvent(" + String(zone) + ")\">Add Event</button>";
+            
+            html += "</div>";
+            html += "</div>";
+        }
+        
+        // Navigation
+        html += "<div style='text-align:center;margin-top:20px'>";
+        html += "<button onclick=\"window.location.href='/'\">← Back to Main</button>";
+        html += "<button onclick=\"window.location.reload()\">🔄 Refresh</button>";
+        html += "</div>";
+        
+        html += "</div>";
+        
+        // JavaScript functions
+        html += "<script>";
+        html += "function setGlobalSchedule(enabled) {";
+        html += "  fetch('/api/schedule/global', {method: 'POST', body: 'enabled=' + enabled})";
+        html += "    .then(() => window.location.reload());";
+        html += "}";
+        html += "function setHolidayMode(enabled) {";
+        html += "  fetch('/api/schedule/holiday', {method: 'POST', body: 'enabled=' + enabled})";
+        html += "    .then(() => window.location.reload());";
+        html += "}";
+        html += "function setZoneSchedule(zone, enabled) {";
+        html += "  fetch('/api/schedule/zone', {method: 'POST', body: 'zone=' + zone + '&enabled=' + enabled})";
+        html += "    .then(() => window.location.reload());";
+        html += "}";
+        html += "function removeEvent(zone, index) {";
+        html += "  fetch('/api/schedule/event', {method: 'DELETE', body: 'zone=' + zone + '&index=' + index})";
+        html += "    .then(() => window.location.reload());";
+        html += "}";
+        html += "function addEvent(zone) {";
+        html += "  const desc = document.getElementById('desc_' + zone).value;";
+        html += "  const time = document.getElementById('time_' + zone).value;";
+        html += "  const temp = document.getElementById('temp_' + zone).value;";
+        html += "  const delta = document.getElementById('delta_' + zone).value;";
+        html += "  const mode = document.getElementById('mode_' + zone).value;";
+        html += "  let days = 0;";
+        html += "  if (document.getElementById('sun_' + zone).checked) days |= 1;";
+        html += "  if (document.getElementById('mon_' + zone).checked) days |= 2;";
+        html += "  if (document.getElementById('tue_' + zone).checked) days |= 4;";
+        html += "  if (document.getElementById('wed_' + zone).checked) days |= 8;";
+        html += "  if (document.getElementById('thu_' + zone).checked) days |= 16;";
+        html += "  if (document.getElementById('fri_' + zone).checked) days |= 32;";
+        html += "  if (document.getElementById('sat_' + zone).checked) days |= 64;";
+        html += "  const data = 'zone=' + zone + '&desc=' + desc + '&time=' + time + '&temp=' + temp + '&delta=' + delta + '&mode=' + mode + '&days=' + days;";
+        html += "  fetch('/api/schedule/event', {method: 'POST', body: data})";
+        html += "    .then(() => window.location.reload());";
+        html += "}";
+        html += "</script>";
+        
+        html += "</body></html>";
+        device_server->send(200, "text/html", html);
+    });
+    
+    // Schedule API endpoints
+    device_server->on("/api/schedule/global", HTTP_POST, []() {
+        if (device_server->hasArg("enabled")) {
+            bool enabled = device_server->arg("enabled") == "true";
+            schedule_manager.setGlobalEnabled(enabled);
+            device_server->send(200, "text/plain", "OK");
+        } else {
+            device_server->send(400, "text/plain", "Missing enabled parameter");
+        }
+    });
+    
+    device_server->on("/api/schedule/holiday", HTTP_POST, []() {
+        if (device_server->hasArg("enabled")) {
+            bool enabled = device_server->arg("enabled") == "true";
+            schedule_manager.setHolidayMode(enabled);
+            device_server->send(200, "text/plain", "OK");
+        } else {
+            device_server->send(400, "text/plain", "Missing enabled parameter");
+        }
+    });
+    
+    device_server->on("/api/schedule/zone", HTTP_POST, []() {
+        if (device_server->hasArg("zone") && device_server->hasArg("enabled")) {
+            uint8_t zone = device_server->arg("zone").toInt();
+            bool enabled = device_server->arg("enabled") == "true";
+            schedule_manager.setZoneEnabled(zone, enabled);
+            device_server->send(200, "text/plain", "OK");
+        } else {
+            device_server->send(400, "text/plain", "Missing parameters");
+        }
+    });
+    
+    device_server->on("/api/schedule/event", HTTP_POST, []() {
+        if (device_server->hasArg("zone") && device_server->hasArg("time") && 
+            device_server->hasArg("temp") && device_server->hasArg("days")) {
+            
+            ScheduleEvent event;
+            event.enabled = true;
+            event.zone_id = device_server->arg("zone").toInt();
+            event.day_mask = device_server->arg("days").toInt();
+            event.time_minutes = schedule_manager.parseTimeToMinutes(device_server->arg("time"));
+            event.event_type = SCHEDULE_TEMP_SETPOINT;
+            event.value1 = device_server->arg("temp").toFloat();
+            event.value2 = device_server->hasArg("delta") ? device_server->arg("delta").toFloat() : 1.0;
+            event.temp_mode = (TempControlMode)(device_server->hasArg("mode") ? device_server->arg("mode").toInt() : 1);
+            
+            String desc = device_server->hasArg("desc") ? device_server->arg("desc") : "Custom Event";
+            strncpy(event.description, desc.c_str(), sizeof(event.description) - 1);
+            event.description[sizeof(event.description) - 1] = '\0';
+            
+            if (schedule_manager.addEvent(event.zone_id, event)) {
+                device_server->send(200, "text/plain", "Event added");
+            } else {
+                device_server->send(400, "text/plain", "Failed to add event");
+            }
+        } else {
+            device_server->send(400, "text/plain", "Missing parameters");
+        }
+    });
+    
+    device_server->on("/api/schedule/event", HTTP_DELETE, []() {
+        if (device_server->hasArg("zone") && device_server->hasArg("index")) {
+            uint8_t zone = device_server->arg("zone").toInt();
+            uint8_t index = device_server->arg("index").toInt();
+            
+            if (schedule_manager.removeEvent(zone, index)) {
+                device_server->send(200, "text/plain", "Event removed");
+            } else {
+                device_server->send(400, "text/plain", "Failed to remove event");
+            }
+        } else {
+            device_server->send(400, "text/plain", "Missing parameters");
+        }
     });
     
     device_server->begin();
