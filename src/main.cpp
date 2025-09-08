@@ -530,24 +530,32 @@ void setupDeviceWebServer() {
     
     // Main device status page
     device_server->on("/", []() {
-        String html = "<!DOCTYPE html><html><head><title>MAC-SYS Device Status</title>";
+        String html = "<!DOCTYPE html><html><head><title>MAC-SYS Industrial Controller - Dashboard</title>";
         html += "<meta name='viewport' content='width=device-width, initial-scale=1'>";
         html += "<meta charset='UTF-8'>";
-        html += "<style>body{font-family:Arial,sans-serif;margin:20px;background:#f0f0f0}";
-        html += ".container{background:white;padding:20px;border-radius:10px;box-shadow:0 2px 10px rgba(0,0,0,0.1);max-width:1200px;margin:0 auto}";
-        html += ".status{background:#e8f5e8;padding:15px;border-radius:5px;margin:10px 0}";
-        html += ".temp{font-size:24px;color:#2c5234;font-weight:bold}";
-        html += ".info{display:flex;justify-content:space-between;margin:10px 0;padding:5px 0;border-bottom:1px solid #eee}";
-        html += ".label{font-weight:bold;color:#666}";
-        html += ".section{background:#f8f9fa;border-radius:8px;margin:20px 0;overflow:hidden;border:1px solid #dee2e6}";
-        html += ".section-header{background:#007bff;color:white;padding:12px 20px;cursor:pointer;user-select:none;display:flex;justify-content:space-between;align-items:center}";
-        html += ".section-header:hover{background:#0056b3}";
-        html += ".section-content{padding:20px;display:none}";
+        html += "<style>body{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;margin:0;padding:20px;background:#0B1426;color:#E5E7EB;line-height:1.6}";
+        html += ".container{background:linear-gradient(135deg,#1f2937 0%,#374151 100%);padding:30px;border-radius:15px;box-shadow:0 8px 25px rgba(0,0,0,0.3);max-width:1200px;margin:0 auto;border:1px solid #4B5563}";
+        html += ".status{background:linear-gradient(135deg,#064e3b 0%,#047857 100%);padding:20px;border-radius:12px;margin:15px 0;border:1px solid #10b981}";
+        html += ".temp{font-size:28px;color:#00D4FF;font-weight:700;text-shadow:0 2px 4px rgba(0,0,0,0.3)}";
+        html += ".info{display:flex;justify-content:space-between;margin:12px 0;padding:8px 0;border-bottom:1px solid #4B5563}";
+        html += ".label{font-weight:600;color:#9CA3AF}";
+        html += ".section{background:linear-gradient(135deg,#1f2937 0%,#374151 100%);border-radius:12px;margin:25px 0;overflow:hidden;border:1px solid #4B5563;box-shadow:0 4px 6px rgba(0,0,0,0.1)}";
+        html += ".section-header{background:linear-gradient(135deg,#1e3a8a 0%,#3b82f6 100%);color:white;padding:15px 25px;cursor:pointer;user-select:none;display:flex;justify-content:space-between;align-items:center;font-weight:600}";
+        html += ".section-header:hover{background:linear-gradient(135deg,#1d4ed8 0%,#2563eb 100%);transform:translateY(-1px)}";
+        html += ".section-content{padding:25px;display:none;background:#1f2937}";
         html += ".section-content.active{display:block}";
-        html += ".arrow{transition:transform 0.3s}";
+        html += ".arrow{transition:transform 0.3s;font-size:14px}";
         html += ".arrow.down{transform:rotate(90deg)}";
-        html += "button{transition:all 0.3s}";
-        html += "button:hover{opacity:0.8;transform:translateY(-2px)}";
+        html += "button{transition:all 0.3s;font-weight:500;border:none;padding:8px 16px;border-radius:6px;cursor:pointer}";
+        html += "button:hover{opacity:0.9;transform:translateY(-2px);box-shadow:0 4px 12px rgba(0,0,0,0.2)}";
+        html += "h1{color:#00D4FF;text-align:center;font-size:2.2rem;margin-bottom:2rem;text-shadow:0 2px 4px rgba(0,0,0,0.3)}";
+        html += "h2{color:#00D4FF;border-bottom:2px solid #00D4FF!important}";
+        html += "div[style*='background:white']{background:linear-gradient(135deg,#1f2937 0%,#374151 100%)!important;border:1px solid #4B5563!important;color:#E5E7EB!important}";
+        html += "button[style*='background:#007bff']{background:linear-gradient(135deg,#3b82f6 0%,#1d4ed8 100%)!important}";
+        html += "button[style*='background:#28a745']{background:linear-gradient(135deg,#10b981 0%,#059669 100%)!important}";
+        html += "button[style*='background:#dc3545']{background:linear-gradient(135deg,#ef4444 0%,#dc2626 100%)!important}";
+        html += "button[style*='background:#ff6b35']{background:linear-gradient(135deg,#f59e0b 0%,#d97706 100%)!important}";
+        html += "button[style*='background:#6f42c1']{background:linear-gradient(135deg,#8b5cf6 0%,#7c3aed 100%)!important}";
         html += "</style></head><body>";
         
         html += "<div class='container'>";
