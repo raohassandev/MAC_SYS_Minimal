@@ -33,7 +33,7 @@ DallasTemperature* ds18b20Sensor = nullptr;
 DHTesp am2302Sensor;
 
 void initializeTemperatureSensors() {
-    DEBUG_PRINTLN("🌡️ Initializing temperature sensors with configuration system...");
+    DEBUG_PRINTLN("[TEMP] Initializing temperature sensors with configuration system...");
     
     // Load sensor configuration from EEPROM
     loadSensorConfig();
@@ -42,7 +42,7 @@ void initializeTemperatureSensors() {
     applySensorConfiguration();
     
     temperatureSensorsInitialized = true;
-    DEBUG_PRINTF("✅ Temperature sensors initialized. Primary sensor: %s\n", 
+    DEBUG_PRINTF("[OK] Temperature sensors initialized. Primary sensor: %s\n", 
                  getTemperatureSensorName(currentTempSensorType));
 }
 
@@ -66,7 +66,7 @@ void testSensorAvailability() {
         
         if (ds18b20Temp != DEVICE_DISCONNECTED_C && ds18b20Temp > -40 && ds18b20Temp < 125) {
             ds18b20Available = true;
-            DEBUG_PRINTF("✅ DS18B20 (GPIO32): %.2f°C - WORKING\n", ds18b20Temp);
+            DEBUG_PRINTF("[OK] DS18B20 (GPIO32): %.2f°C - WORKING\n", ds18b20Temp);
         } else {
             ds18b20Available = false;
             DEBUG_PRINTF("❌ DS18B20 (GPIO32): Invalid reading %.2f°C\n", ds18b20Temp);
@@ -83,7 +83,7 @@ void testSensorAvailability() {
     
     if (!isnan(am2302Temp) && !isnan(am2302Humidity) && am2302Temp > -40 && am2302Temp < 80 && am2302Sensor.getStatus() == DHTesp::ERROR_NONE) {
         am2302Available = true;
-        DEBUG_PRINTF("✅ AM2302 (GPIO33): %.1f°C, %.1f%% RH - WORKING\n", am2302Temp, am2302Humidity);
+        DEBUG_PRINTF("[OK] AM2302 (GPIO33): %.1f°C, %.1f%% RH - WORKING\n", am2302Temp, am2302Humidity);
     } else {
         am2302Available = false;
         DEBUG_PRINTF("❌ AM2302 (GPIO33): No response or invalid data - %s\n", am2302Sensor.getStatusString());
@@ -184,13 +184,13 @@ float readAM2302Temperature() {
     
     // Validate reading range
     if (temperature < -40.0 || temperature > 80.0) {
-        DEBUG_PRINTF("⚠️ AM2302: Temperature out of range: %.1f°C\n", temperature);
+        DEBUG_PRINTF("[WARNING] AM2302: Temperature out of range: %.1f°C\n", temperature);
         return lastValidReading;
     }
     
     // Valid reading
     lastValidReading = temperature;
-    DEBUG_PRINTF("🌡️ AM2302 REAL: %.1f°C\n", temperature);
+    DEBUG_PRINTF("[TEMP] AM2302 REAL: %.1f°C\n", temperature);
     return temperature;
 }
 
@@ -221,7 +221,7 @@ float readAM2302Humidity() {
     
     // Validate reading range (0-100% RH)
     if (humidity < 0.0 || humidity > 100.0) {
-        DEBUG_PRINTF("⚠️ AM2302: Humidity out of range: %.1f%%\n", humidity);
+        DEBUG_PRINTF("[WARNING] AM2302: Humidity out of range: %.1f%%\n", humidity);
         return lastValidReading;
     }
     
@@ -299,10 +299,10 @@ float readLM35Temperature() {
         
         // Validate reading (LM35 range: -55°C to +150°C, but typically 0-50°C)
         if (temperature >= 0 && temperature <= 80.0) {
-            DEBUG_PRINTF("🌡️ LM35 REAL: %.1f°C (ADC=%d, V=%.3fV)\n", temperature, adcReading, voltage);
+            DEBUG_PRINTF("[TEMP] LM35 REAL: %.1f°C (ADC=%d, V=%.3fV)\n", temperature, adcReading, voltage);
             return temperature;
         } else {
-            DEBUG_PRINTF("⚠️ LM35 out of range: %.1f°C - using fallback\n", temperature);
+            DEBUG_PRINTF("[WARNING] LM35 out of range: %.1f°C - using fallback\n", temperature);
         }
     }
     
@@ -329,7 +329,7 @@ void runTemperatureControl() {
     float targetSetpoint = g_system_config.ac_setpoint;
     bool shouldProceedWithControl = true;
     
-    DEBUG_PRINTF("🌡️ TEMP CONTROL: Raw=%.1f°C, Compensated=%.1f°C, Target=%.1f°C\n",
+    DEBUG_PRINTF("[TEMP] CONTROL: Raw=%.1f°C, Compensated=%.1f°C, Target=%.1f°C\n",
                  rawTemp, compensatedTemp, targetSetpoint);
     
     // Operation mode logic (from MAC_SYS specification)
@@ -519,7 +519,7 @@ void resetSensorConfigToDefaults() {
     
     g_sensorConfig.checksum = calculateConfigChecksum(&g_sensorConfig);
     
-    DEBUG_PRINTLN("✅ Sensor configuration reset to defaults");
+    DEBUG_PRINTLN("[OK] Sensor configuration reset to defaults");
 }
 
 bool validateSensorConfig(const SensorConfig* config) {
@@ -568,7 +568,7 @@ bool validateSensorConfig(const SensorConfig* config) {
         return false;
     }
     
-    DEBUG_PRINTLN("✅ Sensor configuration validation passed");
+    DEBUG_PRINTLN("[OK] Sensor configuration validation passed");
     return true;
 }
 
@@ -578,11 +578,11 @@ void loadSensorConfig() {
     EEPROM.get(SENSOR_CONFIG_EEPROM_ADDR, g_sensorConfig);
     
     if (!validateSensorConfig(&g_sensorConfig)) {
-        DEBUG_PRINTLN("⚠️ Invalid configuration found, resetting to defaults");
+        DEBUG_PRINTLN("[WARNING] Invalid configuration found, resetting to defaults");
         resetSensorConfigToDefaults();
         saveSensorConfig(); // Save the defaults
     } else {
-        DEBUG_PRINTLN("✅ Valid configuration loaded from EEPROM");
+        DEBUG_PRINTLN("[OK] Valid configuration loaded from EEPROM");
         DEBUG_PRINTF("   DS18B20: %s on GPIO%d (priority %d)\n", 
                      g_sensorConfig.ds18b20_enabled ? "Enabled" : "Disabled",
                      g_sensorConfig.ds18b20_pin, g_sensorConfig.ds18b20_priority);
@@ -602,7 +602,7 @@ void saveSensorConfig() {
     EEPROM.put(SENSOR_CONFIG_EEPROM_ADDR, g_sensorConfig);
     EEPROM.commit();
     
-    DEBUG_PRINTLN("✅ Sensor configuration saved");
+    DEBUG_PRINTLN("[OK] Sensor configuration saved");
 }
 
 SensorConfig* getSensorConfig() {
@@ -631,23 +631,23 @@ void applySensorConfiguration() {
         ds18b20Wire = new OneWire(DS18B20_PIN);
         ds18b20Sensor = new DallasTemperature(ds18b20Wire);
         ds18b20Sensor->begin();
-        DEBUG_PRINTF("🌡️ DS18B20 initialized on GPIO%d\n", DS18B20_PIN);
+        DEBUG_PRINTF("[SENSOR] DS18B20 initialized on GPIO%d\n", DS18B20_PIN);
     }
     
     if (g_sensorConfig.am2302_enabled) {
         am2302Sensor.setup(AM2302_PIN, DHTesp::DHT22);
-        DEBUG_PRINTF("🌡️ AM2302 initialized on GPIO%d\n", AM2302_PIN);
+        DEBUG_PRINTF("[SENSOR] AM2302 initialized on GPIO%d\n", AM2302_PIN);
     }
     
     if (g_sensorConfig.lm35_enabled) {
         lm35Available = true; // LM35 is always available (analog)
-        DEBUG_PRINTF("🌡️ LM35 enabled on GPIO%d\n", LM35_PIN);
+        DEBUG_PRINTF("[SENSOR] LM35 enabled on GPIO%d\n", LM35_PIN);
     }
     
     // Update sensor priorities
     updateSensorPriorities();
     
-    DEBUG_PRINTLN("✅ Sensor configuration applied");
+    DEBUG_PRINTLN("[OK] Sensor configuration applied");
 }
 
 void updateSensorPriorities() {
@@ -683,7 +683,7 @@ void updateSensorPriorities() {
                      getTemperatureSensorName(bestSensor), bestPriority);
     } else {
         currentTempSensorType = TEMP_SENSOR_NONE;
-        DEBUG_PRINTLN("⚠️ No sensors enabled!");
+        DEBUG_PRINTLN("[WARNING] No sensors enabled!");
     }
 }
 
@@ -711,7 +711,7 @@ String getSensorTestResult(uint8_t sensorType, uint8_t pin) {
                 temperature = testSensor->getTempCByIndex(0);
                 
                 if (temperature != DEVICE_DISCONNECTED_C && temperature > -50 && temperature < 100) {
-                    result += "✅ " + String(temperature, 1) + "°C";
+                    result += "[OK] " + String(temperature, 1) + "°C";
                     if (deviceCount > 1) {
                         result += " (" + String(deviceCount) + " devices)";
                     }
@@ -747,7 +747,7 @@ String getSensorTestResult(uint8_t sensorType, uint8_t pin) {
                 if (!isnan(temperature) && !isnan(humidity) && 
                     temperature > -40 && temperature < 80 &&
                     humidity >= 0 && humidity <= 100) {
-                    result += "✅ " + String(temperature, 1) + "°C, " + String(humidity, 1) + "%RH";
+                    result += "[OK] " + String(temperature, 1) + "°C, " + String(humidity, 1) + "%RH";
                     testPassed = true;
                 } else {
                     result += "❌ Invalid reading: " + String(temperature, 1) + "°C, " + String(humidity, 1) + "%RH";
@@ -788,10 +788,10 @@ String getSensorTestResult(uint8_t sensorType, uint8_t pin) {
                 temperature = (avgReading * 3.3 * 100.0) / 4095.0;
                 
                 if (temperature >= 0 && temperature <= 100) {
-                    result += "✅ " + String(temperature, 1) + "°C (ADC: " + String(avgReading) + ")";
+                    result += "[OK] " + String(temperature, 1) + "°C (ADC: " + String(avgReading) + ")";
                     testPassed = true;
                 } else {
-                    result += "⚠️ " + String(temperature, 1) + "°C (ADC: " + String(avgReading) + ") - Check wiring";
+                    result += "[WARNING] " + String(temperature, 1) + "°C (ADC: " + String(avgReading) + ") - Check wiring";
                 }
             } else {
                 result += "❌ No ADC readings obtained";

@@ -87,6 +87,8 @@ public:
     // Safety settings
     void setEmergencyLimits(float low, float high);
     void setMinTimes(uint8_t zone, unsigned long min_on, unsigned long min_off);
+    float getEmergencyHighLimit() { return config.emergency_high; }
+    float getEmergencyLowLimit() { return config.emergency_low; }
 };
 
 // Global temperature controller instance

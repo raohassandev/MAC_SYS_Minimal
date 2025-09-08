@@ -35,8 +35,8 @@ bool RelayController::begin() {
         return false;
     }
     
-    DEBUG_PRINTLN("✅ MAC-SYS relay and I/O controllers initialized successfully");
-    DEBUG_PRINTF("🔌 Relays: 0x%02X, Inputs: 0x%02X\n", relay_states, input_states);
+    DEBUG_PRINTLN("[OK] MAC-SYS relay and I/O controllers initialized successfully");
+    DEBUG_PRINTF("[I/O] Relays: 0x%02X, Inputs: 0x%02X\n", relay_states, input_states);
     
     return true;
 }
@@ -71,7 +71,7 @@ bool RelayController::setRelay(uint8_t relay_num, bool state) {
     
     // Write to hardware
     if (pcf8574_write(RELAY_I2C_ADDRESS, relay_states)) {
-        DEBUG_PRINTF("🔌 Relay %d: %s\n", relay_num + 1, state ? "ON" : "OFF");
+        DEBUG_PRINTF("[RELAY] Relay %d: %s\n", relay_num + 1, state ? "ON" : "OFF");
         return true;
     } else {
         DEBUG_PRINTF("❌ Failed to control relay %d\n", relay_num + 1);
@@ -93,7 +93,7 @@ void RelayController::setAllRelays(uint8_t states) {
     relay_states = ~states;
     
     if (pcf8574_write(RELAY_I2C_ADDRESS, relay_states)) {
-        DEBUG_PRINTF("🔌 All relays set to: 0x%02X\n", states);
+        DEBUG_PRINTF("[RELAY] All relays set to: 0x%02X\n", states);
     } else {
         DEBUG_PRINTLN("❌ Failed to set all relay states");
     }

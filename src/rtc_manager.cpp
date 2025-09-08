@@ -19,7 +19,7 @@ bool RTCManager::begin() {
     // Initialize RTC
     if (rtc.begin()) {
         rtc_available = true;
-        DEBUG_PRINTLN("✅ DS1307 RTC found");
+        DEBUG_PRINTLN("[OK] DS1307 RTC found");
         
         // Check if RTC is running
         if (!rtc.isrunning()) {
@@ -29,7 +29,7 @@ bool RTCManager::begin() {
         
         // Display current RTC time
         DateTime now = rtc.now();
-        DEBUG_PRINTF("📅 RTC Time: %04d-%02d-%02d %02d:%02d:%02d\n",
+        DEBUG_PRINTF("[RTC] Time: %04d-%02d-%02d %02d:%02d:%02d\n",
                      now.year(), now.month(), now.day(),
                      now.hour(), now.minute(), now.second());
     } else {
@@ -57,7 +57,7 @@ bool RTCManager::syncWithNTP() {
         time_t now = time(nullptr);
         if (now > 1000000000) { // Valid timestamp (after 2001)
             struct tm* timeinfo = localtime(&now);
-            DEBUG_PRINTF("✅ NTP synchronized: %04d-%02d-%02d %02d:%02d:%02d %s\n",
+            DEBUG_PRINTF("[OK] NTP synchronized: %04d-%02d-%02d %02d:%02d:%02d %s\n",
                         timeinfo->tm_year + 1900, timeinfo->tm_mon + 1, timeinfo->tm_mday,
                         timeinfo->tm_hour, timeinfo->tm_min, timeinfo->tm_sec, timezone_name);
             
@@ -96,7 +96,7 @@ bool RTCManager::syncRTCWithNTP() {
     rtc.adjust(ntp_time);
     last_rtc_sync = millis();
     
-    DEBUG_PRINTLN("✅ RTC synchronized with NTP time");
+    DEBUG_PRINTLN("[OK] RTC synchronized with NTP time");
     return true;
 }
 
@@ -259,9 +259,9 @@ String RTCManager::getStatusString() {
     String status = "RTC Status:\n";
     
     if (rtc_available) {
-        status += "✅ DS1307 RTC: Available\n";
+        status += "[OK] DS1307 RTC: Available\n";
         DateTime now = rtc.now();
-        status += "📅 RTC Time: " + getFormattedDateTime() + "\n";
+        status += "[RTC] Time: " + getFormattedDateTime() + "\n";
     } else {
         status += "❌ DS1307 RTC: Not Available\n";
     }
@@ -269,7 +269,7 @@ String RTCManager::getStatusString() {
     if (ntp_synced) {
         status += "🌐 NTP Sync: Active\n";
         unsigned long minutes_ago = (millis() - last_ntp_sync) / 60000;
-        status += "⏰ Last NTP Sync: " + String(minutes_ago) + " minutes ago\n";
+        status += "[NTP] Last Sync: " + String(minutes_ago) + " minutes ago\n";
     } else {
         status += "❌ NTP Sync: Not Active\n";
     }

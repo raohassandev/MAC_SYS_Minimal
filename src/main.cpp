@@ -115,7 +115,7 @@ void setup() {
         DEBUG_PRINTLN("WARNING: Relay controller initialization failed");
         g_system_status.state = STATE_ERROR;
     } else {
-        DEBUG_PRINTLN("✅ Relay and I/O system initialized successfully");
+        DEBUG_PRINTLN("[OK] Relay and I/O system initialized successfully");
     }
     
     // Initialize temperature control system
@@ -126,7 +126,7 @@ void setup() {
     temp_controller.getZoneConfig(0).mode = TEMP_MODE_HEATING;
     temp_controller.getZoneConfig(0).setpoint = 22.0;
     temp_controller.getZoneConfig(0).delta = 1.0;
-    DEBUG_PRINTLN("✅ Temperature control system initialized");
+    DEBUG_PRINTLN("[OK] Temperature control system initialized");
 
     initializeModbus();
     
@@ -499,7 +499,7 @@ void readTemperatureSensors() {
     g_system_status.current_temperature = temperature;
     
     // Debug output for temperature reading
-    DEBUG_PRINTF("📊 Temperature update: %.2f°C\n", temperature);
+    DEBUG_PRINTF("[DATA] Temperature update: %.2f°C\n", temperature);
     
     // Apply basic filtering (simple moving average)
     static float temp_readings[TEMP_FILTER_SAMPLES] = {0};
@@ -559,7 +559,7 @@ void setupDeviceWebServer() {
         
         // System Status Card
         html += "<div style='background:white;border-radius:8px;box-shadow:0 2px 4px rgba(0,0,0,0.1);padding:20px;margin:15px 0'>";
-        html += "<h2 style='margin:0 0 15px 0;color:#007bff;border-bottom:2px solid #007bff;padding-bottom:10px'>🖥️ System Status</h2>";
+        html += "<h2 style='margin:0 0 15px 0;color:#007bff;border-bottom:2px solid #007bff;padding-bottom:10px'>System Status</h2>";
         html += "<div style='display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:15px;margin:15px 0'>";
         html += "<div><strong>System State:</strong> " + String(g_system_status.state) + "</div>";
         html += "<div><strong>Uptime:</strong> " + String(g_system_status.uptime) + "s</div>";
@@ -570,16 +570,16 @@ void setupDeviceWebServer() {
         html += "<div><strong>Signal:</strong> " + String(WiFi.RSSI()) + " dBm</div>";
         html += "</div>";
         html += "<div style='margin-top:15px'>";
-        html += "<button onclick='testSystemAPI()' style='background:#007bff;color:white;border:none;padding:8px 16px;border-radius:4px;cursor:pointer;margin:3px'>📡 System API</button>";
-        html += "<button onclick='testDiagnosticsAPI()' style='background:#6f42c1;color:white;border:none;padding:8px 16px;border-radius:4px;cursor:pointer;margin:3px'>🔧 Diagnostics</button>";
-        html += "<button onclick='testNetworkAPI()' style='background:#20c997;color:white;border:none;padding:8px 16px;border-radius:4px;cursor:pointer;margin:3px'>🌐 Network</button>";
+        html += "<button onclick='testSystemAPI()' style='background:#007bff;color:white;border:none;padding:8px 16px;border-radius:4px;cursor:pointer;margin:3px'>System API</button>";
+        html += "<button onclick='testDiagnosticsAPI()' style='background:#6f42c1;color:white;border:none;padding:8px 16px;border-radius:4px;cursor:pointer;margin:3px'>Diagnostics</button>";
+        html += "<button onclick='testNetworkAPI()' style='background:#20c997;color:white;border:none;padding:8px 16px;border-radius:4px;cursor:pointer;margin:3px'>Network</button>";
         html += "</div>";
         html += "<div id='system-api-result' style='margin-top:10px;padding:10px;background:#f8f9fa;border-radius:4px;font-family:monospace;font-size:11px;display:none;max-height:150px;overflow-y:auto'></div>";
         html += "</div>";
         
         // Schedule Control Card (BACKBONE FEATURE)
         html += "<div style='background:white;border-radius:8px;box-shadow:0 2px 4px rgba(0,0,0,0.1);padding:20px;margin:15px 0'>";
-        html += "<h2 style='margin:0 0 15px 0;color:#ff6b35;border-bottom:2px solid #ff6b35;padding-bottom:10px'>📅 AC Schedule Control</h2>";
+        html += "<h2 style='margin:0 0 15px 0;color:#ff6b35;border-bottom:2px solid #ff6b35;padding-bottom:10px'>AC Schedule Control</h2>";
         html += "<div style='display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:15px;margin:15px 0'>";
         
         // Control Mode Status
@@ -616,15 +616,15 @@ void setupDeviceWebServer() {
         
         // Quick Control Buttons
         html += "<div style='margin-top:15px;display:flex;flex-wrap:wrap;gap:10px'>";
-        html += "<button onclick=\"location.href='/schedule'\" style='background:#ff6b35;color:white;border:none;padding:10px 20px;border-radius:4px;cursor:pointer;margin:3px'>📋 Full Schedule Editor</button>";
-        html += "<button onclick='toggleControlMode()' style='background:#007bff;color:white;border:none;padding:10px 20px;border-radius:4px;cursor:pointer;margin:3px'>🔄 Toggle Central/Local</button>";
-        html += "<button onclick='toggleSetpointMode()' style='background:#28a745;color:white;border:none;padding:10px 20px;border-radius:4px;cursor:pointer;margin:3px'>📊 Toggle Direct/Schedule</button>";
+        html += "<button onclick=\"location.href='/schedule'\" style='background:#ff6b35;color:white;border:none;padding:10px 20px;border-radius:4px;cursor:pointer;margin:3px'>Full Schedule Editor</button>";
+        html += "<button onclick='toggleControlMode()' style='background:#007bff;color:white;border:none;padding:10px 20px;border-radius:4px;cursor:pointer;margin:3px'>Toggle Central/Local</button>";
+        html += "<button onclick='toggleSetpointMode()' style='background:#28a745;color:white;border:none;padding:10px 20px;border-radius:4px;cursor:pointer;margin:3px'>Toggle Direct/Schedule</button>";
         html += "</div>";
         html += "</div>";
         
         // Relay Control Card
         html += "<div style='background:white;border-radius:8px;box-shadow:0 2px 4px rgba(0,0,0,0.1);padding:20px;margin:15px 0'>";
-        html += "<h2 style='margin:0 0 15px 0;color:#28a745;border-bottom:2px solid #28a745;padding-bottom:10px'>🔌 Relay Control</h2>";
+        html += "<h2 style='margin:0 0 15px 0;color:#28a745;border-bottom:2px solid #28a745;padding-bottom:10px'> Relay Control</h2>";
         
         // Relay status grid
         html += "<div style='display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin:15px 0'>";
@@ -651,7 +651,7 @@ void setupDeviceWebServer() {
         html += "<button onclick='testAllRelays(false)' style='background:#dc3545;color:white;border:none;padding:8px 16px;border-radius:4px;cursor:pointer;margin:3px'>🔴 All OFF</button>";
         html += "</div>";
         html += "<div>";
-        html += "<button onclick='testRelayAPI()' style='background:#007bff;color:white;border:none;padding:8px 16px;border-radius:4px;cursor:pointer;margin:3px'>📡 Relay API</button>";
+        html += "<button onclick='testRelayAPI()' style='background:#007bff;color:white;border:none;padding:8px 16px;border-radius:4px;cursor:pointer;margin:3px'>Relay API</button>";
         html += "</div>";
         html += "</div>";
         html += "<div id='relay-api-result' style='margin-top:10px;padding:10px;background:#f8f9fa;border-radius:4px;font-family:monospace;font-size:11px;display:none;max-height:150px;overflow-y:auto'></div>";
@@ -659,10 +659,10 @@ void setupDeviceWebServer() {
         
         // API Control Buttons for Relays
         html += "<div style='margin-top:20px;border-top:1px solid #ddd;padding-top:15px'>";
-        html += "<h4 style='margin:0 0 10px 0;color:#333'>🔗 Relay API Controls</h4>";
+        html += "<h4 style='margin:0 0 10px 0;color:#333'>Relay API Controls</h4>";
         html += "<div style='display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px'>";
-        html += "<button onclick='testRelayAPI()' style='background:#007bff;color:white;border:none;padding:8px 16px;border-radius:4px;cursor:pointer;font-size:12px'>📡 Get Relay Status</button>";
-        html += "<button onclick='testRelayControl()' style='background:#28a745;color:white;border:none;padding:8px 16px;border-radius:4px;cursor:pointer;font-size:12px'>🎛️ API Control Test</button>";
+        html += "<button onclick='testRelayAPI()' style='background:#007bff;color:white;border:none;padding:8px 16px;border-radius:4px;cursor:pointer;font-size:12px'>Get Relay Status</button>";
+        html += "<button onclick='testRelayControl()' style='background:#28a745;color:white;border:none;padding:8px 16px;border-radius:4px;cursor:pointer;font-size:12px'> API Control Test</button>";
         html += "<button onclick='testAllRelaysAPI(true)' style='background:#ffc107;color:black;border:none;padding:8px 16px;border-radius:4px;cursor:pointer;font-size:12px'>🟡 API All ON</button>";
         html += "<button onclick='testAllRelaysAPI(false)' style='background:#6c757d;color:white;border:none;padding:8px 16px;border-radius:4px;cursor:pointer;font-size:12px'>⚫ API All OFF</button>";
         html += "</div>";
@@ -728,10 +728,10 @@ void setupDeviceWebServer() {
         
         // API Control Buttons for Temperature
         html += "<div style='margin-top:20px;border-top:1px solid #ddd;padding-top:15px'>";
-        html += "<h4 style='margin:0 0 10px 0;color:#333'>🔗 Temperature API Controls</h4>";
+        html += "<h4 style='margin:0 0 10px 0;color:#333'>Temperature API Controls</h4>";
         html += "<div style='display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px'>";
-        html += "<button onclick='testTemperatureAPI()' style='background:#007bff;color:white;border:none;padding:8px 16px;border-radius:4px;cursor:pointer;font-size:12px'>🌡️ Get Temperature</button>";
-        html += "<button onclick='testSensorDataAPI()' style='background:#28a745;color:white;border:none;padding:8px 16px;border-radius:4px;cursor:pointer;font-size:12px'>📊 Get Sensor Data</button>";
+        html += "<button onclick='testTemperatureAPI()' style='background:#007bff;color:white;border:none;padding:8px 16px;border-radius:4px;cursor:pointer;font-size:12px'>Get Temperature</button>";
+        html += "<button onclick='testSensorDataAPI()' style='background:#28a745;color:white;border:none;padding:8px 16px;border-radius:4px;cursor:pointer;font-size:12px'>Get Sensor Data</button>";
         html += "<button onclick='testZonesAPI()' style='background:#ffc107;color:black;border:none;padding:8px 16px;border-radius:4px;cursor:pointer;font-size:12px'>🏠 Get Zones</button>";
         html += "<button onclick='testTempControlAPI()' style='background:#dc3545;color:white;border:none;padding:8px 16px;border-radius:4px;cursor:pointer;font-size:12px'>🎛️ Control Zone</button>";
         html += "</div>";
@@ -1065,16 +1065,17 @@ void setupDeviceWebServer() {
         html += "<div class='section' style='margin-top:30px;text-align:center'>";
         html += "<div class='section-header' style='background:#17a2b8'>System Navigation</div>";
         html += "<div class='section-content' style='padding:20px'>";
-        html += "<h3 style='margin:0 0 15px 0;color:#17a2b8'>🏛️ Dedicated Control Pages</h3>";
+        html += "<h3 style='margin:0 0 15px 0;color:#17a2b8'> Dedicated Control Pages</h3>";
         html += "<div style='display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:15px;margin-bottom:25px'>";
-        html += "<button onclick=\"location.href='/system'\" style='background:#007bff;color:white;padding:15px 20px;border:none;border-radius:8px;cursor:pointer;font-size:14px;box-shadow:0 2px 5px rgba(0,0,0,0.2)'>🖥️ System Status</button>";
-        html += "<button onclick=\"location.href='/relays'\" style='background:#28a745;color:white;padding:15px 20px;border:none;border-radius:8px;cursor:pointer;font-size:14px;box-shadow:0 2px 5px rgba(0,0,0,0.2)'>🔌 Relay Control</button>";
-        html += "<button onclick=\"location.href='/temperature'\" style='background:#fd7e14;color:white;padding:15px 20px;border:none;border-radius:8px;cursor:pointer;font-size:14px;box-shadow:0 2px 5px rgba(0,0,0,0.2)'>🌡️ Temperature</button>";
-        html += "<button onclick=\"location.href='/sensors'\" style='background:#6f42c1;color:white;padding:15px 20px;border:none;border-radius:8px;cursor:pointer;font-size:14px;box-shadow:0 2px 5px rgba(0,0,0,0.2)'>🔍 Sensor Config</button>";
+        html += "<button onclick=\"location.href='/system'\" style='background:#007bff;color:white;padding:15px 20px;border:none;border-radius:8px;cursor:pointer;font-size:14px;box-shadow:0 2px 5px rgba(0,0,0,0.2)'> System Status</button>";
+        html += "<button onclick=\"location.href='/relays'\" style='background:#28a745;color:white;padding:15px 20px;border:none;border-radius:8px;cursor:pointer;font-size:14px;box-shadow:0 2px 5px rgba(0,0,0,0.2)'> Relay Control</button>";
+        html += "<button onclick=\"location.href='/temperature'\" style='background:#fd7e14;color:white;padding:15px 20px;border:none;border-radius:8px;cursor:pointer;font-size:14px;box-shadow:0 2px 5px rgba(0,0,0,0.2)'>Temperature</button>";
+        html += "<button onclick=\"location.href='/sensors'\" style='background:#6f42c1;color:white;padding:15px 20px;border:none;border-radius:8px;cursor:pointer;font-size:14px;box-shadow:0 2px 5px rgba(0,0,0,0.2)'> Sensor Config</button>";
         html += "</div>";
-        html += "<h3 style='margin:20px 0 15px 0;color:#17a2b8'>⚙️ Configuration Pages</h3>";
-        html += "<button onclick=\"location.href='/schedule'\" style='background:#28a745;color:white;padding:12px 25px;border:none;border-radius:6px;cursor:pointer;margin:5px;font-size:14px'>📅 Schedule Configuration</button>";
-        html += "<button onclick=\"location.href='/wifi-config'\" style='background:#17a2b8;color:white;padding:12px 25px;border:none;border-radius:6px;cursor:pointer;margin:5px;font-size:14px'>🌐 WiFi Configuration</button>";
+        html += "<h3 style='margin:20px 0 15px 0;color:#17a2b8'>Configuration Pages</h3>";
+        html += "<button onclick=\"location.href='/temperature'\" style='background:#ff6b35;color:white;padding:12px 25px;border:none;border-radius:6px;cursor:pointer;margin:5px;font-size:14px'>Temperature Control</button>";
+        html += "<button onclick=\"location.href='/schedule'\" style='background:#28a745;color:white;padding:12px 25px;border:none;border-radius:6px;cursor:pointer;margin:5px;font-size:14px'>Schedule Configuration</button>";
+        html += "<button onclick=\"location.href='/wifi-config'\" style='background:#17a2b8;color:white;padding:12px 25px;border:none;border-radius:6px;cursor:pointer;margin:5px;font-size:14px'>WiFi Configuration</button>";
         html += "</div>";
         html += "</div>";
         
@@ -1256,7 +1257,7 @@ void setupDeviceWebServer() {
         html += "</style></head><body>";
         
         html += "<div class='container'>";
-        html += "<h1>🌡️ Sensor Configuration</h1>";
+        html += "<h1>Sensor Configuration</h1>";
         html += "<p>Configure temperature sensors, GPIO pins, and priorities. Changes are saved to EEPROM and persist across reboots.</p>";
         
         // Get current configuration
@@ -1393,8 +1394,8 @@ void setupDeviceWebServer() {
         
         // Action buttons
         html += "<div style='text-align:center;margin:30px 0'>";
-        html += "<button class='save-button' onclick='saveSensorConfig()'>💾 Save Configuration</button>";
-        html += "<button class='reset-button' onclick='resetToDefaults()'>🔄 Reset to Defaults</button>";
+        html += "<button class='save-button' onclick='saveSensorConfig()'>Save Configuration</button>";
+        html += "<button class='reset-button' onclick='resetToDefaults()'>Reset to Defaults</button>";
         html += "</div>";
         
         html += "<div style='text-align:center;margin:20px 0'>";
@@ -1433,27 +1434,27 @@ void setupDeviceWebServer() {
         html += "  .then(response => response.json())";
         html += "  .then(data => {";
         html += "    if (data.success) {";
-        html += "      alert('✅ Configuration saved successfully!\\nReboot recommended for all changes to take effect.');";
+        html += "      alert('[OK] Configuration saved successfully!\\nReboot recommended for all changes to take effect.');";
         html += "    } else {";
-        html += "      alert('❌ Failed to save configuration: ' + data.message);";
+        html += "      alert('[ERROR] Failed to save configuration: ' + data.message);";
         html += "    }";
         html += "  })";
-        html += "  .catch(err => alert('❌ Save failed: ' + err));";
+        html += "  .catch(err => alert('[ERROR] Save failed: ' + err));";
         html += "}";
         
         html += "function resetToDefaults() {";
-        html += "  if (confirm('⚠️ Reset all sensor settings to defaults?\\nThis cannot be undone.')) {";
+        html += "  if (confirm('[WARNING] Reset all sensor settings to defaults?\\nThis cannot be undone.')) {";
         html += "    fetch('/api/sensors/reset', {method: 'POST'})";
         html += "      .then(response => response.json())";
         html += "      .then(data => {";
         html += "        if (data.success) {";
-        html += "          alert('✅ Settings reset to defaults!');";
+        html += "          alert('[OK] Settings reset to defaults!');";
         html += "          location.reload();";
         html += "        } else {";
-        html += "          alert('❌ Reset failed: ' + data.message);";
+        html += "          alert('[ERROR] Reset failed: ' + data.message);";
         html += "        }";
         html += "      })";
-        html += "      .catch(err => alert('❌ Reset failed: ' + err));";
+        html += "      .catch(err => alert('[ERROR] Reset failed: ' + err));";
         html += "  }";
         html += "}";
         html += "</script>";
@@ -1615,21 +1616,21 @@ void setupDeviceWebServer() {
                 sn.fromString(subnet) && dn.fromString(dns)) {
                 
                 if (WiFi.config(ip, gw, sn, dn)) {
-                    message = "✅ Static IP configuration applied successfully!<br>Reconnecting...";
+                    message = "[OK] Static IP configuration applied successfully!<br>Reconnecting...";
                     DEBUG_PRINTF("Static IP configured: %s\n", static_ip.c_str());
                 } else {
-                    message = "❌ Failed to apply static IP configuration";
+                    message = "[ERROR] Failed to apply static IP configuration";
                 }
             } else {
-                message = "❌ Invalid IP address format";
+                message = "[ERROR] Invalid IP address format";
             }
         } else {
             // Switch to DHCP
             if (WiFi.config(0U, 0U, 0U)) {  // Reset to DHCP
-                message = "✅ DHCP mode enabled successfully!<br>Reconnecting...";
+                message = "[OK] DHCP mode enabled successfully!<br>Reconnecting...";
                 DEBUG_PRINTLN("DHCP mode configured");
             } else {
-                message = "❌ Failed to enable DHCP mode";
+                message = "[ERROR] Failed to enable DHCP mode";
             }
         }
         
@@ -1648,7 +1649,7 @@ void setupDeviceWebServer() {
         device_server->send(200, "text/html", html);
         
         // Reconnect WiFi with new settings after response
-        if (message.indexOf("✅") >= 0) {
+        if (message.indexOf("[OK]") >= 0) {
             delay(2000);  // Give time for response to be sent
             WiFi.reconnect();
         }
@@ -1666,7 +1667,7 @@ void setupDeviceWebServer() {
         html += "<div class='container'>";
         html += "<h2>WiFi Network Configuration</h2>";
         
-        html += "<div class='warning'>⚠️ <strong>Warning:</strong> Changing WiFi settings will disconnect the current connection and start configuration mode.</div>";
+        html += "<div class='warning'><strong>Warning:</strong> Changing WiFi settings will disconnect the current connection and start configuration mode.</div>";
         
         html += "<h3>Current Connection</h3>";
         html += "<p><strong>Network:</strong> " + WiFi.SSID() + "</p>";
@@ -1725,7 +1726,7 @@ void setupDeviceWebServer() {
         html += "<style>body{font-family:Arial;margin:40px;background:#f0f0f0;text-align:center}";
         html += ".container{background:white;padding:30px;border-radius:10px;box-shadow:0 2px 10px rgba(0,0,0,0.1);display:inline-block}</style></head><body>";
         html += "<div class='container'>";
-        html += "<h2>✅ Temperature Settings Updated</h2>";
+        html += "<h2>Temperature Settings Updated</h2>";
         html += "<p>Zone " + String(zone + 1) + " configuration saved</p>";
         html += "<p>Setpoint: " + String(setpoint, 1) + "°C, Delta: ±" + String(delta, 1) + "°C</p>";
         html += "<p>Redirecting back in 3 seconds...</p>";
@@ -1749,6 +1750,208 @@ void setupDeviceWebServer() {
     });
 
     // Schedule management endpoints
+    // Dedicated Temperature Control page
+    device_server->on("/temperature", []() {
+        String html = "<!DOCTYPE html><html><head>";
+        html += "<title>Temperature Control - MAC-SYS Industrial Controller</title>";
+        html += "<meta name='viewport' content='width=device-width, initial-scale=1'>";
+        html += "<style>";
+        html += "* { margin: 0; padding: 0; box-sizing: border-box; }";
+        html += "body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #0B1426; color: #E5E7EB; line-height: 1.6; }";
+        html += ".header { background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%); color: white; padding: 1rem 2rem; box-shadow: 0 2px 10px rgba(0,0,0,0.3); }";
+        html += ".header h1 { font-size: 1.5rem; margin: 0; display: flex; align-items: center; gap: 0.75rem; }";
+        html += ".nav-links { margin-top: 0.75rem; display: flex; gap: 1.5rem; flex-wrap: wrap; }";
+        html += ".nav-links a { color: #dbeafe; text-decoration: none; padding: 0.375rem 0.75rem; border-radius: 0.375rem; transition: all 0.2s; font-size: 0.875rem; }";
+        html += ".nav-links a:hover { background: rgba(255,255,255,0.2); }";
+        html += ".nav-links a.active { background: #00D4FF; color: #0B1426; font-weight: 600; }";
+        html += ".main-content { max-width: 1200px; margin: 2rem auto; padding: 0 1rem; }";
+        
+        // Temperature grid styles
+        html += ".temp-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.5rem; margin: 1.5rem 0; }";
+        html += ".temp-card { background: linear-gradient(135deg, #1f2937 0%, #374151 100%); border-radius: 0.75rem; padding: 1.5rem; border: 1px solid #374151; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }";
+        html += ".zone-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }";
+        html += ".zone-title { font-size: 1.125rem; font-weight: 600; color: #00D4FF; }";
+        html += ".zone-status { padding: 0.25rem 0.75rem; border-radius: 1rem; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; }";
+        html += ".status-active { background: #10B981; color: white; }";
+        html += ".status-idle { background: #6B7280; color: white; }";
+        html += ".status-disabled { background: #EF4444; color: white; }";
+        html += ".temp-display { display: flex; justify-content: space-between; align-items: center; margin: 1rem 0; }";
+        html += ".current-temp { font-size: 2rem; font-weight: bold; color: #00D4FF; }";
+        html += ".temp-unit { font-size: 1rem; color: #9CA3AF; margin-left: 0.25rem; }";
+        html += ".setpoint { font-size: 0.875rem; color: #D1D5DB; }";
+        html += ".controls { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 1rem; }";
+        html += ".control-group { display: flex; flex-direction: column; gap: 0.375rem; }";
+        html += ".control-group label { font-size: 0.75rem; color: #9CA3AF; text-transform: uppercase; font-weight: 600; }";
+        html += ".control-input { background: #374151; border: 1px solid #4B5563; color: #E5E7EB; padding: 0.5rem; border-radius: 0.375rem; font-size: 0.875rem; }";
+        html += ".control-input:focus { outline: none; border-color: #00D4FF; box-shadow: 0 0 0 2px rgba(0, 212, 255, 0.2); }";
+        html += ".mode-select { background: #374151; border: 1px solid #4B5563; color: #E5E7EB; padding: 0.5rem; border-radius: 0.375rem; font-size: 0.875rem; }";
+        html += ".action-buttons { display: flex; gap: 0.75rem; margin-top: 1rem; }";
+        html += ".btn { padding: 0.5rem 1rem; border: none; border-radius: 0.375rem; font-size: 0.875rem; font-weight: 600; cursor: pointer; transition: all 0.2s; text-decoration: none; display: inline-block; text-align: center; }";
+        html += ".btn-primary { background: #00D4FF; color: #0B1426; }";
+        html += ".btn-primary:hover { background: #0EA5E9; }";
+        html += ".btn-secondary { background: #374151; color: #E5E7EB; border: 1px solid #4B5563; }";
+        html += ".btn-secondary:hover { background: #4B5563; }";
+        html += ".btn-danger { background: #EF4444; color: white; }";
+        html += ".btn-danger:hover { background: #DC2626; }";
+        html += ".emergency-section { background: linear-gradient(135deg, #7F1D1D 0%, #991B1B 100%); border-radius: 0.75rem; padding: 1.5rem; margin: 2rem 0; border: 1px solid #DC2626; }";
+        html += ".emergency-title { color: #FEF2F2; font-size: 1.125rem; font-weight: 600; margin-bottom: 1rem; }";
+        html += ".emergency-info { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; }";
+        html += ".emergency-item { background: rgba(0,0,0,0.2); padding: 1rem; border-radius: 0.5rem; }";
+        html += ".emergency-label { color: #FECACA; font-size: 0.75rem; text-transform: uppercase; font-weight: 600; }";
+        html += ".emergency-value { color: #FEF2F2; font-size: 1.125rem; font-weight: bold; }";
+        html += "@media (max-width: 768px) { .temp-grid { grid-template-columns: 1fr; } .controls { grid-template-columns: 1fr; } }";
+        html += "</style></head><body>";
+        
+        // Header
+        html += "<div class='header'>";
+        html += "<h1>Temperature Control System</h1>";
+        html += "<div class='nav-links'>";
+        html += "<a href='/'>Dashboard</a>";
+        html += "<a href='/schedule'>Schedule</a>";
+        html += "<a href='/temperature' class='active'>Temperature</a>";
+        html += "<a href='/sensors'>Sensors</a>";
+        html += "<a href='/wifi-config'>Network</a>";
+        html += "</div>";
+        html += "</div>";
+        
+        html += "<div class='main-content'>";
+        
+        // Emergency status if active
+        if (temp_controller.isEmergencyStopped()) {
+            html += "<div class='emergency-section'>";
+            html += "<div class='emergency-title'>EMERGENCY STOP ACTIVE</div>";
+            html += "<div class='emergency-info'>";
+            html += "<div class='emergency-item'>";
+            html += "<div class='emergency-label'>Status</div>";
+            html += "<div class='emergency-value'>SYSTEM STOPPED</div>";
+            html += "</div>";
+            html += "<div class='emergency-item'>";
+            html += "<div class='emergency-label'>Action Required</div>";
+            html += "<div class='emergency-value'>Check sensors and clear emergency</div>";
+            html += "</div>";
+            html += "</div>";
+            html += "<div class='action-buttons'>";
+            html += "<button class='btn btn-danger' onclick='clearEmergency()'>Clear Emergency</button>";
+            html += "</div>";
+            html += "</div>";
+        }
+        
+        html += "<div class='temp-grid'>";
+        
+        // Generate cards for all 4 zones
+        for (int zone = 0; zone < 4; zone++) {
+            ZoneConfig& zoneConfig = temp_controller.getZoneConfig(zone);
+            float currentTemp = temp_controller.getCompensatedTemp(zone);
+            bool sensorValid = temp_controller.isSensorValid(zone);
+            
+            html += "<div class='temp-card'>";
+            html += "<div class='zone-header'>";
+            html += "<div class='zone-title'>Zone " + String(zone + 1) + "</div>";
+            
+            String statusClass = "status-disabled";
+            String statusText = "DISABLED";
+            if (zoneConfig.enabled) {
+                if (sensorValid) {
+                    statusClass = zoneConfig.current_state ? "status-active" : "status-idle";
+                    statusText = zoneConfig.current_state ? "ACTIVE" : "IDLE";
+                } else {
+                    statusClass = "status-disabled";
+                    statusText = "SENSOR ERROR";
+                }
+            }
+            html += "<div class='zone-status " + statusClass + "'>" + statusText + "</div>";
+            html += "</div>";
+            
+            html += "<div class='temp-display'>";
+            if (sensorValid) {
+                html += "<div class='current-temp'>" + String(currentTemp, 1) + "<span class='temp-unit'>°C</span></div>";
+            } else {
+                html += "<div class='current-temp'>--<span class='temp-unit'>°C</span></div>";
+            }
+            html += "<div class='setpoint'>Target: " + String(zoneConfig.setpoint, 1) + "°C</div>";
+            html += "</div>";
+            
+            // Mode display
+            String modeStr = "";
+            switch(zoneConfig.mode) {
+                case TEMP_MODE_OFF: modeStr = "OFF"; break;
+                case TEMP_MODE_HEATING: modeStr = "HEATING"; break;
+                case TEMP_MODE_COOLING: modeStr = "COOLING"; break;
+                case TEMP_MODE_AUTO: modeStr = "AUTO"; break;
+                case TEMP_MODE_MANUAL: modeStr = "MANUAL"; break;
+            }
+            html += "<div style='margin: 1rem 0; color: #9CA3AF; font-size: 0.875rem;'>Mode: " + modeStr + "</div>";
+            
+            html += "<form method='post' action='/api/temperature/control'>";
+            html += "<input type='hidden' name='zone' value='" + String(zone) + "'>";
+            html += "<div class='controls'>";
+            html += "<div class='control-group'>";
+            html += "<label>Setpoint (°C)</label>";
+            html += "<input type='number' name='setpoint' class='control-input' value='" + String(zoneConfig.setpoint, 1) + "' min='5' max='40' step='0.5'>";
+            html += "</div>";
+            html += "<div class='control-group'>";
+            html += "<label>Mode</label>";
+            html += "<select name='mode' class='mode-select'>";
+            html += "<option value='off'" + String(zoneConfig.mode == TEMP_MODE_OFF ? " selected" : "") + ">OFF</option>";
+            html += "<option value='heating'" + String(zoneConfig.mode == TEMP_MODE_HEATING ? " selected" : "") + ">Heating</option>";
+            html += "<option value='cooling'" + String(zoneConfig.mode == TEMP_MODE_COOLING ? " selected" : "") + ">Cooling</option>";
+            html += "<option value='auto'" + String(zoneConfig.mode == TEMP_MODE_AUTO ? " selected" : "") + ">Auto</option>";
+            html += "</select>";
+            html += "</div>";
+            html += "</div>";
+            html += "<div class='action-buttons'>";
+            html += "<button type='submit' class='btn btn-primary'>Update Zone</button>";
+            if (zoneConfig.enabled) {
+                html += "<button type='button' class='btn btn-secondary' onclick='toggleZone(" + String(zone) + ", false)'>Disable</button>";
+            } else {
+                html += "<button type='button' class='btn btn-secondary' onclick='toggleZone(" + String(zone) + ", true)'>Enable</button>";
+            }
+            html += "</div>";
+            html += "</form>";
+            html += "</div>";
+        }
+        
+        html += "</div>"; // temp-grid
+        
+        // Emergency Limits Section
+        html += "<div class='emergency-section' style='background: linear-gradient(135deg, #1f2937 0%, #374151 100%); border: 1px solid #4B5563;'>";
+        html += "<div class='emergency-title' style='color: #00D4FF;'>Emergency Temperature Limits</div>";
+        html += "<div class='emergency-info'>";
+        html += "<div class='emergency-item'>";
+        html += "<div class='emergency-label'>High Limit</div>";
+        html += "<div class='emergency-value' style='color: #EF4444;'>" + String(temp_controller.getEmergencyHighLimit(), 1) + "°C</div>";
+        html += "</div>";
+        html += "<div class='emergency-item'>";
+        html += "<div class='emergency-label'>Low Limit</div>";
+        html += "<div class='emergency-value' style='color: #3B82F6;'>" + String(temp_controller.getEmergencyLowLimit(), 1) + "°C</div>";
+        html += "</div>";
+        html += "</div>";
+        html += "</div>";
+        
+        html += "</div>"; // main-content
+        
+        // JavaScript for interactivity
+        html += "<script>";
+        html += "function toggleZone(zone, enabled) {";
+        html += "  fetch('/api/temperature/control', {";
+        html += "    method: 'POST',";
+        html += "    headers: {'Content-Type': 'application/x-www-form-urlencoded'},";
+        html += "    body: 'zone=' + zone + '&enabled=' + enabled";
+        html += "  }).then(() => location.reload());";
+        html += "}";
+        html += "function clearEmergency() {";
+        html += "  if(confirm('Clear emergency stop?')) {";
+        html += "    fetch('/api/temperature/emergency', {method: 'POST', headers: {'Content-Type': 'application/x-www-form-urlencoded'}, body: 'action=clear'})";
+        html += "    .then(() => location.reload());";
+        html += "  }";
+        html += "}";
+        html += "setInterval(() => location.reload(), 30000);"; // Auto-refresh every 30 seconds
+        html += "</script>";
+        html += "</body></html>";
+        
+        device_server->send(200, "text/html", html);
+    });
+
     device_server->on("/schedule", []() {
         String html = "<!DOCTYPE html><html><head><title>MAC-SYS Schedule</title>";
         html += "<meta name='viewport' content='width=device-width, initial-scale=1.0'>";
@@ -2383,6 +2586,33 @@ void setupDeviceWebServer() {
         }
         device_server->send(statusCode, "application/json", json);
     });
+
+    // Temperature Emergency Control API
+    device_server->on("/api/temperature/emergency", HTTP_POST, []() {
+        String json = "{";
+        int statusCode = 200;
+        
+        if (device_server->hasArg("action")) {
+            String action = device_server->arg("action");
+            
+            if (action == "clear") {
+                temp_controller.clearEmergency();
+                json += "\"success\":true,";
+                json += "\"message\":\"Emergency stop cleared\"";
+            } else {
+                statusCode = 400;
+                json += "\"success\":false,";
+                json += "\"error\":\"Invalid action: " + action + "\"";
+            }
+        } else {
+            statusCode = 400;
+            json += "\"success\":false,";
+            json += "\"error\":\"Missing action parameter\"";
+        }
+        
+        json += "}";
+        device_server->send(statusCode, "application/json", json);
+    });
     
     // Network Information API
     device_server->on("/api/network", HTTP_GET, []() {
@@ -2472,8 +2702,8 @@ void setupDeviceWebServer() {
     });
     
     device_server->begin();
-    DEBUG_PRINTLN("✅ Device web server started on port 80");
-    DEBUG_PRINTF("🌐 Access at: http://%s/\n", WiFi.localIP().toString().c_str());
+    DEBUG_PRINTLN("[OK] Device web server started on port 80");
+    DEBUG_PRINTF("[WEB] Access at: http://%s/\n", WiFi.localIP().toString().c_str());
 }
 
 void handleDeviceWebServer() {
@@ -2505,7 +2735,7 @@ void updateIOSystem() {
     uint8_t current_inputs = relay_controller.getAllInputStates();
     
     if (current_inputs != last_logged_inputs) {
-        DEBUG_PRINTF("📊 I/O Status Changed: 0x%02X\n", current_inputs);
+        DEBUG_PRINTF("[I/O] Status Changed: 0x%02X\n", current_inputs);
         DEBUG_PRINTLN(relay_controller.getInputStatusString());
         last_logged_inputs = current_inputs;
     }

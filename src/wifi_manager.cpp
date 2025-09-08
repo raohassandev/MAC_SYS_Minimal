@@ -342,9 +342,9 @@ bool attemptWiFiConnection(const char* ssid, const char* password) {
         
         // Log IP address prominently for easy identification
         DEBUG_PRINTLN("=================================");
-        DEBUG_PRINTF("🌐 WIFI CONNECTED - IP: %s\n", connectedIP.c_str());
-        DEBUG_PRINTF("📡 Network: %s\n", WiFi.SSID().c_str());
-        DEBUG_PRINTF("📊 Signal: %d dBm\n", WiFi.RSSI());
+        DEBUG_PRINTF("[WIFI] CONNECTED - IP: %s\n", connectedIP.c_str());
+        DEBUG_PRINTF("[NET] Network: %s\n", WiFi.SSID().c_str());
+        DEBUG_PRINTF("[RSSI] Signal: %d dBm\n", WiFi.RSSI());
         DEBUG_PRINTLN("=================================");
         
         // Switch back to AP+STA mode to maintain config portal

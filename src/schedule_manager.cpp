@@ -35,7 +35,7 @@ ScheduleManager::ScheduleManager() {
 bool ScheduleManager::begin() {
     DEBUG_PRINTLN("Initializing Schedule Manager...");
     loadConfig();
-    DEBUG_PRINTF("✅ Schedule Manager initialized (%d zones)\n", MAX_ZONES);
+    DEBUG_PRINTF("[OK] Schedule Manager initialized (%d zones)\n", MAX_ZONES);
     return true;
 }
 
@@ -50,7 +50,7 @@ void ScheduleManager::loadConfig() {
         
         if (config.checksum == calculated_checksum) {
             config_loaded = true;
-            DEBUG_PRINTLN("✅ Schedule config loaded from EEPROM");
+            DEBUG_PRINTLN("[OK] Schedule config loaded from EEPROM");
             DEBUG_PRINTF("📅 %d zones configured, global: %s\n", 
                         MAX_ZONES, config.global_enabled ? "ON" : "OFF");
         } else {
@@ -70,7 +70,7 @@ void ScheduleManager::saveConfig() {
     EEPROM.put(SCHEDULE_CONFIG_ADDR, config);
     EEPROM.commit();
     
-    DEBUG_PRINTLN("✅ Schedule config saved to EEPROM");
+    DEBUG_PRINTLN("[OK] Schedule config saved to EEPROM");
 }
 
 void ScheduleManager::resetToDefaults() {
@@ -150,13 +150,13 @@ bool ScheduleManager::addEvent(uint8_t zone, const ScheduleEvent& event) {
     WeeklySchedule& schedule = config.zones[zone];
     
     if (schedule.active_events >= MAX_SCHEDULE_EVENTS) {
-        DEBUG_PRINTLN("❌ Schedule full, cannot add event");
+        DEBUG_PRINTLN("[ERROR] Schedule full, cannot add event");
         return false;
     }
     
     // Check for conflicts
     if (hasConflicts(zone, event)) {
-        DEBUG_PRINTLN("❌ Event conflicts with existing schedule");
+        DEBUG_PRINTLN("[ERROR] Event conflicts with existing schedule");
         return false;
     }
     
@@ -168,7 +168,7 @@ bool ScheduleManager::addEvent(uint8_t zone, const ScheduleEvent& event) {
     sortEvents(zone);
     
     saveConfig();
-    DEBUG_PRINTF("✅ Added schedule event to zone %d: %s\n", zone, event.description);
+    DEBUG_PRINTF("[OK] Added schedule event to zone %d: %s\n", zone, event.description);
     return true;
 }
 
@@ -190,7 +190,7 @@ bool ScheduleManager::removeEvent(uint8_t zone, uint8_t event_index) {
     memset(&schedule.events[schedule.active_events], 0, sizeof(ScheduleEvent));
     
     saveConfig();
-    DEBUG_PRINTF("✅ Removed schedule event from zone %d\n", zone);
+    DEBUG_PRINTF("[OK] Removed schedule event from zone %d\n", zone);
     return true;
 }
 
@@ -201,7 +201,7 @@ bool ScheduleManager::updateEvent(uint8_t zone, uint8_t event_index, const Sched
     
     // Check for conflicts (excluding the event being updated)
     if (hasConflicts(zone, event, event_index)) {
-        DEBUG_PRINTLN("❌ Updated event conflicts with existing schedule");
+        DEBUG_PRINTLN("[ERROR] Updated event conflicts with existing schedule");
         return false;
     }
     
@@ -211,7 +211,7 @@ bool ScheduleManager::updateEvent(uint8_t zone, uint8_t event_index, const Sched
     sortEvents(zone);
     
     saveConfig();
-    DEBUG_PRINTF("✅ Updated schedule event in zone %d\n", zone);
+    DEBUG_PRINTF("[OK] Updated schedule event in zone %d\n", zone);
     return true;
 }
 
@@ -320,7 +320,7 @@ void ScheduleManager::executeEvent(const ScheduleEvent& event) {
         case SCHEDULE_RELAY_CONTROL:
             // Direct relay control (value1: 1=ON, 0=OFF)
             relay_controller.setRelay(event.zone_id, event.value1 > 0.5);
-            DEBUG_PRINTF("🔌 Relay %d: %s\n", event.zone_id, event.value1 > 0.5 ? "ON" : "OFF");
+            DEBUG_PRINTF(" Relay %d: %s\n", event.zone_id, event.value1 > 0.5 ? "ON" : "OFF");
             break;
             
         case SCHEDULE_SYSTEM_MODE:
@@ -369,10 +369,10 @@ String ScheduleManager::getScheduleStatus() {
         if (config.holiday_mode) {
             status += "🏖️ Holiday Mode: ACTIVE\n";
         } else {
-            status += "❌ Global Schedule: DISABLED\n";
+            status += "[DISABLED] Global Schedule: DISABLED\n";
         }
     } else {
-        status += "✅ Global Schedule: ACTIVE\n";
+        status += "[ACTIVE] Global Schedule: ACTIVE\n";
     }
     
     status += "⏰ Current Time: " + rtc_manager.getFormattedDateTime() + "\n\n";

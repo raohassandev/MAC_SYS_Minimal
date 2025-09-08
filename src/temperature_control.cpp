@@ -37,7 +37,7 @@ TemperatureController::TemperatureController() {
 void TemperatureController::begin() {
     DEBUG_PRINTLN("Initializing Temperature Controller...");
     loadConfig();
-    DEBUG_PRINTLN("✅ Temperature Controller initialized");
+    DEBUG_PRINTLN("[OK] Temperature Controller initialized");
 }
 
 void TemperatureController::loadConfig() {
@@ -47,9 +47,9 @@ void TemperatureController::loadConfig() {
     
     if (checksum == 0x5A5A) {  // Valid config marker
         EEPROM.get(TEMP_CONFIG_ADDR + 2, config);
-        DEBUG_PRINTLN("✅ Temperature config loaded from EEPROM");
+        DEBUG_PRINTLN("[OK] Temperature config loaded from EEPROM");
     } else {
-        DEBUG_PRINTLN("⚠️ No valid temperature config in EEPROM, using defaults");
+        DEBUG_PRINTLN("[WARNING] No valid temperature config in EEPROM, using defaults");
         saveConfig();  // Save defaults
     }
 }
@@ -59,7 +59,7 @@ void TemperatureController::saveConfig() {
     EEPROM.put(TEMP_CONFIG_ADDR, checksum);
     EEPROM.put(TEMP_CONFIG_ADDR + 2, config);
     EEPROM.commit();
-    DEBUG_PRINTLN("✅ Temperature config saved to EEPROM");
+    DEBUG_PRINTLN("[OK] Temperature config saved to EEPROM");
 }
 
 void TemperatureController::updateTemperature(uint8_t zone, float temp) {
@@ -208,7 +208,7 @@ void TemperatureController::process() {
                 }
             }
             
-            DEBUG_PRINTF("🌡️ Zone %d: %s (Temp: %.1f°C, Setpoint: %.1f°C)\n", 
+            DEBUG_PRINTF("[TEMP] Zone %d: %s (Temp: %.1f°C, Setpoint: %.1f°C)\n", 
                         zone, should_activate ? "ON" : "OFF", 
                         getCompensatedTemp(zone), z.setpoint);
         }
@@ -225,7 +225,7 @@ void TemperatureController::emergencyStop() {
 
 void TemperatureController::clearEmergency() {
     config.emergency_stop = false;
-    DEBUG_PRINTLN("✅ Emergency stop cleared");
+    DEBUG_PRINTLN("[OK] Emergency stop cleared");
 }
 
 void TemperatureController::setZoneConfig(uint8_t zone, ZoneConfig& cfg) {
@@ -312,7 +312,7 @@ String TemperatureController::getSystemStatus() {
     String status = "Temperature Control System\n";
     
     if (config.emergency_stop) {
-        status += "🚨 EMERGENCY STOP ACTIVE!\n";
+        status += "EMERGENCY STOP ACTIVE!\n";
     }
     
     for (uint8_t i = 0; i < 4; i++) {
