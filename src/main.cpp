@@ -1230,15 +1230,23 @@ void setupDeviceWebServer() {
         
         // Enhanced CSS for sensor configuration
         html += "<style>";
-        html += "body{font-family:Arial,sans-serif;margin:20px;background:#f0f0f0}";
-        html += ".container{background:white;padding:20px;border-radius:10px;box-shadow:0 2px 10px rgba(0,0,0,0.1);max-width:1000px;margin:0 auto}";
-        html += ".sensor-card{background:#f8f9fa;border:1px solid #dee2e6;border-radius:8px;margin:15px 0;overflow:hidden}";
-        html += ".sensor-header{background:#007bff;color:white;padding:15px;font-weight:bold;font-size:18px}";
-        html += ".sensor-body{padding:20px}";
+        html += "* { margin: 0; padding: 0; box-sizing: border-box; }";
+        html += "body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #0B1426; color: #E5E7EB; line-height: 1.6; }";
+        html += ".header { background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%); color: white; padding: 1rem 2rem; box-shadow: 0 2px 10px rgba(0,0,0,0.3); }";
+        html += ".header h1 { font-size: 1.5rem; margin: 0; display: flex; align-items: center; gap: 0.75rem; }";
+        html += ".nav-links { margin-top: 0.75rem; display: flex; gap: 1.5rem; flex-wrap: wrap; }";
+        html += ".nav-links a { color: #dbeafe; text-decoration: none; padding: 0.375rem 0.75rem; border-radius: 0.375rem; transition: all 0.2s; font-size: 0.875rem; }";
+        html += ".nav-links a:hover { background: rgba(255,255,255,0.2); }";
+        html += ".nav-links a.active { background: #00D4FF; color: #0B1426; font-weight: 600; }";
+        html += ".container { max-width: 1200px; margin: 2rem auto; padding: 0 1rem; }";
+        html += ".sensor-card { background: linear-gradient(135deg, #1f2937 0%, #374151 100%); border: 1px solid #374151; border-radius: 0.75rem; margin: 1.5rem 0; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }";
+        html += ".sensor-header { background: #00D4FF; color: #0B1426; padding: 1rem 1.5rem; font-weight: 600; font-size: 1.125rem; }";
+        html += ".sensor-body { padding: 1.5rem; }";
         html += ".config-row{display:flex;align-items:center;margin:15px 0;flex-wrap:wrap;gap:15px}";
-        html += ".config-label{min-width:100px;font-weight:bold;color:#495057}";
-        html += ".config-control{flex:1;min-width:150px}";
-        html += "select,input[type=number]{width:100%;padding:8px;border:1px solid #ced4da;border-radius:4px;font-size:14px}";
+        html += ".config-label { min-width: 120px; font-weight: 600; color: #9CA3AF; font-size: 0.875rem; }";
+        html += ".config-control { flex: 1; min-width: 150px; }";
+        html += "select, input[type=number] { width: 100%; padding: 0.5rem; border: 1px solid #4B5563; border-radius: 0.375rem; background: #374151; color: #E5E7EB; font-size: 0.875rem; }";
+        html += "select:focus, input[type=number]:focus { outline: none; border-color: #00D4FF; box-shadow: 0 0 0 2px rgba(0, 212, 255, 0.2); }";
         html += ".toggle{position:relative;display:inline-block;width:60px;height:34px}";
         html += ".toggle input{opacity:0;width:0;height:0}";
         html += ".slider{position:absolute;cursor:pointer;top:0;left:0;right:0;bottom:0;background-color:#ccc;transition:.4s;border-radius:34px}";
@@ -1251,13 +1259,27 @@ void setupDeviceWebServer() {
         html += ".status-testing{background:#fff3cd;color:#856404}";
         html += ".test-button{padding:6px 12px;background:#17a2b8;color:white;border:none;border-radius:4px;cursor:pointer;font-size:12px}";
         html += ".test-button:hover{background:#138496}";
-        html += ".save-button{background:#28a745;color:white;padding:15px 30px;border:none;border-radius:5px;cursor:pointer;margin:20px 10px;font-size:16px}";
-        html += ".reset-button{background:#dc3545;color:white;padding:15px 30px;border:none;border-radius:5px;cursor:pointer;margin:20px 10px;font-size:16px}";
-        html += ".back-button{background:#6c757d;color:white;padding:10px 20px;border:none;border-radius:5px;cursor:pointer;margin:10px;text-decoration:none}";
+        html += ".save-button { background: #00D4FF; color: #0B1426; padding: 0.75rem 1.5rem; border: none; border-radius: 0.375rem; cursor: pointer; margin: 1rem 0.5rem; font-size: 0.875rem; font-weight: 600; }";
+        html += ".reset-button { background: #EF4444; color: white; padding: 0.75rem 1.5rem; border: none; border-radius: 0.375rem; cursor: pointer; margin: 1rem 0.5rem; font-size: 0.875rem; font-weight: 600; }";
+        html += ".back-button { background: #374151; color: #E5E7EB; padding: 0.5rem 1rem; border: 1px solid #4B5563; border-radius: 0.375rem; cursor: pointer; margin: 0.5rem; text-decoration: none; font-size: 0.875rem; }";
         html += "</style></head><body>";
         
-        html += "<div class='container'>";
+        // Header with navigation
+        html += "<div class='header'>";
         html += "<h1>Sensor Configuration</h1>";
+        html += "<div class='nav-links'>";
+        html += "<a href='/'>Dashboard</a>";
+        html += "<a href='/system'>System</a>";
+        html += "<a href='/relays'>Relays</a>";
+        html += "<a href='/temperature'>Temperature</a>";
+        html += "<a href='/schedule'>Schedule</a>";
+        html += "<a href='/sensors' class='active'>Sensors</a>";
+        html += "<a href='/wifi-config'>Network</a>";
+        html += "</div>";
+        html += "</div>";
+        
+        html += "<div class='container'>";
+        html += "<h2 style='color: #00D4FF; margin-bottom: 1rem;'>Temperature Sensor Setup</h2>";
         html += "<p>Configure temperature sensors, GPIO pins, and priorities. Changes are saved to EEPROM and persist across reboots.</p>";
         
         // Get current configuration
@@ -1657,35 +1679,91 @@ void setupDeviceWebServer() {
     
     // WiFi network change page
     device_server->on("/wifi-config", []() {
-        String html = "<!DOCTYPE html><html><head><title>WiFi Configuration</title>";
+        String html = "<!DOCTYPE html><html><head><title>Network Configuration - MAC-SYS Industrial Controller</title>";
         html += "<meta name='viewport' content='width=device-width, initial-scale=1'>";
-        html += "<style>body{font-family:Arial;margin:40px;background:#f0f0f0}";
-        html += ".container{background:white;padding:30px;border-radius:10px;box-shadow:0 2px 10px rgba(0,0,0,0.1)}";
-        html += ".warning{background:#fff3cd;border:1px solid #ffeaa7;color:#856404;padding:15px;border-radius:5px;margin:15px 0}";
-        html += "button{background:#dc3545;color:white;padding:10px 20px;border:none;border-radius:5px;cursor:pointer;margin:10px 5px}</style></head><body>";
+        html += "<style>";
+        html += "* { margin: 0; padding: 0; box-sizing: border-box; }";
+        html += "body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #0B1426; color: #E5E7EB; line-height: 1.6; }";
+        html += ".header { background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%); color: white; padding: 1rem 2rem; box-shadow: 0 2px 10px rgba(0,0,0,0.3); }";
+        html += ".header h1 { font-size: 1.5rem; margin: 0; display: flex; align-items: center; gap: 0.75rem; }";
+        html += ".nav-links { margin-top: 0.75rem; display: flex; gap: 1.5rem; flex-wrap: wrap; }";
+        html += ".nav-links a { color: #dbeafe; text-decoration: none; padding: 0.375rem 0.75rem; border-radius: 0.375rem; transition: all 0.2s; font-size: 0.875rem; }";
+        html += ".nav-links a:hover { background: rgba(255,255,255,0.2); }";
+        html += ".nav-links a.active { background: #00D4FF; color: #0B1426; font-weight: 600; }";
+        html += ".container { max-width: 1200px; margin: 2rem auto; padding: 0 1rem; }";
+        html += ".network-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem; margin: 1.5rem 0; }";
+        html += ".network-card { background: linear-gradient(135deg, #1f2937 0%, #374151 100%); border-radius: 0.75rem; padding: 1.5rem; border: 1px solid #374151; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }";
+        html += ".card-header { color: #00D4FF; font-size: 1.125rem; font-weight: 600; margin-bottom: 1rem; }";
+        html += ".warning { background: rgba(245, 158, 11, 0.1); border: 1px solid #F59E0B; color: #FCD34D; padding: 1rem; border-radius: 0.5rem; margin: 1rem 0; }";
+        html += ".network-item { display: flex; justify-content: space-between; align-items: center; padding: 0.75rem 0; border-bottom: 1px solid #374151; }";
+        html += ".network-item:last-child { border-bottom: none; }";
+        html += ".network-label { color: #9CA3AF; font-size: 0.875rem; }";
+        html += ".network-value { color: #E5E7EB; font-weight: 600; }";
+        html += ".btn { padding: 0.5rem 1rem; border: none; border-radius: 0.375rem; font-size: 0.875rem; font-weight: 600; cursor: pointer; transition: all 0.2s; margin: 0.25rem; }";
+        html += ".btn-primary { background: #00D4FF; color: #0B1426; }";
+        html += ".btn-danger { background: #EF4444; color: white; }";
+        html += ".btn-secondary { background: #374151; color: #E5E7EB; border: 1px solid #4B5563; }";
+        html += "</style></head><body>";
+        
+        // Header with navigation
+        html += "<div class='header'>";
+        html += "<h1>Network Configuration</h1>";
+        html += "<div class='nav-links'>";
+        html += "<a href='/'>Dashboard</a>";
+        html += "<a href='/system'>System</a>";
+        html += "<a href='/relays'>Relays</a>";
+        html += "<a href='/temperature'>Temperature</a>";
+        html += "<a href='/schedule'>Schedule</a>";
+        html += "<a href='/sensors'>Sensors</a>";
+        html += "<a href='/wifi-config' class='active'>Network</a>";
+        html += "</div>";
+        html += "</div>";
         
         html += "<div class='container'>";
-        html += "<h2>WiFi Network Configuration</h2>";
+        html += "<div class='network-grid'>";
         
+        // Current Network Status Card
+        html += "<div class='network-card'>";
+        html += "<div class='card-header'>Current Network Status</div>";
+        
+        html += "<div class='network-item'>";
+        html += "<span class='network-label'>Network SSID</span>";
+        html += "<span class='network-value'>" + WiFi.SSID() + "</span>";
+        html += "</div>";
+        html += "<div class='network-item'>";
+        html += "<span class='network-label'>IP Address</span>";
+        html += "<span class='network-value'>" + WiFi.localIP().toString() + "</span>";
+        html += "</div>";
+        html += "<div class='network-item'>";
+        html += "<span class='network-label'>Signal Strength</span>";
+        html += "<span class='network-value'>" + String(WiFi.RSSI()) + " dBm</span>";
+        html += "</div>";
+        html += "<div class='network-item'>";
+        html += "<span class='network-label'>MAC Address</span>";
+        html += "<span class='network-value'>" + WiFi.macAddress() + "</span>";
+        html += "</div>";
+        html += "</div>";
+        
+        // Network Configuration Card
+        html += "<div class='network-card'>";
+        html += "<div class='card-header'>Network Configuration</div>";
         html += "<div class='warning'><strong>Warning:</strong> Changing WiFi settings will disconnect the current connection and start configuration mode.</div>";
         
-        html += "<h3>Current Connection</h3>";
-        html += "<p><strong>Network:</strong> " + WiFi.SSID() + "</p>";
-        html += "<p><strong>IP Address:</strong> " + WiFi.localIP().toString() + "</p>";
-        html += "<p><strong>Signal:</strong> " + String(WiFi.RSSI()) + " dBm</p>";
-        
-        html += "<h3>Change Network</h3>";
-        html += "<p>To change the WiFi network:</p>";
-        html += "<ol>";
+        html += "<h3 style='color: #E5E7EB; margin: 1rem 0;'>Change Network Instructions</h3>";
+        html += "<ol style='color: #9CA3AF; margin-left: 1.5rem;'>";
         html += "<li>Click <strong>Reset WiFi Settings</strong> below</li>";
         html += "<li>Device will restart in configuration mode</li>";
         html += "<li>Connect to <strong>MAC-SYS-CONFIG</strong> network (password: admin123)</li>";
         html += "<li>Configure new network settings</li>";
         html += "</ol>";
         
-        html += "<div style='margin:30px 0;text-align:center'>";
-        html += "<button onclick=\"location.href='/'\" style='background:#6c757d'>← Back to Main</button>";
-        html += "<button onclick='resetWiFi()'>Reset WiFi Settings</button>";
+        html += "<div style='margin: 2rem 0; text-align: center;'>";
+        html += "<button class='btn btn-secondary' onclick=\"location.href='/'\">← Back to Dashboard</button>";
+        html += "<button class='btn btn-danger' onclick='resetWiFi()'>Reset WiFi Settings</button>";
+        html += "</div>";
+        html += "</div>";
+        html += "</div>"; // network-grid
+        html += "</div>"; // container
         html += "</div>";
         
         html += "<script>";
@@ -1749,6 +1827,332 @@ void setupDeviceWebServer() {
         ESP.restart();
     });
 
+    // Dedicated System Status page
+    device_server->on("/system", []() {
+        String html = "<!DOCTYPE html><html><head>";
+        html += "<title>System Status - MAC-SYS Industrial Controller</title>";
+        html += "<meta name='viewport' content='width=device-width, initial-scale=1'>";
+        html += "<style>";
+        html += "* { margin: 0; padding: 0; box-sizing: border-box; }";
+        html += "body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #0B1426; color: #E5E7EB; line-height: 1.6; }";
+        html += ".header { background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%); color: white; padding: 1rem 2rem; box-shadow: 0 2px 10px rgba(0,0,0,0.3); }";
+        html += ".header h1 { font-size: 1.5rem; margin: 0; display: flex; align-items: center; gap: 0.75rem; }";
+        html += ".nav-links { margin-top: 0.75rem; display: flex; gap: 1.5rem; flex-wrap: wrap; }";
+        html += ".nav-links a { color: #dbeafe; text-decoration: none; padding: 0.375rem 0.75rem; border-radius: 0.375rem; transition: all 0.2s; font-size: 0.875rem; }";
+        html += ".nav-links a:hover { background: rgba(255,255,255,0.2); }";
+        html += ".nav-links a.active { background: #00D4FF; color: #0B1426; font-weight: 600; }";
+        html += ".main-content { max-width: 1200px; margin: 2rem auto; padding: 0 1rem; }";
+        html += ".status-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem; margin: 1.5rem 0; }";
+        html += ".status-card { background: linear-gradient(135deg, #1f2937 0%, #374151 100%); border-radius: 0.75rem; padding: 1.5rem; border: 1px solid #374151; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }";
+        html += ".card-header { color: #00D4FF; font-size: 1.125rem; font-weight: 600; margin-bottom: 1rem; }";
+        html += ".status-item { display: flex; justify-content: space-between; align-items: center; padding: 0.75rem 0; border-bottom: 1px solid #374151; }";
+        html += ".status-item:last-child { border-bottom: none; }";
+        html += ".status-label { color: #9CA3AF; font-size: 0.875rem; }";
+        html += ".status-value { color: #E5E7EB; font-weight: 600; }";
+        html += ".status-good { color: #10B981; }";
+        html += ".status-warning { color: #F59E0B; }";
+        html += ".status-error { color: #EF4444; }";
+        html += ".action-buttons { display: flex; gap: 0.75rem; margin-top: 1.5rem; }";
+        html += ".btn { padding: 0.5rem 1rem; border: none; border-radius: 0.375rem; font-size: 0.875rem; font-weight: 600; cursor: pointer; transition: all 0.2s; }";
+        html += ".btn-primary { background: #00D4FF; color: #0B1426; }";
+        html += ".btn-danger { background: #EF4444; color: white; }";
+        html += ".btn-secondary { background: #374151; color: #E5E7EB; border: 1px solid #4B5563; }";
+        html += ".api-result { background: #111827; border: 1px solid #374151; border-radius: 0.5rem; padding: 1rem; margin-top: 1rem; font-family: monospace; font-size: 0.75rem; max-height: 200px; overflow-y: auto; display: none; }";
+        html += "@media (max-width: 768px) { .status-grid { grid-template-columns: 1fr; } }";
+        html += "</style></head><body>";
+        
+        // Header with navigation
+        html += "<div class='header'>";
+        html += "<h1>System Status</h1>";
+        html += "<div class='nav-links'>";
+        html += "<a href='/'>Dashboard</a>";
+        html += "<a href='/system' class='active'>System</a>";
+        html += "<a href='/relays'>Relays</a>";
+        html += "<a href='/temperature'>Temperature</a>";
+        html += "<a href='/schedule'>Schedule</a>";
+        html += "<a href='/sensors'>Sensors</a>";
+        html += "<a href='/wifi-config'>Network</a>";
+        html += "</div>";
+        html += "</div>";
+        
+        html += "<div class='main-content'>";
+        html += "<div class='status-grid'>";
+        
+        // System Information Card
+        html += "<div class='status-card'>";
+        html += "<div class='card-header'>System Information</div>";
+        html += "<div class='status-item'>";
+        html += "<span class='status-label'>System State</span>";
+        html += "<span class='status-value status-good'>" + String(g_system_status.state) + "</span>";
+        html += "</div>";
+        html += "<div class='status-item'>";
+        html += "<span class='status-label'>Uptime</span>";
+        html += "<span class='status-value'>" + String(g_system_status.uptime) + " seconds</span>";
+        html += "</div>";
+        html += "<div class='status-item'>";
+        html += "<span class='status-label'>Free Memory</span>";
+        html += "<span class='status-value'>" + String(g_system_status.free_memory/1024) + " KB</span>";
+        html += "</div>";
+        html += "<div class='status-item'>";
+        html += "<span class='status-label'>Firmware Version</span>";
+        html += "<span class='status-value'>" + String(FIRMWARE_VERSION) + "</span>";
+        html += "</div>";
+        html += "</div>";
+        
+        // Network Information Card
+        html += "<div class='status-card'>";
+        html += "<div class='card-header'>Network Status</div>";
+        html += "<div class='status-item'>";
+        html += "<span class='status-label'>WiFi Status</span>";
+        html += "<span class='status-value " + String(g_wifi_connected ? "status-good'>Connected" : "status-error'>Disconnected") + "</span>";
+        html += "</div>";
+        if (g_wifi_connected) {
+            html += "<div class='status-item'>";
+            html += "<span class='status-label'>Network SSID</span>";
+            html += "<span class='status-value'>" + WiFi.SSID() + "</span>";
+            html += "</div>";
+            html += "<div class='status-item'>";
+            html += "<span class='status-label'>IP Address</span>";
+            html += "<span class='status-value'>" + WiFi.localIP().toString() + "</span>";
+            html += "</div>";
+            html += "<div class='status-item'>";
+            html += "<span class='status-label'>Signal Strength</span>";
+            html += "<span class='status-value'>" + String(WiFi.RSSI()) + " dBm</span>";
+            html += "</div>";
+        }
+        html += "</div>";
+        
+        // Hardware Information Card
+        html += "<div class='status-card'>";
+        html += "<div class='card-header'>Hardware Status</div>";
+        html += "<div class='status-item'>";
+        html += "<span class='status-label'>Chip Model</span>";
+        html += "<span class='status-value'>ESP32</span>";
+        html += "</div>";
+        html += "<div class='status-item'>";
+        html += "<span class='status-label'>CPU Frequency</span>";
+        html += "<span class='status-value'>" + String(ESP.getCpuFreqMHz()) + " MHz</span>";
+        html += "</div>";
+        html += "<div class='status-item'>";
+        html += "<span class='status-label'>Flash Size</span>";
+        html += "<span class='status-value'>" + String(ESP.getFlashChipSize()/1024/1024) + " MB</span>";
+        html += "</div>";
+        html += "<div class='status-item'>";
+        html += "<span class='status-label'>MAC Address</span>";
+        html += "<span class='status-value'>" + WiFi.macAddress() + "</span>";
+        html += "</div>";
+        html += "</div>";
+        
+        // Time Information Card
+        html += "<div class='status-card'>";
+        html += "<div class='card-header'>Time & Date</div>";
+        html += "<div class='status-item'>";
+        html += "<span class='status-label'>Current Time</span>";
+        html += "<span class='status-value'>" + rtc_manager.getFormattedDateTime() + "</span>";
+        html += "</div>";
+        html += "<div class='status-item'>";
+        html += "<span class='status-label'>RTC Status</span>";
+        html += "<span class='status-value " + String(rtc_manager.isRTCAvailable() ? "status-good'>Available" : "status-warning'>Unavailable") + "</span>";
+        html += "</div>";
+        html += "<div class='status-item'>";
+        html += "<span class='status-label'>NTP Sync</span>";
+        html += "<span class='status-value " + String(rtc_manager.isNTPSynced() ? "status-good'>Synchronized" : "status-warning'>Not Synced") + "</span>";
+        html += "</div>";
+        html += "</div>";
+        
+        html += "</div>"; // status-grid
+        
+        // System Actions
+        html += "<div class='status-card' style='margin-top: 1.5rem;'>";
+        html += "<div class='card-header'>System Actions</div>";
+        html += "<div class='action-buttons'>";
+        html += "<button class='btn btn-primary' onclick='testSystemAPI()'>Test System API</button>";
+        html += "<button class='btn btn-secondary' onclick='testDiagnosticsAPI()'>Run Diagnostics</button>";
+        html += "<button class='btn btn-danger' onclick='restartSystem()'>Restart System</button>";
+        html += "</div>";
+        html += "<div id='api-result' class='api-result'></div>";
+        html += "</div>";
+        
+        html += "</div>"; // main-content
+        
+        // JavaScript
+        html += "<script>";
+        html += "function testSystemAPI() {";
+        html += "  fetch('/api/system').then(r => r.json()).then(data => {";
+        html += "    document.getElementById('api-result').style.display = 'block';";
+        html += "    document.getElementById('api-result').textContent = JSON.stringify(data, null, 2);";
+        html += "  });";
+        html += "}";
+        html += "function testDiagnosticsAPI() {";
+        html += "  fetch('/api/diagnostics').then(r => r.json()).then(data => {";
+        html += "    document.getElementById('api-result').style.display = 'block';";
+        html += "    document.getElementById('api-result').textContent = JSON.stringify(data, null, 2);";
+        html += "  });";
+        html += "}";
+        html += "function restartSystem() {";
+        html += "  if(confirm('Restart the system? This will disconnect all users.')) {";
+        html += "    fetch('/api/system/restart', {method: 'POST'}).then(() => {";
+        html += "      alert('System restarting... Please wait 30 seconds before reconnecting.');";
+        html += "    });";
+        html += "  }";
+        html += "}";
+        // Auto-refresh disabled for better user interaction - use manual refresh
+        // html += "setInterval(() => location.reload(), 10000);";
+        html += "</script>";
+        html += "</body></html>";
+        
+        device_server->send(200, "text/html", html);
+    });
+
+    // Dedicated Relay Control page
+    device_server->on("/relays", []() {
+        String html = "<!DOCTYPE html><html><head>";
+        html += "<title>Relay Control - MAC-SYS Industrial Controller</title>";
+        html += "<meta name='viewport' content='width=device-width, initial-scale=1'>";
+        html += "<style>";
+        html += "* { margin: 0; padding: 0; box-sizing: border-box; }";
+        html += "body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #0B1426; color: #E5E7EB; line-height: 1.6; }";
+        html += ".header { background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%); color: white; padding: 1rem 2rem; box-shadow: 0 2px 10px rgba(0,0,0,0.3); }";
+        html += ".header h1 { font-size: 1.5rem; margin: 0; display: flex; align-items: center; gap: 0.75rem; }";
+        html += ".nav-links { margin-top: 0.75rem; display: flex; gap: 1.5rem; flex-wrap: wrap; }";
+        html += ".nav-links a { color: #dbeafe; text-decoration: none; padding: 0.375rem 0.75rem; border-radius: 0.375rem; transition: all 0.2s; font-size: 0.875rem; }";
+        html += ".nav-links a:hover { background: rgba(255,255,255,0.2); }";
+        html += ".nav-links a.active { background: #00D4FF; color: #0B1426; font-weight: 600; }";
+        html += ".main-content { max-width: 1200px; margin: 2rem auto; padding: 0 1rem; }";
+        html += ".relay-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.5rem; margin: 1.5rem 0; }";
+        html += ".relay-card { background: linear-gradient(135deg, #1f2937 0%, #374151 100%); border-radius: 0.75rem; padding: 1.5rem; border: 1px solid #374151; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }";
+        html += ".relay-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; }";
+        html += ".relay-title { font-size: 1.125rem; font-weight: 600; color: #00D4FF; }";
+        html += ".relay-status { padding: 0.25rem 0.75rem; border-radius: 1rem; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; }";
+        html += ".status-on { background: #10B981; color: white; }";
+        html += ".status-off { background: #6B7280; color: white; }";
+        html += ".relay-display { display: flex; justify-content: space-between; align-items: center; margin: 1rem 0; }";
+        html += ".relay-state { font-size: 2rem; font-weight: bold; color: #00D4FF; }";
+        html += ".relay-info { font-size: 0.875rem; color: #D1D5DB; }";
+        html += ".control-buttons { display: flex; gap: 0.75rem; margin-top: 1rem; }";
+        html += ".btn { padding: 0.5rem 1rem; border: none; border-radius: 0.375rem; font-size: 0.875rem; font-weight: 600; cursor: pointer; transition: all 0.2s; }";
+        html += ".btn-on { background: #10B981; color: white; }";
+        html += ".btn-off { background: #6B7280; color: white; }";
+        html += ".btn-primary { background: #00D4FF; color: #0B1426; }";
+        html += ".btn-danger { background: #EF4444; color: white; }";
+        html += ".global-controls { background: linear-gradient(135deg, #1f2937 0%, #374151 100%); border-radius: 0.75rem; padding: 1.5rem; margin: 1.5rem 0; border: 1px solid #374151; }";
+        html += ".global-title { color: #00D4FF; font-size: 1.125rem; font-weight: 600; margin-bottom: 1rem; }";
+        html += "@media (max-width: 768px) { .relay-grid { grid-template-columns: 1fr; } }";
+        html += "</style></head><body>";
+        
+        // Header with navigation
+        html += "<div class='header'>";
+        html += "<h1>Relay Control System</h1>";
+        html += "<div class='nav-links'>";
+        html += "<a href='/'>Dashboard</a>";
+        html += "<a href='/system'>System</a>";
+        html += "<a href='/relays' class='active'>Relays</a>";
+        html += "<a href='/temperature'>Temperature</a>";
+        html += "<a href='/schedule'>Schedule</a>";
+        html += "<a href='/sensors'>Sensors</a>";
+        html += "<a href='/wifi-config'>Network</a>";
+        html += "</div>";
+        html += "</div>";
+        
+        html += "<div class='main-content'>";
+        
+        // Global relay controls
+        html += "<div class='global-controls'>";
+        html += "<div class='global-title'>Global Relay Controls</div>";
+        html += "<div class='control-buttons'>";
+        html += "<button class='btn btn-on' onclick='controlAllRelays(true)'>Turn All ON</button>";
+        html += "<button class='btn btn-off' onclick='controlAllRelays(false)'>Turn All OFF</button>";
+        html += "<button class='btn btn-primary' onclick='testRelayAPI()'>Test API</button>";
+        html += "</div>";
+        html += "</div>";
+        
+        html += "<div class='relay-grid'>";
+        
+        // Generate cards for all 6 relays
+        for (int relay = 0; relay < 6; relay++) {
+            bool relayState = relay_controller.getRelayState(relay);
+            
+            html += "<div class='relay-card'>";
+            html += "<div class='relay-header'>";
+            html += "<div class='relay-title'>Relay " + String(relay + 1) + "</div>";
+            
+            String statusClass = relayState ? "status-on" : "status-off";
+            String statusText = relayState ? "ON" : "OFF";
+            html += "<div class='relay-status " + statusClass + "'>" + statusText + "</div>";
+            html += "</div>";
+            
+            html += "<div class='relay-display'>";
+            html += "<div class='relay-state'>" + String(relayState ? "ON" : "OFF") + "</div>";
+            html += "<div class='relay-info'>Channel " + String(relay + 1) + "</div>";
+            html += "</div>";
+            
+            html += "<div class='control-buttons'>";
+            html += "<button class='btn btn-on' onclick='controlRelay(" + String(relay) + ", true)'>Turn ON</button>";
+            html += "<button class='btn btn-off' onclick='controlRelay(" + String(relay) + ", false)'>Turn OFF</button>";
+            html += "</div>";
+            html += "</div>";
+        }
+        
+        html += "</div>"; // relay-grid
+        html += "</div>"; // main-content
+        
+        // JavaScript
+        html += "<script>";
+        html += "function controlRelay(relay, state) {";
+        html += "  const button = event.target;";
+        html += "  button.disabled = true;";
+        html += "  button.textContent = 'Working...';";
+        html += "  fetch('/api/relays/control', {";
+        html += "    method: 'POST',";
+        html += "    headers: {'Content-Type': 'application/x-www-form-urlencoded'},";
+        html += "    body: 'relay=' + relay + '&state=' + state";
+        html += "  })";
+        html += "  .then(response => response.json())";
+        html += "  .then(data => {";
+        html += "    if (data.success) {";
+        html += "      setTimeout(() => location.reload(), 500);";
+        html += "    } else {";
+        html += "      alert('Error: ' + (data.error || 'Unknown error'));";
+        html += "      button.disabled = false;";
+        html += "      button.textContent = state ? 'Turn ON' : 'Turn OFF';";
+        html += "    }";
+        html += "  })";
+        html += "  .catch(err => {";
+        html += "    alert('Network error: ' + err);";
+        html += "    button.disabled = false;";
+        html += "    button.textContent = state ? 'Turn ON' : 'Turn OFF';";
+        html += "  });";
+        html += "}";
+        html += "function controlAllRelays(state) {";
+        html += "  if (!confirm('Turn ALL relays ' + (state ? 'ON' : 'OFF') + '?')) return;";
+        html += "  fetch('/api/relays/all', {";
+        html += "    method: 'POST',";
+        html += "    headers: {'Content-Type': 'application/x-www-form-urlencoded'},";
+        html += "    body: 'state=' + state";
+        html += "  })";
+        html += "  .then(response => response.json())";
+        html += "  .then(data => {";
+        html += "    if (data.success) {";
+        html += "      setTimeout(() => location.reload(), 500);";
+        html += "    } else {";
+        html += "      alert('Error: ' + (data.error || 'Unknown error'));";
+        html += "    }";
+        html += "  })";
+        html += "  .catch(err => alert('Network error: ' + err));";
+        html += "}";
+        html += "function testRelayAPI() {";
+        html += "  fetch('/api/relays').then(r => r.json()).then(data => {";
+        html += "    alert('Relay API Test Result:\\n' + JSON.stringify(data, null, 2));";
+        html += "  });";
+        html += "}";
+        // Auto-refresh disabled for better user interaction
+        // html += "setInterval(() => location.reload(), 5000);";
+        html += "</script>";
+        html += "</body></html>";
+        
+        device_server->send(200, "text/html", html);
+    });
+
     // Schedule management endpoints
     // Dedicated Temperature Control page
     device_server->on("/temperature", []() {
@@ -1807,8 +2211,10 @@ void setupDeviceWebServer() {
         html += "<h1>Temperature Control System</h1>";
         html += "<div class='nav-links'>";
         html += "<a href='/'>Dashboard</a>";
-        html += "<a href='/schedule'>Schedule</a>";
+        html += "<a href='/system'>System</a>";
+        html += "<a href='/relays'>Relays</a>";
         html += "<a href='/temperature' class='active'>Temperature</a>";
+        html += "<a href='/schedule'>Schedule</a>";
         html += "<a href='/sensors'>Sensors</a>";
         html += "<a href='/wifi-config'>Network</a>";
         html += "</div>";
@@ -1945,7 +2351,8 @@ void setupDeviceWebServer() {
         html += "    .then(() => location.reload());";
         html += "  }";
         html += "}";
-        html += "setInterval(() => location.reload(), 30000);"; // Auto-refresh every 30 seconds
+        // Auto-refresh reduced frequency to avoid interference
+        html += "setInterval(() => location.reload(), 60000);"; // Auto-refresh every 60 seconds
         html += "</script>";
         html += "</body></html>";
         
@@ -1958,10 +2365,16 @@ void setupDeviceWebServer() {
         html += "<meta charset='UTF-8'>";
         html += "<style>";
         html += "* { margin: 0; padding: 0; box-sizing: border-box; }";
-        html += "body { font-family: 'Segoe UI', -apple-system, sans-serif; background: #0B1426; color: #E2E8F0; height: 100vh; overflow: hidden; }";
-        html += ".container { max-width: 1200px; margin: 0 auto; padding: 20px; height: 100vh; display: flex; flex-direction: column; }";
-        html += ".header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 30px; }";
-        html += ".header h1 { color: #00D4FF; font-size: 28px; font-weight: 600; }";
+        html += "body { font-family: 'Segoe UI', -apple-system, sans-serif; background: #0B1426; color: #E2E8F0; }";
+        html += ".header { background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%); color: white; padding: 1rem 2rem; box-shadow: 0 2px 10px rgba(0,0,0,0.3); }";
+        html += ".header h1 { font-size: 1.5rem; margin: 0; display: flex; align-items: center; gap: 0.75rem; }";
+        html += ".nav-links { margin-top: 0.75rem; display: flex; gap: 1.5rem; flex-wrap: wrap; }";
+        html += ".nav-links a { color: #dbeafe; text-decoration: none; padding: 0.375rem 0.75rem; border-radius: 0.375rem; transition: all 0.2s; font-size: 0.875rem; }";
+        html += ".nav-links a:hover { background: rgba(255,255,255,0.2); }";
+        html += ".nav-links a.active { background: #00D4FF; color: #0B1426; font-weight: 600; }";
+        html += ".container { max-width: 1200px; margin: 0 auto; padding: 20px; }";
+        html += ".page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 30px; }";
+        html += ".page-header h2 { color: #00D4FF; font-size: 28px; font-weight: 600; }";
         html += ".status { display: flex; align-items: center; gap: 20px; font-size: 14px; }";
         html += ".status-item { display: flex; align-items: center; gap: 8px; }";
         html += ".status-dot { width: 8px; height: 8px; border-radius: 50%; }";
@@ -2005,9 +2418,23 @@ void setupDeviceWebServer() {
         html += ".nav-footer { display: flex; justify-content: center; gap: 15px; margin-top: 20px; }";
         html += "</style></head><body>";
         
-        html += "<div class='container'>";
+        // Header with navigation
         html += "<div class='header'>";
-        html += "<h1>AC Schedule Control</h1>";
+        html += "<h1>Schedule Control System</h1>";
+        html += "<div class='nav-links'>";
+        html += "<a href='/'>Dashboard</a>";
+        html += "<a href='/system'>System</a>";
+        html += "<a href='/relays'>Relays</a>";
+        html += "<a href='/temperature'>Temperature</a>";
+        html += "<a href='/schedule' class='active'>Schedule</a>";
+        html += "<a href='/sensors'>Sensors</a>";
+        html += "<a href='/wifi-config'>Network</a>";
+        html += "</div>";
+        html += "</div>";
+        
+        html += "<div class='container'>";
+        html += "<div class='page-header'>";
+        html += "<h2>AC Schedule Control</h2>";
         html += "<div class='status'>";
         html += "<div class='status-item'>";
         html += "<div class='status-dot active'></div>";
@@ -2462,16 +2889,19 @@ void setupDeviceWebServer() {
                         device_server->arg("state") == "1";
             
             if (relayId >= 0 && relayId < NUM_RELAYS) {
-                setRelayState(relayId, state);
-                // Manual override implementation pending
-                
-                json = "{";
-                json += "\"success\":true,";
-                json += "\"relay\":" + String(relayId) + ",";
-                json += "\"state\":" + String(state ? "true" : "false") + ",";
-                json += "\"message\":\"Relay " + String(relayId + 1) + " set to " + String(state ? "ON" : "OFF") + "\"";
-                json += "}";
-                statusCode = 200;
+                bool success = relay_controller.setRelay(relayId, state);
+                if (success) {
+                    json = "{";
+                    json += "\"success\":true,";
+                    json += "\"relay\":" + String(relayId) + ",";
+                    json += "\"state\":" + String(state ? "true" : "false") + ",";
+                    json += "\"message\":\"Relay " + String(relayId + 1) + " set to " + String(state ? "ON" : "OFF") + "\"";
+                    json += "}";
+                    statusCode = 200;
+                } else {
+                    json = "{\"success\":false,\"error\":\"Failed to control relay " + String(relayId + 1) + "\"}";
+                    statusCode = 500;
+                }
             }
         }
         device_server->send(statusCode, "application/json", json);
@@ -2486,17 +2916,23 @@ void setupDeviceWebServer() {
             bool state = device_server->arg("state").equalsIgnoreCase("true") || 
                         device_server->arg("state") == "1";
             
+            bool allSuccess = true;
             for (int i = 0; i < NUM_RELAYS; i++) {
-                setRelayState(i, state);
-                // Manual override implementation pending
+                bool success = relay_controller.setRelay(i, state);
+                if (!success) allSuccess = false;
             }
             
-            json = "{";
-            json += "\"success\":true,";
-            json += "\"state\":" + String(state ? "true" : "false") + ",";
-            json += "\"message\":\"All relays set to " + String(state ? "ON" : "OFF") + "\"";
-            json += "}";
-            statusCode = 200;
+            if (allSuccess) {
+                json = "{";
+                json += "\"success\":true,";
+                json += "\"state\":" + String(state ? "true" : "false") + ",";
+                json += "\"message\":\"All relays set to " + String(state ? "ON" : "OFF") + "\"";
+                json += "}";
+                statusCode = 200;
+            } else {
+                json = "{\"success\":false,\"error\":\"Some relays failed to respond\"}";
+                statusCode = 500;
+            }
         }
         device_server->send(statusCode, "application/json", json);
     });

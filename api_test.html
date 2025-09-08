@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>MAC-SYS API Test Suite</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        body { font-family: monospace; margin: 20px; background: #1a1a1a; color: #00ff00; }
+        .test-section { margin: 20px 0; border: 1px solid #333; padding: 15px; }
+        .test-title { color: #00ffff; font-size: 18px; margin-bottom: 10px; }
+        .test-result { margin: 10px 0; padding: 10px; border-left: 3px solid #333; }
+        .success { border-color: #00ff00; background: rgba(0, 255, 0, 0.1); }
+        .error { border-color: #ff0000; background: rgba(255, 0, 0, 0.1); }
+        .button { background: #333; color: #fff; border: none; padding: 10px 20px; margin: 5px; cursor: pointer; }
+        .button:hover { background: #555; }
+        pre { background: #222; padding: 10px; border-radius: 5px; overflow-x: auto; }
+    </style>
+</head>
+<body>
+    <h1>MAC-SYS Industrial Controller - API Test Suite</h1>
+    <p>This page tests all API endpoints to ensure functionality.</p>
+
+    <div class="test-section">
+        <div class="test-title">System APIs</div>
+        <button class="button" onclick="testAPI('/api/system', 'System Status')">Test System API</button>
+        <button class="button" onclick="testAPI('/api/diagnostics', 'Diagnostics')">Test Diagnostics API</button>
+        <button class="button" onclick="testAPI('/api/network', 'Network Info')">Test Network API</button>
+        <div id="system-results"></div>
+    </div>
+
+    <div class="test-section">
+        <div class="test-title">Relay Control APIs</div>
+        <button class="button" onclick="testAPI('/api/relays', 'Relay Status')">Test Relay Status</button>
+        <button class="button" onclick="testRelayControl(0, true)">Test Relay 1 ON</button>
+        <button class="button" onclick="testRelayControl(0, false)">Test Relay 1 OFF</button>
+        <button class="button" onclick="testAllRelays(true)">Test All ON</button>
+        <button class="button" onclick="testAllRelays(false)">Test All OFF</button>
+        <div id="relay-results"></div>
+    </div>
+
+    <div class="test-section">
+        <div class="test-title">Temperature APIs</div>
+        <button class="button" onclick="testAPI('/api/temperature', 'Temperature Data')">Test Temperature API</button>
+        <button class="button" onclick="testAPI('/api/temperature/zones', 'Temperature Zones')">Test Zones API</button>
+        <div id="temperature-results"></div>
+    </div>
+
+    <div class="test-section">
+        <div class="test-title">Sensor APIs</div>
+        <button class="button" onclick="testAPI('/api/sensors', 'Sensor Status')">Test Sensors API</button>
+        <button class="button" onclick="testAPI('/api/sensors/data', 'Sensor Data')">Test Sensor Data</button>
+        <div id="sensor-results"></div>
+    </div>
+
+    <div class="test-section">
+        <div class="test-title">Schedule APIs</div>
+        <button class="button" onclick="testAPI('/api/schedule/export', 'Schedule Export')">Test Schedule Export</button>
+        <div id="schedule-results"></div>
+    </div>
+
+    <script>
+        let testCount = 0;
+        
+        function testAPI(endpoint, name) {
+            testCount++;
+            const resultId = endpoint.split('/')[2] + '-results';
+            const resultDiv = document.getElementById(resultId) || document.getElementById('system-results');
+            
+            const testDiv = document.createElement('div');
+            testDiv.className = 'test-result';
+            testDiv.innerHTML = `<strong>Test ${testCount}: ${name}</strong><br>Endpoint: ${endpoint}<br>Status: Testing...`;
+            resultDiv.appendChild(testDiv);
+            
+            fetch(endpoint)
+                .then(response => {
+                    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                    return response.json();
+                })
+                .then(data => {
+                    testDiv.className = 'test-result success';
+                    testDiv.innerHTML = `
+                        <strong>✅ Test ${testCount}: ${name}</strong><br>
+                        Endpoint: ${endpoint}<br>
+                        Status: SUCCESS<br>
+                        <pre>${JSON.stringify(data, null, 2)}</pre>
+                    `;
+                })
+                .catch(error => {
+                    testDiv.className = 'test-result error';
+                    testDiv.innerHTML = `
+                        <strong>❌ Test ${testCount}: ${name}</strong><br>
+                        Endpoint: ${endpoint}<br>
+                        Status: FAILED<br>
+                        Error: ${error.message}
+                    `;
+                });
+        }
+        
+        function testRelayControl(relay, state) {
+            testCount++;
+            const resultDiv = document.getElementById('relay-results');
+            
+            const testDiv = document.createElement('div');
+            testDiv.className = 'test-result';
+            testDiv.innerHTML = `<strong>Test ${testCount}: Relay ${relay + 1} ${state ? 'ON' : 'OFF'}</strong><br>Testing...`;
+            resultDiv.appendChild(testDiv);
+            
+            fetch('/api/relays/control', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                body: `relay=${relay}&state=${state}`
+            })
+            .then(response => response.json())
+            .then(data => {
+                testDiv.className = data.success ? 'test-result success' : 'test-result error';
+                testDiv.innerHTML = `
+                    <strong>${data.success ? '✅' : '❌'} Test ${testCount}: Relay ${relay + 1} ${state ? 'ON' : 'OFF'}</strong><br>
+                    Status: ${data.success ? 'SUCCESS' : 'FAILED'}<br>
+                    <pre>${JSON.stringify(data, null, 2)}</pre>
+                `;
+            })
+            .catch(error => {
+                testDiv.className = 'test-result error';
+                testDiv.innerHTML = `
+                    <strong>❌ Test ${testCount}: Relay ${relay + 1} ${state ? 'ON' : 'OFF'}</strong><br>
+                    Status: NETWORK ERROR<br>
+                    Error: ${error.message}
+                `;
+            });
+        }
+        
+        function testAllRelays(state) {
+            testCount++;
+            const resultDiv = document.getElementById('relay-results');
+            
+            const testDiv = document.createElement('div');
+            testDiv.className = 'test-result';
+            testDiv.innerHTML = `<strong>Test ${testCount}: All Relays ${state ? 'ON' : 'OFF'}</strong><br>Testing...`;
+            resultDiv.appendChild(testDiv);
+            
+            fetch('/api/relays/all', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                body: `state=${state}`
+            })
+            .then(response => response.json())
+            .then(data => {
+                testDiv.className = data.success ? 'test-result success' : 'test-result error';
+                testDiv.innerHTML = `
+                    <strong>${data.success ? '✅' : '❌'} Test ${testCount}: All Relays ${state ? 'ON' : 'OFF'}</strong><br>
+                    Status: ${data.success ? 'SUCCESS' : 'FAILED'}<br>
+                    <pre>${JSON.stringify(data, null, 2)}</pre>
+                `;
+            })
+            .catch(error => {
+                testDiv.className = 'test-result error';
+                testDiv.innerHTML = `
+                    <strong>❌ Test ${testCount}: All Relays ${state ? 'ON' : 'OFF'}</strong><br>
+                    Status: NETWORK ERROR<br>
+                    Error: ${error.message}
+                `;
+            });
+        }
+        
+        function runAllTests() {
+            document.querySelectorAll('[id$="-results"]').forEach(div => div.innerHTML = '');
+            testCount = 0;
+            
+            // System tests
+            setTimeout(() => testAPI('/api/system', 'System Status'), 100);
+            setTimeout(() => testAPI('/api/diagnostics', 'Diagnostics'), 200);
+            setTimeout(() => testAPI('/api/network', 'Network Info'), 300);
+            
+            // Relay tests
+            setTimeout(() => testAPI('/api/relays', 'Relay Status'), 500);
+            setTimeout(() => testRelayControl(0, true), 1000);
+            setTimeout(() => testRelayControl(0, false), 2000);
+            
+            // Temperature tests
+            setTimeout(() => testAPI('/api/temperature', 'Temperature Data'), 3000);
+            setTimeout(() => testAPI('/api/temperature/zones', 'Temperature Zones'), 3500);
+            
+            // Sensor tests
+            setTimeout(() => testAPI('/api/sensors', 'Sensor Status'), 4000);
+            setTimeout(() => testAPI('/api/sensors/data', 'Sensor Data'), 4500);
+            
+            // Schedule tests
+            setTimeout(() => testAPI('/api/schedule/export', 'Schedule Export'), 5000);
+        }
+    </script>
+    
+    <div style="text-align: center; margin: 30px 0;">
+        <button class="button" onclick="runAllTests()" style="background: #00aa00; font-size: 16px; padding: 15px 30px;">🧪 Run All API Tests</button>
+    </div>
+    
+    <div style="margin-top: 30px; color: #666; font-size: 12px;">
+        <p>⚠️ This test suite will control actual hardware relays. Use with caution.</p>
+        <p>🔗 Navigate to: http://192.168.1.2/api_test.html (replace with your device IP)</p>
+    </div>
+</body>
+</html>
