@@ -236,25 +236,25 @@ void ScheduleManager::process() {
     if (!isScheduleActive()) {
         return;
     }
-    
+
     unsigned long now = millis();
-    
+
     // Only check once per minute to avoid excessive processing
     if (now - last_execution_check < 60000) {
         return;
     }
-    
+
     last_execution_check = now;
-    
+
     int current_day = rtc_manager.getCurrentDayOfWeek();
     int current_minutes = rtc_manager.getCurrentTimeMinutes();
-    
+
     // Process each zone
     for (uint8_t zone = 0; zone < MAX_ZONES; zone++) {
         WeeklySchedule& schedule = config.zones[zone];
-        
+
         if (!schedule.enabled) continue;
-        
+
         // Check for expired overrides
         if (schedule.override_active && schedule.override_end_time > 0) {
             if (now >= schedule.override_end_time) {
@@ -262,17 +262,26 @@ void ScheduleManager::process() {
                 DEBUG_PRINTF("⏰ Override expired for zone %d\n", zone);
             }
         }
-        
+
         // Skip scheduling if override is active
         if (schedule.override_active) continue;
-        
+
+        bool schedule_found = false;
         // Check each event
         for (uint8_t i = 0; i < schedule.active_events; i++) {
             ScheduleEvent& event = schedule.events[i];
-            
+
             if (isEventActive(event, current_day, current_minutes)) {
                 executeEvent(event);
+                schedule_found = true;
+                break; // Execute only the first active schedule
             }
+        }
+
+        if (!schedule_found) {
+            // No active schedule, turn off relays for this zone
+            // Note: relay_mask removed from WeeklySchedule structure
+            // This would need to be reimplemented based on zone configuration
         }
     }
 }

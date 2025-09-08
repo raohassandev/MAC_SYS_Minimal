@@ -4,7 +4,7 @@
 #include <mbedtls/sha256.h>
 
 // External functions
-extern uint16_t calculateChecksum(const void* data, size_t length);
+#include "utils.h"
 
 // Session storage
 static AuthSession sessions[MAX_CONCURRENT_SESSIONS];

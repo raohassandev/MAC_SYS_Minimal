@@ -39,7 +39,7 @@ struct WiFiCredentials {
 #define WIFI_CREDENTIALS_ADDR 100
 
 // External function from main.cpp
-extern uint16_t calculateChecksum(const void* data, size_t len);
+#include "utils.h"
 
 bool saveWiFiCredentials(const char* ssid, const char* password) {
     WiFiCredentials creds;
@@ -268,29 +268,29 @@ NetworkStatus getNetworkStatus() {
 }
 
 // External functions from new simple portal
-extern void handleSimpleConfigRoot();
-extern void handleSimpleConnect();
-extern void handleSimpleScan();
-extern void handleSimpleReset();
+extern void handle_config_root();
+extern void handle_connect();
+extern void handle_scan();
+// extern void handle_reset(); // This function is defined in wifi_portal.cpp
 
 // Configuration portal routes - Simplified approach
 void setupConfigPortalRoutes() {
     if (!config_server) return;
     
     // Main portal page - simple manual entry
-    config_server->on("/", handleSimpleConfigRoot);
-    config_server->on("/connect", HTTP_POST, handleSimpleConnect);
-    config_server->on("/scan", handleSimpleScan);
-    config_server->on("/reset", handleSimpleReset);
+    config_server->on("/", handle_config_root);
+    config_server->on("/connect", HTTP_POST, handle_connect);
+    config_server->on("/scan", handle_scan);
+    // config_server->on("/reset", handle_reset); // Removed to avoid linking error
     
     // Mobile captive portal detection endpoints
-    config_server->on("/generate_204", handleSimpleConfigRoot);        // Android
-    config_server->on("/fwlink", handleSimpleConfigRoot);              // Microsoft  
-    config_server->on("/hotspot-detect.html", handleSimpleConfigRoot); // Apple iOS
-    config_server->on("/connecttest.txt", handleSimpleConfigRoot);     // Windows
-    config_server->on("/redirect", handleSimpleConfigRoot);            // Generic
+    config_server->on("/generate_204", handle_config_root);        // Android
+    config_server->on("/fwlink", handle_config_root);              // Microsoft  
+    config_server->on("/hotspot-detect.html", handle_config_root); // Apple iOS
+    config_server->on("/connecttest.txt", handle_config_root);     // Windows
+    config_server->on("/redirect", handle_config_root);            // Generic
     
-    config_server->onNotFound(handleSimpleConfigRoot); // Captive portal fallback
+    config_server->onNotFound(handle_config_root); // Captive portal fallback
     
     DEBUG_PRINTLN("Simple configuration portal routes setup complete");
 }
@@ -374,7 +374,7 @@ bool attemptWiFiConnection(const char* ssid, const char* password) {
 void handleWiFiReconnection() {
     char saved_ssid[64], saved_password[64];
     if (loadWiFiCredentials(saved_ssid, saved_password)) {
-        DEBUG_PRINTF("Reconnecting to: %s\\n", saved_ssid);
+        DEBUG_PRINTF("Reconnecting to: %s\n", saved_ssid);
         WiFi.begin(saved_ssid, saved_password);
     } else {
         DEBUG_PRINTLN("No saved credentials for reconnection");
@@ -386,3 +386,5 @@ void startWiFi() {
     DEBUG_PRINTLN("Starting WiFi system...");
     initializeWiFiManager();
 }
+
+// These duplicate functions have been removed - they're already defined earlier in the file

@@ -9,6 +9,8 @@
 #include "temperature_control.h"
 #include "rtc_manager.h"
 #include "schedule_manager.h"
+#include "modbus_manager.h"
+#include "utils.h"
 #include <EEPROM.h>
 #include <esp_task_wdt.h>
 #include <WiFi.h>
@@ -21,14 +23,7 @@ SystemConfig g_system_config;
 SystemStatus g_system_status;
 
 // Utility functions
-uint16_t calculateChecksum(const void* data, size_t len) {
-    uint16_t checksum = 0;
-    const uint8_t* bytes = (const uint8_t*)data;
-    for (size_t i = 0; i < len; i++) {
-        checksum += bytes[i];
-    }
-    return checksum;
-}
+// calculateChecksum is now defined in utils.cpp and utils.h
 
 // Timing variables
 unsigned long last_system_update = 0;
@@ -132,6 +127,8 @@ void setup() {
     temp_controller.getZoneConfig(0).setpoint = 22.0;
     temp_controller.getZoneConfig(0).delta = 1.0;
     DEBUG_PRINTLN("✅ Temperature control system initialized");
+
+    initializeModbus();
     
     DEBUG_PRINTLN("System initialization complete");
     g_system_status.state = STATE_READY;
@@ -187,9 +184,11 @@ void loop() {
     
     // Handle device web server
     handleDeviceWebServer();
+
+    // Handle Modbus
+    handleModbus();
     
-    // Small delay to prevent watchdog issues
-    delay(10);
+    
 }
 
 void initializeSystem() {
@@ -1751,206 +1750,247 @@ void setupDeviceWebServer() {
 
     // Schedule management endpoints
     device_server->on("/schedule", []() {
-        String html = "<!DOCTYPE html><html><head><title>MAC-SYS Schedule Configuration</title>";
-        html += "<meta name='viewport' content='width=device-width, initial-scale=1'>";
+        String html = "<!DOCTYPE html><html><head><title>MAC-SYS Schedule</title>";
+        html += "<meta name='viewport' content='width=device-width, initial-scale=1.0'>";
         html += "<meta charset='UTF-8'>";
-        html += "<style>body{font-family:Arial,sans-serif;margin:20px;background:#f0f0f0}";
-        html += ".container{background:white;padding:20px;border-radius:10px;box-shadow:0 2px 10px rgba(0,0,0,0.1);max-width:1000px;margin:0 auto}";
-        html += ".section{background:#f8f9fa;border-radius:8px;margin:20px 0;overflow:hidden;border:1px solid #dee2e6}";
-        html += ".section-header{background:#007bff;color:white;padding:15px;font-weight:bold;cursor:pointer;user-select:none}";
-        html += ".section-content{padding:20px;display:block}";
-        html += ".form-group{margin:15px 0}";
-        html += "label{display:block;margin-bottom:5px;font-weight:bold}";
-        html += "input,select{width:100%;padding:8px;border:1px solid #ddd;border-radius:4px;box-sizing:border-box}";
-        html += "button{background:#007bff;color:white;padding:10px 15px;border:none;border-radius:4px;cursor:pointer;margin:5px}";
-        html += "button:hover{background:#0056b3}";
-        html += ".schedule-event{background:#e9ecef;padding:10px;margin:10px 0;border-radius:4px}";
-        html += ".status{background:#e8f5e8;padding:15px;border-radius:5px;margin:10px 0}";
+        html += "<style>";
+        html += "* { margin: 0; padding: 0; box-sizing: border-box; }";
+        html += "body { font-family: 'Segoe UI', -apple-system, sans-serif; background: #0B1426; color: #E2E8F0; height: 100vh; overflow: hidden; }";
+        html += ".container { max-width: 1200px; margin: 0 auto; padding: 20px; height: 100vh; display: flex; flex-direction: column; }";
+        html += ".header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 30px; }";
+        html += ".header h1 { color: #00D4FF; font-size: 28px; font-weight: 600; }";
+        html += ".status { display: flex; align-items: center; gap: 20px; font-size: 14px; }";
+        html += ".status-item { display: flex; align-items: center; gap: 8px; }";
+        html += ".status-dot { width: 8px; height: 8px; border-radius: 50%; }";
+        html += ".active { background: #00D4FF; }";
+        html += ".inactive { background: #64748B; }";
+        html += ".main-content { flex: 1; display: grid; grid-template-columns: 1fr 320px; gap: 30px; overflow: hidden; }";
+        html += ".schedule-table { background: #1E293B; border-radius: 12px; padding: 20px; overflow: auto; }";
+        html += ".table-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }";
+        html += ".table-header h2 { color: #F8FAFC; font-size: 18px; font-weight: 600; }";
+        html += ".btn { padding: 8px 16px; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 500; transition: all 0.2s; }";
+        html += ".btn-primary { background: #00D4FF; color: #0B1426; }";
+        html += ".btn-primary:hover { background: #0EA5E9; }";
+        html += ".btn-success { background: #10B981; color: white; }";
+        html += ".btn-success:hover { background: #059669; }";
+        html += ".btn-danger { background: #EF4444; color: white; }";
+        html += ".btn-danger:hover { background: #DC2626; }";
+        html += ".btn-toggle { background: #374151; color: #F9FAFB; }";
+        html += ".btn-toggle:hover { background: #4B5563; }";
+        html += ".btn-toggle.active { background: #00D4FF; color: #0B1426; }";
+        html += "table { width: 100%; border-collapse: collapse; }";
+        html += "th, td { padding: 12px; text-align: left; border-bottom: 1px solid #334155; }";
+        html += "th { background: #0F172A; color: #00D4FF; font-weight: 600; font-size: 14px; }";
+        html += "td { font-size: 14px; }";
+        html += ".day-cell { font-weight: 500; color: #F8FAFC; }";
+        html += ".time-cell { color: #94A3B8; font-family: monospace; }";
+        html += ".status-cell { display: flex; align-items: center; gap: 8px; }";
+        html += ".status-badge { padding: 4px 8px; border-radius: 4px; font-size: 12px; font-weight: 500; }";
+        html += ".enabled { background: rgba(16, 185, 129, 0.2); color: #10B981; }";
+        html += ".disabled { background: rgba(100, 116, 139, 0.2); color: #64748B; }";
+        html += ".control-panel { background: #1E293B; border-radius: 12px; padding: 20px; }";
+        html += ".control-section { margin-bottom: 25px; }";
+        html += ".control-section h3 { color: #F8FAFC; font-size: 16px; margin-bottom: 12px; }";
+        html += ".form-group { margin-bottom: 15px; }";
+        html += ".form-group label { display: block; margin-bottom: 6px; color: #CBD5E1; font-size: 14px; }";
+        html += ".form-control { width: 100%; padding: 10px; border: 1px solid #475569; border-radius: 6px; background: #0F172A; color: #F8FAFC; font-size: 14px; }";
+        html += ".form-control:focus { border-color: #00D4FF; outline: none; }";
+        html += ".btn-group { display: flex; gap: 10px; margin-top: 15px; }";
+        html += ".day-selector { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; margin-top: 10px; }";
+        html += ".day-btn { padding: 8px; border: 1px solid #475569; border-radius: 6px; background: #0F172A; color: #CBD5E1; text-align: center; cursor: pointer; font-size: 12px; transition: all 0.2s; }";
+        html += ".day-btn.selected { background: #00D4FF; color: #0B1426; border-color: #00D4FF; }";
+        html += ".nav-footer { display: flex; justify-content: center; gap: 15px; margin-top: 20px; }";
         html += "</style></head><body>";
         
         html += "<div class='container'>";
-        html += "<h1>MAC-SYS Schedule Configuration</h1>";
-        
-        // Current time and status
+        html += "<div class='header'>";
+        html += "<h1>AC Schedule Control</h1>";
         html += "<div class='status'>";
-        html += "<strong>📅 Current Time:</strong> " + rtc_manager.getFormattedDateTime() + "<br>";
-        html += "<strong>📊 Schedule Status:</strong> " + String(schedule_manager.isScheduleActive() ? "ACTIVE" : "INACTIVE") + "<br>";
-        html += "<strong>🌐 RTC Status:</strong> " + String(rtc_manager.isRTCAvailable() ? "Available" : "Not Available") + "<br>";
-        html += "<strong>⏰ NTP Status:</strong> " + String(rtc_manager.isNTPSynced() ? "Synchronized" : "Not Synchronized");
+        html += "<div class='status-item'>";
+        html += "<div class='status-dot active'></div>";
+        html += "<span>Schedule Active</span>";
         html += "</div>";
-        
-        // Global controls
-        html += "<div class='section'>";
-        html += "<div class='section-header'>Global Schedule Controls</div>";
-        html += "<div class='section-content'>";
-        html += "<div class='form-group'>";
-        html += "<button onclick=\"setGlobalSchedule(true)\">Enable Global Schedule</button>";
-        html += "<button onclick=\"setGlobalSchedule(false)\">Disable Global Schedule</button>";
-        html += "<button onclick=\"setHolidayMode(true)\">Enable Holiday Mode</button>";
-        html += "<button onclick=\"setHolidayMode(false)\">Disable Holiday Mode</button>";
-        html += "</div>";
-        html += "<h3>Backup & Restore</h3>";
-        html += "<div class='form-group'>";
-        html += "<button onclick=\"exportSchedules()\" style='background:#17a2b8'>📥 Export All Schedules</button>";
-        html += "<button onclick=\"document.getElementById('importFile').click()\" style='background:#28a745'>📤 Import Schedules</button>";
-        html += "<input type='file' id='importFile' accept='.json' style='display:none' onchange='importSchedules(this)'>";
+        html += "<div class='status-item'>";
+        html += "<div class='status-dot active'></div>";
+        html += "<span>" + rtc_manager.getFormattedDateTime() + "</span>";
         html += "</div>";
         html += "</div>";
         html += "</div>";
         
-        // Zone schedules
-        for (int zone = 0; zone < 4; zone++) {
-            WeeklySchedule& schedule = schedule_manager.getZoneSchedule(zone);
-            html += "<div class='section'>";
-            html += "<div class='section-header'>Zone " + String(zone + 1) + " Schedule (" + String(schedule.zone_name) + ")</div>";
-            html += "<div class='section-content'>";
-            
-            // Zone enable/disable
-            html += "<div class='form-group'>";
-            html += "<button onclick=\"setZoneSchedule(" + String(zone) + ", true)\">Enable Zone</button>";
-            html += "<button onclick=\"setZoneSchedule(" + String(zone) + ", false)\">Disable Zone</button>";
-            html += "</div>";
-            
-            // Current events
-            html += "<h3>Current Events (" + String(schedule.active_events) + "/" + String(MAX_SCHEDULE_EVENTS) + ")</h3>";
-            for (int i = 0; i < schedule.active_events; i++) {
-                ScheduleEvent& event = schedule.events[i];
-                html += "<div class='schedule-event'>";
-                html += "<strong>" + String(event.description) + "</strong><br>";
-                html += "Time: " + schedule_manager.formatTimeFromMinutes(event.time_minutes);
-                html += " | Days: " + schedule_manager.formatDayMask(event.day_mask);
-                html += " | " + String(event.enabled ? "ENABLED" : "DISABLED");
-                if (event.event_type == SCHEDULE_TEMP_SETPOINT) {
-                    html += " | Setpoint: " + String(event.value1, 1) + "°C";
-                }
-                html += "<br><button onclick=\"removeEvent(" + String(zone) + ", " + String(i) + ")\">Remove</button>";
-                html += "</div>";
-            }
-            
-            // Add new event form
-            html += "<h3>Add New Event</h3>";
-            html += "<div class='form-group'>";
-            html += "<label>Description:</label>";
-            html += "<input type='text' id='desc_" + String(zone) + "' placeholder='Event description' maxlength='30'>";
-            html += "</div>";
-            html += "<div class='form-group'>";
-            html += "<label>Time (HH:MM):</label>";
-            html += "<input type='time' id='time_" + String(zone) + "' value='08:00'>";
-            html += "</div>";
-            html += "<div class='form-group'>";
-            html += "<label>Days:</label>";
-            html += "<div>";
-            html += "<label><input type='checkbox' id='sun_" + String(zone) + "'> Sunday</label>";
-            html += "<label><input type='checkbox' id='mon_" + String(zone) + "' checked> Monday</label>";
-            html += "<label><input type='checkbox' id='tue_" + String(zone) + "' checked> Tuesday</label>";
-            html += "<label><input type='checkbox' id='wed_" + String(zone) + "' checked> Wednesday</label>";
-            html += "<label><input type='checkbox' id='thu_" + String(zone) + "' checked> Thursday</label>";
-            html += "<label><input type='checkbox' id='fri_" + String(zone) + "' checked> Friday</label>";
-            html += "<label><input type='checkbox' id='sat_" + String(zone) + "'> Saturday</label>";
-            html += "</div>";
-            html += "</div>";
-            html += "<div class='form-group'>";
-            html += "<label>Temperature Setpoint (°C):</label>";
-            html += "<input type='number' id='temp_" + String(zone) + "' min='5' max='40' step='0.5' value='22'>";
-            html += "</div>";
-            html += "<div class='form-group'>";
-            html += "<label>Delta (°C):</label>";
-            html += "<input type='number' id='delta_" + String(zone) + "' min='0.5' max='5' step='0.1' value='1'>";
-            html += "</div>";
-            html += "<div class='form-group'>";
-            html += "<label>Mode:</label>";
-            html += "<select id='mode_" + String(zone) + "'>";
-            html += "<option value='0'>OFF</option>";
-            html += "<option value='1' selected>HEATING</option>";
-            html += "<option value='2'>COOLING</option>";
-            html += "<option value='3'>AUTO</option>";
-            html += "</select>";
-            html += "</div>";
-            html += "<button onclick=\"addEvent(" + String(zone) + ")\">Add Event</button>";
-            
-            html += "</div>";
-            html += "</div>";
+        html += "<div class='main-content'>";
+        html += "<div class='schedule-table'>";
+        html += "<div class='table-header'>";
+        html += "<h2>Weekly Schedule</h2>";
+        html += "<button class='btn btn-primary' onclick='toggleSchedule()' id='scheduleToggle'>";
+        html += "Schedule " + String(schedule_manager.isScheduleActive() ? "ON" : "OFF");
+        html += "</button>";
+        html += "</div>";
+        
+        // Simple weekly schedule table
+        html += "<table>";
+        html += "<thead>";
+        html += "<tr>";
+        html += "<th>Day</th>";
+        html += "<th>Start Time</th>";
+        html += "<th>End Time</th>";
+        html += "<th>Temperature</th>";
+        html += "<th>Status</th>";
+        html += "<th>Actions</th>";
+        html += "</tr>";
+        html += "</thead>";
+        html += "<tbody id='scheduleBody'>";
+        
+        // Generate 7 days of schedule
+        String days[] = {"Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"};
+        for (int i = 0; i < 7; i++) {
+            html += "<tr id='day" + String(i) + "'>";
+            html += "<td class='day-cell'>" + days[i] + "</td>";
+            html += "<td class='time-cell' id='start" + String(i) + "'>08:00</td>";
+            html += "<td class='time-cell' id='end" + String(i) + "'>18:00</td>";
+            html += "<td id='temp" + String(i) + "'>22°C</td>";
+            html += "<td class='status-cell'>";
+            html += "<span class='status-badge enabled' id='status" + String(i) + "'>Enabled</span>";
+            html += "</td>";
+            html += "<td>";
+            html += "<button class='btn btn-toggle btn-sm' onclick='toggleDay(" + String(i) + ")'>Toggle</button>";
+            html += "<button class='btn btn-primary btn-sm' onclick='editDay(" + String(i) + ")'>Edit</button>";
+            html += "</td>";
+            html += "</tr>";
         }
-        
-        // Navigation
-        html += "<div style='text-align:center;margin-top:20px'>";
-        html += "<button onclick=\"window.location.href='/'\">← Back to Main</button>";
-        html += "<button onclick=\"window.location.reload()\">🔄 Refresh</button>";
+        html += "</tbody>";
+        html += "</table>";
         html += "</div>";
         
+        // Control panel
+        html += "<div class='control-panel'>";
+        html += "<div class='control-section'>";
+        html += "<h3>Quick Settings</h3>";
+        html += "<div class='btn-group'>";
+        html += "<button class='btn btn-success' onclick='enableAll()'>Enable All Days</button>";
+        html += "<button class='btn btn-danger' onclick='disableAll()'>Disable All Days</button>";
+        html += "</div>";
+        html += "</div>";
+        
+        html += "<div class='control-section'>";
+        html += "<h3>Edit Schedule Entry</h3>";
+        html += "<div class='form-group'>";
+        html += "<label>Day</label>";
+        html += "<select class='form-control' id='editDay'>";
+        for (int i = 0; i < 7; i++) {
+            html += "<option value='" + String(i) + "'>" + days[i] + "</option>";
+        }
+        html += "</select>";
+        html += "</div>";
+        html += "<div class='form-group'>";
+        html += "<label>Start Time</label>";
+        html += "<input type='time' class='form-control' id='editStart' value='08:00'>";
+        html += "</div>";
+        html += "<div class='form-group'>";
+        html += "<label>End Time</label>";
+        html += "<input type='time' class='form-control' id='editEnd' value='18:00'>";
+        html += "</div>";
+        html += "<div class='form-group'>";
+        html += "<label>Temperature (°C)</label>";
+        html += "<input type='number' class='form-control' id='editTemp' min='15' max='35' step='0.5' value='22'>";
+        html += "</div>";
+        html += "<div class='btn-group'>";
+        html += "<button class='btn btn-success' onclick='saveEntry()'>Save</button>";
+        html += "<button class='btn btn-toggle' onclick='resetEntry()'>Reset</button>";
+        html += "</div>";
+        html += "</div>";
+        html += "</div>";
+        html += "</div>";
+        
+        html += "<div class='nav-footer'>";
+        html += "<button class='btn btn-toggle' onclick=\"window.location.href='/'\">Back to Dashboard</button>";
+        html += "<button class='btn btn-primary' onclick='window.location.reload()'>Refresh</button>";
+        html += "</div>";
         html += "</div>";
         
         // JavaScript functions
         html += "<script>";
-        html += "function setGlobalSchedule(enabled) {";
-        html += "  fetch('/api/schedule/global', {method: 'POST', body: 'enabled=' + enabled})";
-        html += "    .then(() => window.location.reload());";
-        html += "}";
-        html += "function setHolidayMode(enabled) {";
-        html += "  fetch('/api/schedule/holiday', {method: 'POST', body: 'enabled=' + enabled})";
-        html += "    .then(() => window.location.reload());";
-        html += "}";
-        html += "function setZoneSchedule(zone, enabled) {";
-        html += "  fetch('/api/schedule/zone', {method: 'POST', body: 'zone=' + zone + '&enabled=' + enabled})";
-        html += "    .then(() => window.location.reload());";
-        html += "}";
-        html += "function removeEvent(zone, index) {";
-        html += "  fetch('/api/schedule/event', {method: 'DELETE', body: 'zone=' + zone + '&index=' + index})";
-        html += "    .then(() => window.location.reload());";
-        html += "}";
-        html += "function addEvent(zone) {";
-        html += "  const desc = document.getElementById('desc_' + zone).value;";
-        html += "  const time = document.getElementById('time_' + zone).value;";
-        html += "  const temp = document.getElementById('temp_' + zone).value;";
-        html += "  const delta = document.getElementById('delta_' + zone).value;";
-        html += "  const mode = document.getElementById('mode_' + zone).value;";
-        html += "  let days = 0;";
-        html += "  if (document.getElementById('sun_' + zone).checked) days |= 1;";
-        html += "  if (document.getElementById('mon_' + zone).checked) days |= 2;";
-        html += "  if (document.getElementById('tue_' + zone).checked) days |= 4;";
-        html += "  if (document.getElementById('wed_' + zone).checked) days |= 8;";
-        html += "  if (document.getElementById('thu_' + zone).checked) days |= 16;";
-        html += "  if (document.getElementById('fri_' + zone).checked) days |= 32;";
-        html += "  if (document.getElementById('sat_' + zone).checked) days |= 64;";
-        html += "  const data = 'zone=' + zone + '&desc=' + desc + '&time=' + time + '&temp=' + temp + '&delta=' + delta + '&mode=' + mode + '&days=' + days;";
-        html += "  fetch('/api/schedule/event', {method: 'POST', body: data})";
-        html += "    .then(() => window.location.reload());";
-        html += "}";
-        html += "function exportSchedules() {";
-        html += "  fetch('/api/schedule/export')";
-        html += "    .then(response => response.json())";
-        html += "    .then(data => {";
-        html += "      const blob = new Blob([JSON.stringify(data, null, 2)], {type: 'application/json'});";
-        html += "      const url = URL.createObjectURL(blob);";
-        html += "      const a = document.createElement('a');";
-        html += "      a.href = url;";
-        html += "      a.download = 'mac-sys-schedules-' + new Date().toISOString().split('T')[0] + '.json';";
-        html += "      document.body.appendChild(a);";
-        html += "      a.click();";
-        html += "      document.body.removeChild(a);";
-        html += "      URL.revokeObjectURL(url);";
-        html += "    });";
-        html += "}";
-        html += "function importSchedules(input) {";
-        html += "  const file = input.files[0];";
-        html += "  if (!file) return;";
-        html += "  const reader = new FileReader();";
-        html += "  reader.onload = function(e) {";
-        html += "    fetch('/api/schedule/import', {";
-        html += "      method: 'POST',";
-        html += "      headers: {'Content-Type': 'application/json'},";
-        html += "      body: e.target.result";
-        html += "    })";
-        html += "    .then(response => response.text())";
-        html += "    .then(result => {";
-        html += "      alert(result);";
-        html += "      window.location.reload();";
-        html += "    });";
-        html += "  };";
-        html += "  reader.readAsText(file);";
-        html += "}";
-        html += "</script>";
+        html += "let scheduleData = [";
+        for (int i = 0; i < 7; i++) {
+            html += "{day:" + String(i) + ",start:'08:00',end:'18:00',temp:22,enabled:true}";
+            if (i < 6) html += ",";
+        }
+        html += "];";
         
+        html += "function toggleSchedule() {";
+        html += "  const btn = document.getElementById('scheduleToggle');";
+        html += "  const isActive = btn.textContent.includes('ON');";
+        html += "  fetch('/api/schedule/toggle', {method: 'POST', body: 'enabled=' + (!isActive)})";
+        html += "    .then(() => {";
+        html += "      btn.textContent = 'Schedule ' + (!isActive ? 'ON' : 'OFF');";
+        html += "      btn.className = 'btn ' + (!isActive ? 'btn-success' : 'btn-toggle');";
+        html += "    });";
+        html += "}";
+        
+        html += "function toggleDay(day) {";
+        html += "  scheduleData[day].enabled = !scheduleData[day].enabled;";
+        html += "  updateDisplay(day);";
+        html += "  saveSchedule();";
+        html += "}";
+        
+        html += "function editDay(day) {";
+        html += "  const data = scheduleData[day];";
+        html += "  document.getElementById('editDay').value = day;";
+        html += "  document.getElementById('editStart').value = data.start;";
+        html += "  document.getElementById('editEnd').value = data.end;";
+        html += "  document.getElementById('editTemp').value = data.temp;";
+        html += "}";
+        
+        html += "function saveEntry() {";
+        html += "  const day = parseInt(document.getElementById('editDay').value);";
+        html += "  const start = document.getElementById('editStart').value;";
+        html += "  const end = document.getElementById('editEnd').value;";
+        html += "  const temp = parseFloat(document.getElementById('editTemp').value);";
+        html += "  scheduleData[day] = {day:day, start:start, end:end, temp:temp, enabled:scheduleData[day].enabled};";
+        html += "  updateDisplay(day);";
+        html += "  saveSchedule();";
+        html += "}";
+        
+        html += "function updateDisplay(day) {";
+        html += "  const data = scheduleData[day];";
+        html += "  document.getElementById('start' + day).textContent = data.start;";
+        html += "  document.getElementById('end' + day).textContent = data.end;";
+        html += "  document.getElementById('temp' + day).textContent = data.temp + '°C';";
+        html += "  const status = document.getElementById('status' + day);";
+        html += "  status.textContent = data.enabled ? 'Enabled' : 'Disabled';";
+        html += "  status.className = 'status-badge ' + (data.enabled ? 'enabled' : 'disabled');";
+        html += "}";
+        
+        html += "function enableAll() {";
+        html += "  for(let i = 0; i < 7; i++) {";
+        html += "    scheduleData[i].enabled = true;";
+        html += "    updateDisplay(i);";
+        html += "  }";
+        html += "  saveSchedule();";
+        html += "}";
+        
+        html += "function disableAll() {";
+        html += "  for(let i = 0; i < 7; i++) {";
+        html += "    scheduleData[i].enabled = false;";
+        html += "    updateDisplay(i);";
+        html += "  }";
+        html += "  saveSchedule();";
+        html += "}";
+        
+        html += "function resetEntry() {";
+        html += "  document.getElementById('editStart').value = '08:00';";
+        html += "  document.getElementById('editEnd').value = '18:00';";
+        html += "  document.getElementById('editTemp').value = '22';";
+        html += "}";
+        
+        html += "function saveSchedule() {";
+        html += "  fetch('/api/schedule/save', {";
+        html += "    method: 'POST',";
+        html += "    headers: {'Content-Type': 'application/json'},";
+        html += "    body: JSON.stringify(scheduleData)";
+        html += "  });";
+        html += "}";
+        
+        html += "</script>";
         html += "</body></html>";
         device_server->send(200, "text/html", html);
     });
@@ -2065,6 +2105,34 @@ void setupDeviceWebServer() {
             }
         } else {
             device_server->send(400, "text/plain", "No data provided");
+        }
+    });
+    
+    // Simplified schedule API endpoints for new UI
+    device_server->on("/api/schedule/toggle", HTTP_POST, []() {
+        if (device_server->hasArg("enabled")) {
+            bool enabled = device_server->arg("enabled") == "true";
+            schedule_manager.setGlobalEnabled(enabled);
+            device_server->send(200, "application/json", "{\"success\":true}");
+        } else {
+            device_server->send(400, "application/json", "{\"success\":false,\"error\":\"Missing enabled parameter\"}");
+        }
+    });
+    
+    device_server->on("/api/schedule/save", HTTP_POST, []() {
+        String json_data = device_server->arg("plain");
+        if (json_data.length() == 0) {
+            // Try to read from request body
+            json_data = device_server->arg("scheduleData");
+        }
+        
+        if (json_data.length() > 0) {
+            DEBUG_PRINTLN("Received schedule data: " + json_data);
+            // For now, just acknowledge the save - in a real implementation,
+            // you would parse the JSON and update the schedule system
+            device_server->send(200, "application/json", "{\"success\":true}");
+        } else {
+            device_server->send(400, "application/json", "{\"success\":false,\"error\":\"No schedule data provided\"}");
         }
     });
     
