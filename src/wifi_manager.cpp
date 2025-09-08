@@ -80,9 +80,11 @@ bool initializeWiFiManager() {
     WiFi.mode(WIFI_STA);
     wifi_manager_active = true;
     
-    // Try to connect with saved credentials
+    // HARDCODED: Rao network for testing
     char saved_ssid[64], saved_password[64];
-    if (loadWiFiCredentials(saved_ssid, saved_password)) {
+    strcpy(saved_ssid, "Automatrix");
+    strcpy(saved_password, "Automatrix");
+    if (true) { // Always use hardcoded credentials
         DEBUG_PRINTF("Connecting to saved network: %s\n", saved_ssid);
         DEBUG_PRINTF("Password length: %d\n", strlen(saved_password));
         
