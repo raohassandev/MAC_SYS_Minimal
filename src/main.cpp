@@ -534,21 +534,52 @@ void setupDeviceWebServer() {
         String html = "<!DOCTYPE html><html><head><title>MAC-SYS Device Status</title>";
         html += "<meta name='viewport' content='width=device-width, initial-scale=1'>";
         html += "<meta charset='UTF-8'>";
-        html += "<style>body{font-family:Arial,sans-serif;margin:20px;background:#f0f0f0}";
-        html += ".container{background:white;padding:20px;border-radius:10px;box-shadow:0 2px 10px rgba(0,0,0,0.1);max-width:1200px;margin:0 auto}";
-        html += ".status{background:#e8f5e8;padding:15px;border-radius:5px;margin:10px 0}";
-        html += ".temp{font-size:24px;color:#2c5234;font-weight:bold}";
-        html += ".info{display:flex;justify-content:space-between;margin:10px 0;padding:5px 0;border-bottom:1px solid #eee}";
-        html += ".label{font-weight:bold;color:#666}";
-        html += ".section{background:#f8f9fa;border-radius:8px;margin:20px 0;overflow:hidden;border:1px solid #dee2e6}";
-        html += ".section-header{background:#007bff;color:white;padding:12px 20px;cursor:pointer;user-select:none;display:flex;justify-content:space-between;align-items:center}";
-        html += ".section-header:hover{background:#0056b3}";
-        html += ".section-content{padding:20px;display:none}";
-        html += ".section-content.active{display:block}";
-        html += ".arrow{transition:transform 0.3s}";
-        html += ".arrow.down{transform:rotate(90deg)}";
-        html += "button{transition:all 0.3s}";
-        html += "button:hover{opacity:0.8;transform:translateY(-2px)}";
+        html += "<style>* { margin: 0; padding: 0; box-sizing: border-box; }";
+        html += "body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #0B1426; color: #E5E7EB; line-height: 1.6; }";
+        html += ".container { max-width: 1200px; margin: 0 auto; padding: 1.5rem; }";
+        // Hero metrics section
+        html += ".hero-metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.5rem; margin-bottom: 2rem; }";
+        html += ".metric-card { background: linear-gradient(135deg, #1f2937 0%, #374151 100%); border: 1px solid #374151; border-radius: 12px; padding: 1.5rem; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }";
+        html += ".metric-header { display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1rem; }";
+        html += ".metric-icon { font-size: 1.5rem; opacity: 0.8; }";
+        html += ".metric-title { font-size: 1.1rem; font-weight: 600; color: #F3F4F6; }";
+        html += ".metric-value { font-size: 2rem; font-weight: 700; color: #00D4FF; margin-bottom: 0.5rem; }";
+        html += ".metric-subtitle { font-size: 0.9rem; color: #9CA3AF; }";
+        html += ".status-indicator { display: inline-block; width: 12px; height: 12px; border-radius: 50%; margin-right: 0.5rem; }";
+        html += ".status-running { background: #10B981; box-shadow: 0 0 8px rgba(16,185,129,0.4); }";
+        html += ".status-idle { background: #6B7280; }";
+        html += ".status-error { background: #EF4444; box-shadow: 0 0 8px rgba(239,68,68,0.4); }";
+        // Control panel section
+        html += ".control-panel { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem; margin-bottom: 2rem; }";
+        html += ".control-card { background: #1f2937; border: 1px solid #374151; border-radius: 8px; padding: 1rem; }";
+        html += ".control-card h3 { color: #F9FAFB; margin-bottom: 1rem; font-size: 1rem; }";
+        html += ".control-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }";
+        html += ".btn { border: none; padding: 0.5rem 1rem; border-radius: 6px; cursor: pointer; font-weight: 500; transition: all 0.2s; }";
+        html += ".btn-primary { background: #3B82F6; color: white; }";
+        html += ".btn-primary:hover { background: #2563EB; transform: translateY(-1px); }";
+        html += ".btn-success { background: #10B981; color: white; }";
+        html += ".btn-success:hover { background: #059669; }";
+        html += ".btn-danger { background: #EF4444; color: white; }";
+        html += ".btn-danger:hover { background: #DC2626; }";
+        html += ".btn-secondary { background: #6B7280; color: white; }";
+        html += ".btn-secondary:hover { background: #4B5563; }";
+        // Details section
+        html += ".details-section { margin-top: 2rem; }";
+        html += ".section-card { background: #1f2937; border: 1px solid #374151; border-radius: 8px; margin-bottom: 1rem; overflow: hidden; }";
+        html += ".section-header { background: #374151; color: #F9FAFB; padding: 1rem; cursor: pointer; user-select: none; display: flex; justify-content: space-between; align-items: center; }";
+        html += ".section-header:hover { background: #4B5563; }";
+        html += ".section-content { padding: 1.5rem; display: none; }";
+        html += ".section-content.active { display: block; }";
+        html += ".arrow { transition: transform 0.3s; font-size: 0.8rem; }";
+        html += ".arrow.down { transform: rotate(90deg); }";
+        html += ".relay-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem; }";
+        html += ".relay-card { background: #374151; border-radius: 6px; padding: 1rem; text-align: center; border: 2px solid transparent; }";
+        html += ".relay-card.active { border-color: #10B981; }";
+        html += ".relay-card.inactive { border-color: #6B7280; }";
+        html += ".info-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; }";
+        html += ".info-item { display: flex; justify-content: space-between; padding: 0.5rem 0; border-bottom: 1px solid #374151; }";
+        html += ".info-label { color: #9CA3AF; }";
+        html += ".info-value { color: #F3F4F6; font-weight: 500; }";
         // Professional navigation styles to match other pages
         html += ".header{background:linear-gradient(135deg,#1e3a8a 0%,#3b82f6 100%);color:white;padding:1rem 2rem;box-shadow:0 2px 10px rgba(0,0,0,0.3)}";
         html += ".header h1{font-size:1.5rem;margin:0;display:flex;align-items:center;gap:0.75rem}";
@@ -558,7 +589,7 @@ void setupDeviceWebServer() {
         html += ".nav-links a.active{background:#00D4FF;color:#0B1426;font-weight:600}";
         html += "</style></head><body>";
         
-        // Professional navigation header to match other pages
+        // Professional navigation header
         html += "<div class='header'>";
         html += "<h1>MAC-SYS Industrial Controller</h1>";
         html += "<div class='nav-links'>";
@@ -568,539 +599,116 @@ void setupDeviceWebServer() {
         html += "<a href='/temperature'>Temperature</a>";
         html += "<a href='/schedule'>Schedule</a>";
         html += "<a href='/sensors'>Sensors</a>";
-        html += "<a href='/wifi-config'>Network</a>";
+        html += "<a href='/wifi-config'>WiFi Config</a>";
         html += "</div>";
         html += "</div>";
         
         html += "<div class='container'>";
         
-        html += "<div class='status'>";
-        html += "<div class='temp'>Temperature: " + String(g_system_status.current_temperature, 1) + "&deg;C</div>";
+        // Hero metrics section
+        html += "<div class='hero-metrics'>";
+        html += "<div class='metric-card'>";
+        html += "<div class='metric-header'>";
+        html += "<span class='metric-title'>Temperature</span>";
         html += "</div>";
-        
-        // System Status Card
-        html += "<div style='background:white;border-radius:8px;box-shadow:0 2px 4px rgba(0,0,0,0.1);padding:20px;margin:15px 0'>";
-        html += "<h2 style='margin:0 0 15px 0;color:#007bff;border-bottom:2px solid #007bff;padding-bottom:10px'>System Status</h2>";
-        html += "<div style='display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:15px;margin:15px 0'>";
-        html += "<div><strong>System State:</strong> " + String(g_system_status.state) + "</div>";
-        html += "<div><strong>Uptime:</strong> " + String(g_system_status.uptime) + "s</div>";
-        html += "<div><strong>Free Memory:</strong> " + String(g_system_status.free_memory/1024) + " KB</div>";
-        html += "<div id='current-time'><strong>Current Time:</strong> " + rtc_manager.getFormattedDateTime() + "</div>";
-        html += "<div><strong>WiFi Network:</strong> " + WiFi.SSID() + "</div>";
-        html += "<div><strong>IP Address:</strong> " + WiFi.localIP().toString() + "</div>";
-        html += "<div><strong>Signal:</strong> " + String(WiFi.RSSI()) + " dBm</div>";
+        html += "<div class='metric-value'>" + String(g_system_status.current_temperature, 1) + "°C</div>";
+        html += "<div class='metric-subtitle'>Current reading</div>";
         html += "</div>";
-        html += "<div style='margin-top:15px'>";
-        html += "<button onclick='testSystemAPI()' style='background:#007bff;color:white;border:none;padding:8px 16px;border-radius:4px;cursor:pointer;margin:3px'>System API</button>";
-        html += "<button onclick='testDiagnosticsAPI()' style='background:#6f42c1;color:white;border:none;padding:8px 16px;border-radius:4px;cursor:pointer;margin:3px'>Diagnostics</button>";
-        html += "<button onclick='testNetworkAPI()' style='background:#20c997;color:white;border:none;padding:8px 16px;border-radius:4px;cursor:pointer;margin:3px'>Network</button>";
+        html += "<div class='metric-card'>";
+        html += "<div class='metric-header'>";
+        html += "<span class='metric-icon'>⚡</span>";
+        html += "<span class='metric-title'>System Status</span>";
         html += "</div>";
-        html += "<div id='system-api-result' style='margin-top:10px;padding:10px;background:#f8f9fa;border-radius:4px;font-family:monospace;font-size:11px;display:none;max-height:150px;overflow-y:auto'></div>";
+        html += "<div class='metric-value'>" + String(g_system_status.state == 1 ? "ACTIVE" : "IDLE") + "</div>";
+        html += "<div class='metric-subtitle'><span class='status-indicator " + String(g_system_status.state == 1 ? "status-running" : "status-idle") + "'></span>System state</div>";
         html += "</div>";
-        
-        // Schedule Control Card (BACKBONE FEATURE)
-        html += "<div style='background:white;border-radius:8px;box-shadow:0 2px 4px rgba(0,0,0,0.1);padding:20px;margin:15px 0'>";
-        html += "<h2 style='margin:0 0 15px 0;color:#ff6b35;border-bottom:2px solid #ff6b35;padding-bottom:10px'>AC Schedule Control</h2>";
-        html += "<div style='display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:15px;margin:15px 0'>";
-        
-        // Control Mode Status
-        html += "<div><strong>Control Mode:</strong> ";
-        if (g_system_config.central_control_mode) {
-            html += "<span style='color:#28a745;font-weight:bold'>CENTRAL</span>";
-        } else {
-            html += "<span style='color:#ffc107;font-weight:bold'>LOCAL</span>";
-        }
+        html += "<div class='metric-card'>";
+        html += "<div class='metric-header'>";
+        html += "<span class='metric-title'>Uptime</span>";
         html += "</div>";
-        
-        // Setpoint Mode Status  
-        html += "<div><strong>Setpoint Mode:</strong> ";
-        if (g_system_config.operation_mode == 1) {
-            html += "<span style='color:#007bff;font-weight:bold'>SCHEDULE</span>";
-        } else {
-            html += "<span style='color:#6c757d;font-weight:bold'>DIRECT</span>";
-        }
+        html += "<div class='metric-value'>" + String(g_system_status.uptime/3600) + "h</div>";
+        html += "<div class='metric-subtitle'>" + String(g_system_status.uptime) + " seconds</div>";
         html += "</div>";
-        
-        // Current Setpoint
-        html += "<div><strong>Current Setpoint:</strong> " + String(g_system_config.ac_setpoint, 1) + "°C</div>";
-        
-        // AC Status
-        html += "<div><strong>AC Control:</strong> ";
-        if (g_system_config.ac_control_enabled) {
-            html += "<span style='color:#28a745;font-weight:bold'>AUTO</span>";
-        } else {
-            html += "<span style='color:#dc3545;font-weight:bold'>FORCE-OFF</span>";
-        }
+        html += "<div class='metric-card'>";
+        html += "<div class='metric-header'>";
+        html += "<span class='metric-title'>Free Memory</span>";
         html += "</div>";
-        
-        html += "</div>";
-        
-        // Quick Control Buttons
-        html += "<div style='margin-top:15px;display:flex;flex-wrap:wrap;gap:10px'>";
-        html += "<button onclick=\"location.href='/schedule'\" style='background:#ff6b35;color:white;border:none;padding:10px 20px;border-radius:4px;cursor:pointer;margin:3px'>Full Schedule Editor</button>";
-        html += "<button onclick='toggleControlMode()' style='background:#007bff;color:white;border:none;padding:10px 20px;border-radius:4px;cursor:pointer;margin:3px'>Toggle Central/Local</button>";
-        html += "<button onclick='toggleSetpointMode()' style='background:#28a745;color:white;border:none;padding:10px 20px;border-radius:4px;cursor:pointer;margin:3px'>Toggle Direct/Schedule</button>";
+        html += "<div class='metric-value'>" + String(g_system_status.free_memory/1024) + "KB</div>";
+        html += "<div class='metric-subtitle'>" + String(g_system_status.free_memory) + " bytes available</div>";
         html += "</div>";
         html += "</div>";
         
-        // Relay Control Card
-        html += "<div style='background:white;border-radius:8px;box-shadow:0 2px 4px rgba(0,0,0,0.1);padding:20px;margin:15px 0'>";
-        html += "<h2 style='margin:0 0 15px 0;color:#28a745;border-bottom:2px solid #28a745;padding-bottom:10px'> Relay Control</h2>";
-        
-        // Relay status grid
-        html += "<div style='display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin:15px 0'>";
-        for (int i = 0; i < NUM_RELAYS; i++) {
-            bool relayState = relay_controller.getRelayState(i);
-            String stateColor = relayState ? "#28a745" : "#dc3545";
-            String stateText = relayState ? "ON" : "OFF";
-            
-            html += "<div data-relay='" + String(i) + "' style='background:#f8f9fa;padding:12px;border-radius:6px;text-align:center;border:2px solid " + stateColor + "'>";
-            html += "<div style='font-weight:bold;margin-bottom:5px'>Relay " + String(i + 1) + "</div>";
-            html += "<div class='relay-status' style='color:" + stateColor + ";font-weight:bold'>" + stateText + "</div>";
-            html += "<div style='margin-top:8px'>";
-            html += "<button onclick='setRelay(" + String(i) + ", true)' style='background:#28a745;color:white;border:none;padding:4px 8px;border-radius:3px;cursor:pointer;margin:2px;font-size:11px'>ON</button>";
-            html += "<button onclick='setRelay(" + String(i) + ", false)' style='background:#dc3545;color:white;border:none;padding:4px 8px;border-radius:3px;cursor:pointer;margin:2px;font-size:11px'>OFF</button>";
-            html += "</div>";
-            html += "</div>";
-        }
-        html += "</div>";
-        
-        // Bulk controls and API buttons
-        html += "<div style='display:flex;justify-content:space-between;align-items:center;margin-top:15px;flex-wrap:wrap;gap:10px'>";
-        html += "<div>";
-        html += "<button onclick='testAllRelays(true)' style='background:#28a745;color:white;border:none;padding:8px 16px;border-radius:4px;cursor:pointer;margin:3px'>🟢 All ON</button>";
-        html += "<button onclick='testAllRelays(false)' style='background:#dc3545;color:white;border:none;padding:8px 16px;border-radius:4px;cursor:pointer;margin:3px'>🔴 All OFF</button>";
-        html += "</div>";
-        html += "<div>";
-        html += "<button onclick='testRelayAPI()' style='background:#007bff;color:white;border:none;padding:8px 16px;border-radius:4px;cursor:pointer;margin:3px'>Relay API</button>";
+        // Control panel section
+        html += "<div class='control-panel'>";
+        html += "<div class='control-card'>";
+        html += "<h3>📊 System Status</h3>";
+        html += "<div class='control-actions'>";
+        html += "<button class='btn btn-primary' onclick='testSystemAPI()'>System API</button>";
+        html += "<button class='btn btn-secondary' onclick='testDiagnosticsAPI()'>Diagnostics</button>";
+        html += "<button class='btn btn-success' onclick='testNetworkAPI()'>Network</button>";
         html += "</div>";
         html += "</div>";
-        html += "<div id='relay-api-result' style='margin-top:10px;padding:10px;background:#f8f9fa;border-radius:4px;font-family:monospace;font-size:11px;display:none;max-height:150px;overflow-y:auto'></div>";
-        html += "</div>";
-        
-        // API Control Buttons for Relays
-        html += "<div style='margin-top:20px;border-top:1px solid #ddd;padding-top:15px'>";
-        html += "<h4 style='margin:0 0 10px 0;color:#333'>Relay API Controls</h4>";
-        html += "<div style='display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px'>";
-        html += "<button onclick='testRelayAPI()' style='background:#007bff;color:white;border:none;padding:8px 16px;border-radius:4px;cursor:pointer;font-size:12px'>Get Relay Status</button>";
-        html += "<button onclick='testRelayControl()' style='background:#28a745;color:white;border:none;padding:8px 16px;border-radius:4px;cursor:pointer;font-size:12px'> API Control Test</button>";
-        html += "<button onclick='testAllRelaysAPI(true)' style='background:#ffc107;color:black;border:none;padding:8px 16px;border-radius:4px;cursor:pointer;font-size:12px'>🟡 API All ON</button>";
-        html += "<button onclick='testAllRelaysAPI(false)' style='background:#6c757d;color:white;border:none;padding:8px 16px;border-radius:4px;cursor:pointer;font-size:12px'>⚫ API All OFF</button>";
-        html += "</div>";
-        html += "<div id='relay-api-result' style='margin-top:10px;padding:10px;background:#f8f9fa;border-radius:4px;font-family:monospace;font-size:11px;display:none;max-height:200px;overflow-y:auto'></div>";
-        html += "</div>";
-        
+        html += "<div class='control-card'>";
+        html += "<h3>🔧 Quick Actions</h3>";
+        html += "<div class='control-actions'>";
+        html += "<button class='btn btn-primary' onclick=\"location.href='/system'\">System Config</button>";
+        html += "<button class='btn btn-success' onclick=\"location.href='/relays'\">Relay Control</button>";
+        html += "<button class='btn btn-primary' onclick=\"location.href='/temperature'\">Temperature</button>";
         html += "</div>";
         html += "</div>";
-        
-        // Temperature Control Section
-        html += "<div class='section'>";
-        html += "<div class='section-header' onclick='toggleSection(\"temp\")'>";
-        html += "<span>&#x1F321; Temperature Control System</span>";
-        html += "<span class='arrow' id='temp-arrow'>&#x25B6;</span>";
-        html += "</div>";
-        html += "<div class='section-content' id='temp-content'>";
-        
-        // Zone 0 control
-        ZoneConfig& zone0 = temp_controller.getZoneConfig(0);
-        float currentTemp = temp_controller.getCompensatedTemp(0);
-        String modeStr = "";
-        switch(zone0.mode) {
-            case TEMP_MODE_OFF: modeStr = "OFF"; break;
-            case TEMP_MODE_HEATING: modeStr = "HEATING"; break;
-            case TEMP_MODE_COOLING: modeStr = "COOLING"; break;
-            case TEMP_MODE_AUTO: modeStr = "AUTO"; break;
-            case TEMP_MODE_MANUAL: modeStr = "MANUAL"; break;
-        }
-        
-        html += "<div style='background:white;padding:15px;border-radius:6px;margin:10px 0'>";
-        html += "<h3>Zone 1 Control</h3>";
-        html += "<div class='info'><span class='label'>Current Temperature:</span><span style='font-weight:bold;color:#007bff'>" + String(currentTemp, 1) + "°C</span></div>";
-        html += "<div class='info'><span class='label'>Setpoint:</span><span>" + String(zone0.setpoint, 1) + "°C</span></div>";
-        html += "<div class='info'><span class='label'>Mode:</span><span>" + modeStr + "</span></div>";
-        html += "<div class='info'><span class='label'>Status:</span><span style='color:" + String(zone0.current_state ? "#28a745" : "#dc3545") + "'>" + String(zone0.current_state ? "ACTIVE" : "IDLE") + "</span></div>";
-        
-        // Temperature control form
-        html += "<form method='post' action='/tempcontrol' style='margin-top:15px'>";
-        html += "<input type='hidden' name='zone' value='0'>";
-        
-        html += "<div style='margin:10px 0'>";
-        html += "<label>Setpoint (°C):</label><br>";
-        html += "<input type='number' name='setpoint' value='" + String(zone0.setpoint, 1) + "' min='5' max='40' step='0.5' style='width:100px;padding:5px'>";
-        html += "</div>";
-        
-        html += "<div style='margin:10px 0'>";
-        html += "<label>Delta (±°C):</label><br>";
-        html += "<input type='number' name='delta' value='" + String(zone0.delta, 1) + "' min='0.5' max='5' step='0.5' style='width:100px;padding:5px'>";
-        html += "</div>";
-        
-        html += "<div style='margin:10px 0'>";
-        html += "<label>Mode:</label><br>";
-        html += "<select name='mode' style='padding:5px'>";
-        html += "<option value='0'" + String(zone0.mode == TEMP_MODE_OFF ? " selected" : "") + ">OFF</option>";
-        html += "<option value='1'" + String(zone0.mode == TEMP_MODE_HEATING ? " selected" : "") + ">HEATING</option>";
-        html += "<option value='2'" + String(zone0.mode == TEMP_MODE_COOLING ? " selected" : "") + ">COOLING</option>";
-        html += "<option value='3'" + String(zone0.mode == TEMP_MODE_AUTO ? " selected" : "") + ">AUTO</option>";
-        html += "</select>";
-        html += "</div>";
-        
-        html += "<button type='submit' style='background:#007bff;color:white;padding:8px 16px;border:none;border-radius:4px;cursor:pointer'>Apply Settings</button>";
-        html += "</form>";
-        
-        // API Control Buttons for Temperature
-        html += "<div style='margin-top:20px;border-top:1px solid #ddd;padding-top:15px'>";
-        html += "<h4 style='margin:0 0 10px 0;color:#333'>Temperature API Controls</h4>";
-        html += "<div style='display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px'>";
-        html += "<button onclick='testTemperatureAPI()' style='background:#007bff;color:white;border:none;padding:8px 16px;border-radius:4px;cursor:pointer;font-size:12px'>Get Temperature</button>";
-        html += "<button onclick='testSensorDataAPI()' style='background:#28a745;color:white;border:none;padding:8px 16px;border-radius:4px;cursor:pointer;font-size:12px'>Get Sensor Data</button>";
-        html += "<button onclick='testZonesAPI()' style='background:#ffc107;color:black;border:none;padding:8px 16px;border-radius:4px;cursor:pointer;font-size:12px'>🏠 Get Zones</button>";
-        html += "<button onclick='testTempControlAPI()' style='background:#dc3545;color:white;border:none;padding:8px 16px;border-radius:4px;cursor:pointer;font-size:12px'>🎛️ Control Zone</button>";
-        html += "</div>";
-        html += "<div id='temp-api-result' style='margin-top:10px;padding:10px;background:#f8f9fa;border-radius:4px;font-family:monospace;font-size:11px;display:none;max-height:200px;overflow-y:auto'></div>";
-        html += "</div>";
-        
+        html += "<div class='control-card'>";
+        html += "<h3>📅 Schedule Control</h3>";
+        html += "<div class='control-actions'>";
+        html += "<button class='btn btn-primary' onclick=\"location.href='/schedule'\">Schedule Editor</button>";
+        html += "<button class='btn btn-secondary' onclick='toggleControlMode()'>Toggle Mode</button>";
         html += "</div>";
         html += "</div>";
         html += "</div>";
         
-        // Digital Inputs Section
-        html += "<div class='section'>";
-        html += "<div class='section-header' onclick='toggleSection(\"inputs\")'>";
-        html += "<span>&#x1F4CA; Digital Inputs Status</span>";
-        html += "<span class='arrow' id='inputs-arrow'>&#x25B6;</span>";
-        html += "</div>";
-        html += "<div class='section-content' id='inputs-content'>";
-        html += "<p style='margin:0 0 15px 0;color:#666;font-style:italic'>Real-time status of 6 digital input channels</p>";
         
-        // Add input status indicators
-        for (int i = 0; i < 6; i++) {
-            bool inputState = relay_controller.getInputState(i);
-            String stateColor = inputState ? "#dc3545" : "#28a745";
-            String stateText = inputState ? "ACTIVE" : "INACTIVE";
-            
-            html += "<div class='info' style='margin:8px 0'>";
-            html += "<span class='label'>Input " + String(i + 1) + ":</span>";
-            html += "<span style='color:" + stateColor + ";font-weight:bold'>" + stateText + "</span></div>";
-        }
-        html += "</div>";
-        html += "</div>";
-        
-        // WiFi Management Section  
-        html += "<div class='section'>";
-        html += "<div class='section-header' onclick='toggleSection(\"wifi\")'>";
-        html += "<span>&#x1F4F6; WiFi Management</span>";
-        html += "<span class='arrow' id='wifi-arrow'>&#x25B6;</span>";
-        html += "</div>";
-        html += "<div class='section-content' id='wifi-content'>";
-        html += "<h3>Network Configuration</h3>";
-        html += "<form method='post' action='/wifi'>";
-        html += "<div style='margin:10px 0'><label><strong>Network Mode:</strong></label><br>";
-        html += "<label><input type='radio' name='mode' value='dhcp' checked> DHCP (Automatic)</label><br>";
-        html += "<label><input type='radio' name='mode' value='static'> Static IP</label></div>";
-        
-        html += "<div id='static-config' style='display:none;margin:15px 0;padding:15px;background:#e9ecef;border-radius:5px'>";
-        html += "<div style='margin:8px 0'><label>IP Address:</label><br><input type='text' name='static_ip' placeholder='192.168.1.100' style='width:200px;padding:5px'></div>";
-        html += "<div style='margin:8px 0'><label>Gateway:</label><br><input type='text' name='gateway' placeholder='192.168.1.1' style='width:200px;padding:5px'></div>";
-        html += "<div style='margin:8px 0'><label>Subnet Mask:</label><br><input type='text' name='subnet' placeholder='255.255.255.0' style='width:200px;padding:5px'></div>";
-        html += "<div style='margin:8px 0'><label>DNS Server:</label><br><input type='text' name='dns' placeholder='8.8.8.8' style='width:200px;padding:5px'></div>";
-        html += "</div>";
-        
-        html += "<div style='margin:15px 0'><button type='submit' style='background:#007bff;color:white;padding:10px 20px;border:none;border-radius:5px;cursor:pointer'>Apply Network Settings</button></div>";
-        html += "</form>";
-        
-        html += "<h3>Change WiFi Network</h3>";
-        html += "<button onclick=\"location.href='/wifi-config'\" style='background:#28a745;color:white;padding:10px 20px;border:none;border-radius:5px;cursor:pointer'>Configure WiFi Network</button>";
-        html += "</div>";
-        html += "</div>";
-        html += "</div>";
-        
-        // Device Information Section
-        html += "<div class='section'>";
-        html += "<div class='section-header' onclick='toggleSection(\"device\")'>";
-        html += "<span>&#x1F4BB; Device Information</span>";
-        html += "<span class='arrow' id='device-arrow'>&#x25B6;</span>";
-        html += "</div>";
-        html += "<div class='section-content' id='device-content'>";
-        html += "<div class='info'><span class='label'>Chip Model:</span><span>ESP32</span></div>";
-        html += "<div class='info'><span class='label'>MAC Address:</span><span>" + WiFi.macAddress() + "</span></div>";
-        html += "<div class='info'><span class='label'>Flash Size:</span><span>" + String(ESP.getFlashChipSize() / 1024) + " KB</span></div>";
-        html += "</div>";
-        html += "</div>";
-        
-        // Sensor Configuration Section
-        html += "<div class='section'>";
-        html += "<div class='section-header' onclick=\"location.href='/sensors'\" style='cursor:pointer'>";
-        html += "<span>&#x1F321; Sensor Configuration</span>";
-        html += "<span class='arrow'>&#x25B6;</span>";
-        html += "</div>";
-        html += "</div>";
-        
+        // JavaScript for API calls
         html += "<script>";
-        html += "document.querySelectorAll('input[name=mode]').forEach(function(radio) {";
-        html += "  radio.addEventListener('change', function() {";
-        html += "    document.getElementById('static-config').style.display = this.value === 'static' ? 'block' : 'none';";
-        html += "  });";
-        html += "});";
-        html += "function setRelay(relayNum, state) {";
-        html += "  fetch('/relay', {";
-        html += "    method: 'POST',";
-        html += "    headers: {'Content-Type': 'application/x-www-form-urlencoded'},";
-        html += "    body: 'relay=' + relayNum + '&action=set&state=' + (state ? '1' : '0')";
-        html += "  }).then(response => response.json()).then(data => {";
-        html += "    if(data.success) {";
-        html += "      updateRelayStatus(relayNum, state);";
-        html += "    } else {";
-        html += "      alert('Failed to control relay: ' + data.message);";
-        html += "    }";
-        html += "  }).catch(err => alert('Network error: ' + err));";
-        html += "}";
-        html += "function toggleRelay(relayNum) {";
-        html += "  fetch('/relay', {";
-        html += "    method: 'POST',";
-        html += "    headers: {'Content-Type': 'application/x-www-form-urlencoded'},";
-        html += "    body: 'relay=' + relayNum + '&action=toggle'";
-        html += "  }).then(response => response.json()).then(data => {";
-        html += "    if(data.success) {";
-        html += "      refreshRelayStates();";
-        html += "    } else {";
-        html += "      alert('Failed to control relay: ' + data.message);";
-        html += "    }";
-        html += "  }).catch(err => alert('Network error: ' + err));";
-        html += "}";
-        html += "function testAllRelays(state) {";
-        html += "  fetch('/relay', {";
-        html += "    method: 'POST',";
-        html += "    headers: {'Content-Type': 'application/x-www-form-urlencoded'},";
-        html += "    body: 'action=all&state=' + (state ? '1' : '0')";
-        html += "  }).then(response => response.json()).then(data => {";
-        html += "    if(data.success) {";
-        html += "      refreshRelayStates();";
-        html += "    } else {";
-        html += "      alert('Failed to control relays: ' + data.message);";
-        html += "    }";
-        html += "  }).catch(err => alert('Network error: ' + err));";
-        html += "}";
-        html += "function toggleSection(sectionId) {";
-        html += "  var content = document.getElementById(sectionId + '-content');";
-        html += "  var arrow = document.getElementById(sectionId + '-arrow');";
-        html += "  if (content.classList.contains('active')) {";
-        html += "    content.classList.remove('active');";
-        html += "    arrow.classList.remove('down');";
-        html += "  } else {";
-        html += "    content.classList.add('active');";
-        html += "    arrow.classList.add('down');";
-        html += "  }";
-        html += "}";
         
-        // Real-time update functions
-        html += "function updateRelayStatus(relayNum, state) {";
-        html += "  var relayCards = document.querySelectorAll('[data-relay=\"' + relayNum + '\"]');";
-        html += "  relayCards.forEach(function(card) {";
-        html += "    var statusSpan = card.querySelector('.relay-status');";
-        html += "    if (statusSpan) {";
-        html += "      statusSpan.textContent = state ? 'ON' : 'OFF';";
-        html += "      statusSpan.style.color = state ? '#28a745' : '#dc3545';";
-        html += "      card.style.borderLeftColor = state ? '#28a745' : '#dc3545';";
-        html += "    }";
-        html += "  });";
-        html += "}";
-        
-        html += "function refreshRelayStates() {";
-        html += "  fetch('/api/status').then(response => response.json()).then(data => {";
-        html += "    if (data.relays) {";
-        html += "      for (let i = 0; i < 6; i++) {";
-        html += "        updateRelayStatus(i, data.relays[i]);";
-        html += "      }";
-        html += "    }";
-        html += "    updateTemperatureDisplay(data.temperature);";
-        html += "  }).catch(err => console.warn('Status refresh failed:', err));";
-        html += "}";
-        
-        html += "function updateTemperatureDisplay(temp) {";
-        html += "  var tempElements = document.querySelectorAll('.temp');";
-        html += "  tempElements.forEach(function(el) {";
-        html += "    el.textContent = 'Temperature: ' + temp.toFixed(1) + '°C';";
-        html += "  });";
-        html += "}";
-        
-        // Simple API update for temperature display
-        html += "function updateTemperatureAPI() {";
-        html += "  fetch('/api/sensors/data').then(r=>r.json()).then(d=>{";
-        html += "    updateTemperatureDisplay(d.temperature.current);";
-        html += "  }).catch(e=>console.log('API update failed'));";
-        html += "}";
-        
-        // API Testing Functions
+        // API test functions
         html += "function testSystemAPI() {";
-        html += "  const result = document.getElementById('system-api-result');";
-        html += "  result.style.display = 'block';";
-        html += "  result.innerHTML = 'Loading...';";
-        html += "  fetch('/api/system').then(r => r.json()).then(data => {";
-        html += "    result.innerHTML = JSON.stringify(data, null, 2);";
-        html += "  }).catch(err => result.innerHTML = 'Error: ' + err);";
-        html += "}";
-        
-        html += "function testDiagnosticsAPI() {";
-        html += "  const result = document.getElementById('system-api-result');";
-        html += "  result.style.display = 'block';";
-        html += "  result.innerHTML = 'Loading...';";
-        html += "  fetch('/api/diagnostics').then(r => r.json()).then(data => {";
-        html += "    result.innerHTML = JSON.stringify(data, null, 2);";
-        html += "  }).catch(err => result.innerHTML = 'Error: ' + err);";
-        html += "}";
-        
-        html += "function testNetworkAPI() {";
-        html += "  const result = document.getElementById('system-api-result');";
-        html += "  result.style.display = 'block';";
-        html += "  result.innerHTML = 'Loading...';";
-        html += "  fetch('/api/network').then(r => r.json()).then(data => {";
-        html += "    result.innerHTML = JSON.stringify(data, null, 2);";
-        html += "  }).catch(err => result.innerHTML = 'Error: ' + err);";
+        html += "  fetch('/api/system').then(r => r.json()).then(d => {";
+        html += "    document.getElementById('system-api-result') && (document.getElementById('system-api-result').innerHTML = JSON.stringify(d, null, 2));";
+        html += "  }).catch(e => console.error(e));";
         html += "}";
         
         html += "function testRelayAPI() {";
-        html += "  const result = document.getElementById('relay-api-result');";
-        html += "  result.style.display = 'block';";
-        html += "  result.innerHTML = 'Loading...';";
-        html += "  fetch('/api/relays').then(r => r.json()).then(data => {";
-        html += "    result.innerHTML = JSON.stringify(data, null, 2);";
-        html += "  }).catch(err => result.innerHTML = 'Error: ' + err);";
+        html += "  fetch('/api/relays').then(r => r.json()).then(d => {";
+        html += "    const result = document.getElementById('relay-api-result');";
+        html += "    if (result) { result.style.display = 'block'; result.innerHTML = JSON.stringify(d, null, 2); }";
+        html += "  }).catch(e => console.error(e));";
         html += "}";
         
-        html += "function testRelayControl() {";
-        html += "  const result = document.getElementById('relay-api-result');";
-        html += "  result.style.display = 'block';";
-        html += "  result.innerHTML = 'Testing relay 0 control...';";
+        html += "function setRelay(relay, state) {";
         html += "  fetch('/api/relays/control', {";
         html += "    method: 'POST',";
-        html += "    headers: {'Content-Type': 'application/x-www-form-urlencoded'},";
-        html += "    body: 'relay=0&state=true'";
-        html += "  }).then(r => r.json()).then(data => {";
-        html += "    result.innerHTML = 'API Control Test Result:\\n' + JSON.stringify(data, null, 2);";
-        html += "    if(data.success) refreshRelayStates();";
-        html += "  }).catch(err => result.innerHTML = 'Error: ' + err);";
+        html += "    headers: { 'Content-Type': 'application/json' },";
+        html += "    body: JSON.stringify({ relay: relay, state: state })";
+        html += "  }).then(r => r.json()).then(d => location.reload()).catch(e => console.error(e));";
         html += "}";
         
-        html += "function testAllRelaysAPI(state) {";
-        html += "  const result = document.getElementById('relay-api-result');";
-        html += "  result.style.display = 'block';";
-        html += "  result.innerHTML = 'Setting all relays to ' + (state ? 'ON' : 'OFF') + '...';";
-        html += "  fetch('/api/relays/all', {";
-        html += "    method: 'POST',";
-        html += "    headers: {'Content-Type': 'application/x-www-form-urlencoded'},";
-        html += "    body: 'state=' + (state ? 'true' : 'false')";
-        html += "  }).then(r => r.json()).then(data => {";
-        html += "    result.innerHTML = 'Bulk Control Result:\\n' + JSON.stringify(data, null, 2);";
-        html += "    if(data.success) refreshRelayStates();";
-        html += "  }).catch(err => result.innerHTML = 'Error: ' + err);";
+        html += "function testAllRelays(state) {";
+        html += "  for (let i = 0; i < 8; i++) setRelay(i, state);";
         html += "}";
         
-        html += "function testTemperatureAPI() {";
-        html += "  const result = document.getElementById('temp-api-result');";
-        html += "  result.style.display = 'block';";
-        html += "  result.innerHTML = 'Loading...';";
-        html += "  fetch('/api/temperature').then(r => r.json()).then(data => {";
-        html += "    result.innerHTML = JSON.stringify(data, null, 2);";
-        html += "  }).catch(err => result.innerHTML = 'Error: ' + err);";
-        html += "}";
-        
-        html += "function testSensorDataAPI() {";
-        html += "  const result = document.getElementById('temp-api-result');";
-        html += "  result.style.display = 'block';";
-        html += "  result.innerHTML = 'Loading...';";
-        html += "  fetch('/api/sensors/data').then(r => r.json()).then(data => {";
-        html += "    result.innerHTML = JSON.stringify(data, null, 2);";
-        html += "  }).catch(err => result.innerHTML = 'Error: ' + err);";
-        html += "}";
-        
-        html += "function testZonesAPI() {";
-        html += "  const result = document.getElementById('temp-api-result');";
-        html += "  result.style.display = 'block';";
-        html += "  result.innerHTML = 'Loading...';";
-        html += "  fetch('/api/temperature/zones').then(r => r.json()).then(data => {";
-        html += "    result.innerHTML = JSON.stringify(data, null, 2);";
-        html += "  }).catch(err => result.innerHTML = 'Error: ' + err);";
-        html += "}";
-        
-        html += "function testTempControlAPI() {";
-        html += "  const result = document.getElementById('temp-api-result');";
-        html += "  result.style.display = 'block';";
-        html += "  result.innerHTML = 'Testing zone 0 control...';";
-        html += "  fetch('/api/temperature/control', {";
-        html += "    method: 'POST',";
-        html += "    headers: {'Content-Type': 'application/x-www-form-urlencoded'},";
-        html += "    body: 'zone=0&setpoint=23.0&mode=AUTO'";
-        html += "  }).then(r => r.json()).then(data => {";
-        html += "    result.innerHTML = 'Zone Control Test:\\n' + JSON.stringify(data, null, 2);";
-        html += "  }).catch(err => result.innerHTML = 'Error: ' + err);";
-        html += "}";
-        
-        // Time update function
-        html += "function updateTime() {";
-        html += "  fetch('/api/time')";
-        html += "    .then(response => response.json())";
-        html += "    .then(data => {";
-        html += "      const timeElement = document.getElementById('current-time');";
-        html += "      if (timeElement) {";
-        html += "        timeElement.innerHTML = '<strong>Current Time:</strong> ' + data.datetime;";
-        html += "      }";
-        html += "    })";
-        html += "    .catch(err => console.log('Time update failed:', err));";
-        html += "}";
-        
-        // Schedule control functions
         html += "function toggleControlMode() {";
-        html += "  fetch('/api/schedule/control-mode', {method: 'POST'})";
-        html += "    .then(response => response.json())";
-        html += "    .then(data => {";
-        html += "      if (data.success) {";
-        html += "        location.reload();";
-        html += "      } else {";
-        html += "        alert('Failed to toggle control mode: ' + data.message);";
-        html += "      }";
-        html += "    })";
-        html += "    .catch(err => alert('Network error: ' + err));";
+        html += "  fetch('/api/schedule/control-mode', { method: 'POST' })";
+        html += "  .then(r => r.json()).then(d => location.reload()).catch(e => console.error(e));";
         html += "}";
-        html += "function toggleSetpointMode() {";
-        html += "  fetch('/api/schedule/setpoint-mode', {method: 'POST'})";
-        html += "    .then(response => response.json())";
-        html += "    .then(data => {";
-        html += "      if (data.success) {";
-        html += "        location.reload();";
-        html += "      } else {";
-        html += "        alert('Failed to toggle setpoint mode: ' + data.message);";
-        html += "      }";
-        html += "    })";
-        html += "    .catch(err => alert('Network error: ' + err));";
-        html += "}";
-        
-        // Start real-time updates
-        html += "setInterval(refreshRelayStates, 5000);"; // Update every 5 seconds
-        html += "setInterval(updateTemperatureAPI, 3000);"; // Update temperature via API
-        html += "setInterval(updateTime, 1000);"; // Update time every second
-        html += "setTimeout(refreshRelayStates, 1000);"; // Initial update after 1 second
         
         html += "</script>";
         
-        // Navigation section
-        html += "<div class='section' style='margin-top:30px;text-align:center'>";
-        html += "<div class='section-header' style='background:#17a2b8'>System Navigation</div>";
-        html += "<div class='section-content' style='padding:20px'>";
-        html += "<h3 style='margin:0 0 15px 0;color:#17a2b8'> Dedicated Control Pages</h3>";
-        html += "<div style='display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:15px;margin-bottom:25px'>";
-        html += "<button onclick=\"location.href='/system'\" style='background:#007bff;color:white;padding:15px 20px;border:none;border-radius:8px;cursor:pointer;font-size:14px;box-shadow:0 2px 5px rgba(0,0,0,0.2)'> System Status</button>";
-        html += "<button onclick=\"location.href='/relays'\" style='background:#28a745;color:white;padding:15px 20px;border:none;border-radius:8px;cursor:pointer;font-size:14px;box-shadow:0 2px 5px rgba(0,0,0,0.2)'> Relay Control</button>";
-        html += "<button onclick=\"location.href='/temperature'\" style='background:#fd7e14;color:white;padding:15px 20px;border:none;border-radius:8px;cursor:pointer;font-size:14px;box-shadow:0 2px 5px rgba(0,0,0,0.2)'>Temperature</button>";
-        html += "<button onclick=\"location.href='/sensors'\" style='background:#6f42c1;color:white;padding:15px 20px;border:none;border-radius:8px;cursor:pointer;font-size:14px;box-shadow:0 2px 5px rgba(0,0,0,0.2)'> Sensor Config</button>";
-        html += "</div>";
-        html += "<h3 style='margin:20px 0 15px 0;color:#17a2b8'>Configuration Pages</h3>";
-        html += "<button onclick=\"location.href='/temperature'\" style='background:#ff6b35;color:white;padding:12px 25px;border:none;border-radius:6px;cursor:pointer;margin:5px;font-size:14px'>Temperature Control</button>";
-        html += "<button onclick=\"location.href='/schedule'\" style='background:#28a745;color:white;padding:12px 25px;border:none;border-radius:6px;cursor:pointer;margin:5px;font-size:14px'>Schedule Configuration</button>";
-        html += "<button onclick=\"location.href='/wifi-config'\" style='background:#17a2b8;color:white;padding:12px 25px;border:none;border-radius:6px;cursor:pointer;margin:5px;font-size:14px'>WiFi Configuration</button>";
-        html += "</div>";
-        html += "</div>";
         
-        html += "</div></body></html>";
+        html += "</div>"; // Close container
+        html += "</body></html>";
+        
+        
+        
+        
         
         device_server->send(200, "text/html", html);
     });
