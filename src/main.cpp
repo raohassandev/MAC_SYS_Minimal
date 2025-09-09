@@ -535,7 +535,7 @@ void setupDeviceWebServer() {
         html += "<meta name='viewport' content='width=device-width, initial-scale=1'>";
         html += "<meta charset='UTF-8'>";
         html += "<style>* { margin: 0; padding: 0; box-sizing: border-box; }";
-        html += "body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #0B1426; color: #E5E7EB; line-height: 1.6; }";
+        html += "body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #0B1426; color: #E5E7EB; line-height: 1.6; padding-top: 6rem; }";
         html += ".container { max-width: 1200px; margin: 0 auto; padding: 1.5rem; }";
         // Hero metrics section
         html += ".hero-metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.5rem; margin-bottom: 2rem; }";
@@ -581,7 +581,7 @@ void setupDeviceWebServer() {
         html += ".info-label { color: #9CA3AF; }";
         html += ".info-value { color: #F3F4F6; font-weight: 500; }";
         // Professional navigation styles to match other pages
-        html += ".header{background:linear-gradient(135deg,#1e3a8a 0%,#3b82f6 100%);color:white;padding:1rem 2rem;box-shadow:0 2px 10px rgba(0,0,0,0.3)}";
+        html += ".header{position:fixed;top:0;left:0;right:0;z-index:1000;background:linear-gradient(135deg,#1e3a8a 0%,#3b82f6 100%);color:white;padding:1rem 2rem;box-shadow:0 2px 10px rgba(0,0,0,0.3)}";
         html += ".header h1{font-size:1.5rem;margin:0;display:flex;align-items:center;gap:0.75rem}";
         html += ".nav-links{margin-top:0.75rem;display:flex;gap:1.5rem;flex-wrap:wrap}";
         html += ".nav-links a{color:#dbeafe;text-decoration:none;padding:0.375rem 0.75rem;border-radius:0.375rem;transition:all 0.2s;font-size:0.875rem}";
@@ -860,8 +860,8 @@ void setupDeviceWebServer() {
         // Enhanced CSS for sensor configuration
         html += "<style>";
         html += "* { margin: 0; padding: 0; box-sizing: border-box; }";
-        html += "body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #0B1426; color: #E5E7EB; line-height: 1.6; }";
-        html += ".header { background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%); color: white; padding: 1rem 2rem; box-shadow: 0 2px 10px rgba(0,0,0,0.3); }";
+        html += "body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #0B1426; color: #E5E7EB; line-height: 1.6; padding-top: 6rem; }";
+        html += ".header { position: fixed; top: 0; left: 0; right: 0; z-index: 1000; background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%); color: white; padding: 1rem 2rem; box-shadow: 0 2px 10px rgba(0,0,0,0.3); }";
         html += ".header h1 { font-size: 1.5rem; margin: 0; display: flex; align-items: center; gap: 0.75rem; }";
         html += ".nav-links { margin-top: 0.75rem; display: flex; gap: 1.5rem; flex-wrap: wrap; }";
         html += ".nav-links a { color: #dbeafe; text-decoration: none; padding: 0.375rem 0.75rem; border-radius: 0.375rem; transition: all 0.2s; font-size: 0.875rem; }";
@@ -1312,8 +1312,8 @@ void setupDeviceWebServer() {
         html += "<meta name='viewport' content='width=device-width, initial-scale=1'>";
         html += "<style>";
         html += "* { margin: 0; padding: 0; box-sizing: border-box; }";
-        html += "body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #0B1426; color: #E5E7EB; line-height: 1.6; }";
-        html += ".header { background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%); color: white; padding: 1rem 2rem; box-shadow: 0 2px 10px rgba(0,0,0,0.3); }";
+        html += "body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #0B1426; color: #E5E7EB; line-height: 1.6; padding-top: 6rem; }";
+        html += ".header { position: fixed; top: 0; left: 0; right: 0; z-index: 1000; background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%); color: white; padding: 1rem 2rem; box-shadow: 0 2px 10px rgba(0,0,0,0.3); }";
         html += ".header h1 { font-size: 1.5rem; margin: 0; display: flex; align-items: center; gap: 0.75rem; }";
         html += ".nav-links { margin-top: 0.75rem; display: flex; gap: 1.5rem; flex-wrap: wrap; }";
         html += ".nav-links a { color: #dbeafe; text-decoration: none; padding: 0.375rem 0.75rem; border-radius: 0.375rem; transition: all 0.2s; font-size: 0.875rem; }";
@@ -1463,8 +1463,8 @@ void setupDeviceWebServer() {
         html += "<meta name='viewport' content='width=device-width, initial-scale=1'>";
         html += "<style>";
         html += "* { margin: 0; padding: 0; box-sizing: border-box; }";
-        html += "body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #0B1426; color: #E5E7EB; line-height: 1.6; }";
-        html += ".header { background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%); color: white; padding: 1rem 2rem; box-shadow: 0 2px 10px rgba(0,0,0,0.3); }";
+        html += "body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #0B1426; color: #E5E7EB; line-height: 1.6; padding-top: 6rem; }";
+        html += ".header { position: fixed; top: 0; left: 0; right: 0; z-index: 1000; background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%); color: white; padding: 1rem 2rem; box-shadow: 0 2px 10px rgba(0,0,0,0.3); }";
         html += ".header h1 { font-size: 1.5rem; margin: 0; display: flex; align-items: center; gap: 0.75rem; }";
         html += ".nav-links { margin-top: 0.75rem; display: flex; gap: 1.5rem; flex-wrap: wrap; }";
         html += ".nav-links a { color: #dbeafe; text-decoration: none; padding: 0.375rem 0.75rem; border-radius: 0.375rem; transition: all 0.2s; font-size: 0.875rem; }";
@@ -1640,8 +1640,8 @@ void setupDeviceWebServer() {
         html += "<meta name='viewport' content='width=device-width, initial-scale=1'>";
         html += "<style>";
         html += "* { margin: 0; padding: 0; box-sizing: border-box; }";
-        html += "body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #0B1426; color: #E5E7EB; line-height: 1.6; }";
-        html += ".header { background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%); color: white; padding: 1rem 2rem; box-shadow: 0 2px 10px rgba(0,0,0,0.3); }";
+        html += "body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #0B1426; color: #E5E7EB; line-height: 1.6; padding-top: 6rem; }";
+        html += ".header { position: fixed; top: 0; left: 0; right: 0; z-index: 1000; background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%); color: white; padding: 1rem 2rem; box-shadow: 0 2px 10px rgba(0,0,0,0.3); }";
         html += ".header h1 { font-size: 1.5rem; margin: 0; display: flex; align-items: center; gap: 0.75rem; }";
         html += ".nav-links { margin-top: 0.75rem; display: flex; gap: 1.5rem; flex-wrap: wrap; }";
         html += ".nav-links a { color: #dbeafe; text-decoration: none; padding: 0.375rem 0.75rem; border-radius: 0.375rem; transition: all 0.2s; font-size: 0.875rem; }";
@@ -1791,8 +1791,8 @@ void setupDeviceWebServer() {
         html += "<meta name='viewport' content='width=device-width, initial-scale=1'>";
         html += "<style>";
         html += "* { margin: 0; padding: 0; box-sizing: border-box; }";
-        html += "body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #0B1426; color: #E5E7EB; line-height: 1.6; }";
-        html += ".header { background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%); color: white; padding: 1rem 2rem; box-shadow: 0 2px 10px rgba(0,0,0,0.3); }";
+        html += "body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #0B1426; color: #E5E7EB; line-height: 1.6; padding-top: 6rem; }";
+        html += ".header { position: fixed; top: 0; left: 0; right: 0; z-index: 1000; background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%); color: white; padding: 1rem 2rem; box-shadow: 0 2px 10px rgba(0,0,0,0.3); }";
         html += ".header h1 { font-size: 1.5rem; margin: 0; display: flex; align-items: center; gap: 0.75rem; }";
         html += ".nav-links { margin-top: 0.75rem; display: flex; gap: 1.5rem; flex-wrap: wrap; }";
         html += ".nav-links a { color: #dbeafe; text-decoration: none; padding: 0.375rem 0.75rem; border-radius: 0.375rem; transition: all 0.2s; font-size: 0.875rem; }";
@@ -1996,8 +1996,8 @@ void setupDeviceWebServer() {
         html += "<meta charset='UTF-8'>";
         html += "<style>";
         html += "* { margin: 0; padding: 0; box-sizing: border-box; }";
-        html += "body { font-family: 'Segoe UI', -apple-system, sans-serif; background: #0B1426; color: #E2E8F0; }";
-        html += ".header { background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%); color: white; padding: 1rem 2rem; box-shadow: 0 2px 10px rgba(0,0,0,0.3); }";
+        html += "body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #0B1426; color: #E5E7EB; line-height: 1.6; padding-top: 6rem; }";
+        html += ".header { position: fixed; top: 0; left: 0; right: 0; z-index: 1000; background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%); color: white; padding: 1rem 2rem; box-shadow: 0 2px 10px rgba(0,0,0,0.3); }";
         html += ".header h1 { font-size: 1.5rem; margin: 0; display: flex; align-items: center; gap: 0.75rem; }";
         html += ".nav-links { margin-top: 0.75rem; display: flex; gap: 1.5rem; flex-wrap: wrap; }";
         html += ".nav-links a { color: #dbeafe; text-decoration: none; padding: 0.375rem 0.75rem; border-radius: 0.375rem; transition: all 0.2s; font-size: 0.875rem; }";

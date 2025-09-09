@@ -309,13 +309,13 @@ void ScheduleManager::executeEvent(const ScheduleEvent& event) {
             if (event.temp_mode != TEMP_MODE_OFF) {
                 simple_temp.setMode(event.temp_mode);
             }
-            DEBUG_PRINTF("🌡️ Zone %d: Setpoint=%.1f°C, Delta=%.1f°C, Mode=%d\n", 
+            DEBUG_PRINTF("Zone %d: Setpoint=%.1f°C, Delta=%.1f°C, Mode=%d\n", 
                         event.zone_id, event.value1, event.value2, event.temp_mode);
             break;
             
         case SCHEDULE_TEMP_MODE:
             simple_temp.setMode(event.temp_mode);
-            DEBUG_PRINTF("🔄 Zone %d: Mode changed to %d\n", event.zone_id, event.temp_mode);
+            DEBUG_PRINTF("Zone %d: Mode changed to %d\n", event.zone_id, event.temp_mode);
             break;
             
         case SCHEDULE_RELAY_CONTROL:
