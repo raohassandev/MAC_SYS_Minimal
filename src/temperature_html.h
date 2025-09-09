@@ -20,9 +20,15 @@ const char temperature_html[] PROGMEM = R"rawliteral(
             background: #0B1426;
             color: #E5E7EB;
             line-height: 1.6;
+            padding-top: 6rem;
         }
         
         .header {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 1000;
             background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
             color: white;
             padding: 1rem 2rem;
@@ -63,9 +69,9 @@ const char temperature_html[] PROGMEM = R"rawliteral(
             font-weight: 600;
         }
         
-        .main-content {
-            max-width: 1200px;
-            margin: 2rem auto;
+        .container {
+            max-width: 1400px;
+            margin: 1rem auto;
             padding: 0 1rem;
         }
         
@@ -146,11 +152,16 @@ const char temperature_html[] PROGMEM = R"rawliteral(
         
         .main-grid {
             display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 25px;
-            margin-bottom: 25px;
+            grid-template-columns: 1fr 1fr 1fr 1fr;
+            gap: 1rem;
+            align-items: start;
         }
         
+        @media (max-width: 1200px) {
+            .main-grid {
+                grid-template-columns: 1fr 1fr;
+            }
+        }
         @media (max-width: 768px) {
             .main-grid {
                 grid-template-columns: 1fr;
@@ -159,96 +170,101 @@ const char temperature_html[] PROGMEM = R"rawliteral(
         
         .card {
             background: linear-gradient(135deg, #1f2937 0%, #374151 100%);
-            border-radius: 15px;
-            padding: 25px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            border-radius: 0.5rem;
+            padding: 1rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
             border: 1px solid #374151;
+            height: fit-content;
         }
         
         .card h2 {
             color: #00D4FF;
-            font-size: 20px;
-            margin-bottom: 20px;
-            padding-bottom: 10px;
-            border-bottom: 2px solid #374151;
+            font-size: 1rem;
+            font-weight: 600;
+            margin-bottom: 0.75rem;
+            padding-bottom: 0.375rem;
+            border-bottom: 1px solid #4B5563;
         }
         
         .temperature-display {
             text-align: center;
-            padding: 30px;
+            padding: 0.75rem;
         }
         
         .temp-current {
-            font-size: 72px;
+            font-size: 2rem;
             font-weight: bold;
-            color: #667eea;
+            color: #00D4FF;
             line-height: 1;
         }
         
         .temp-unit {
-            font-size: 36px;
-            color: #999;
+            font-size: 1.25rem;
+            color: #9CA3AF;
         }
         
         .temp-compensated {
-            font-size: 18px;
-            color: #666;
-            margin-top: 10px;
+            font-size: 0.875rem;
+            color: #9CA3AF;
+            margin-top: 0.5rem;
         }
         
         .temp-setpoint {
-            font-size: 24px;
+            font-size: 1rem;
             color: #E5E7EB;
-            margin-top: 20px;
+            margin-top: 0.5rem;
         }
         
         .control-group {
-            margin-bottom: 20px;
+            margin-bottom: 0.5rem;
         }
         
         .control-group label {
             display: block;
-            color: #666;
-            font-size: 14px;
-            margin-bottom: 8px;
+            color: #9CA3AF;
+            font-size: 0.75rem;
+            margin-bottom: 0.25rem;
         }
         
         .control-group input,
         .control-group select {
             width: 100%;
-            padding: 10px;
-            border: 2px solid #ddd;
-            border-radius: 8px;
-            font-size: 16px;
+            padding: 0.5rem;
+            border: 1px solid #4B5563;
+            border-radius: 0.375rem;
+            font-size: 0.875rem;
+            background: #374151;
+            color: #E5E7EB;
         }
         
         .control-group input:focus,
         .control-group select:focus {
             outline: none;
-            border-color: #667eea;
+            border-color: #00D4FF;
+            box-shadow: 0 0 0 2px rgba(0, 212, 255, 0.2);
         }
         
         .slider-container {
             position: relative;
-            margin: 15px 0;
+            margin: 0.5rem 0;
         }
         
         .slider {
             width: 100%;
             -webkit-appearance: none;
-            height: 8px;
-            border-radius: 5px;
-            background: #ddd;
+            height: 6px;
+            border-radius: 3px;
+            background: #4B5563;
             outline: none;
         }
         
         .slider::-webkit-slider-thumb {
             -webkit-appearance: none;
             appearance: none;
-            width: 24px;
-            height: 24px;
+            width: 20px;
+            height: 20px;
             border-radius: 50%;
-            background: #667eea;
+            background: #00D4FF;
             cursor: pointer;
         }
         
@@ -261,35 +277,39 @@ const char temperature_html[] PROGMEM = R"rawliteral(
         
         .mode-buttons {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
-            gap: 10px;
-            margin-top: 10px;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 0.5rem;
+            margin-top: 0.5rem;
         }
         
         .mode-btn {
-            padding: 12px;
-            border: 2px solid #ddd;
+            padding: 0.75rem;
+            border: 1px solid #4B5563;
             background: #374151;
-            border-radius: 8px;
+            border-radius: 0.375rem;
             cursor: pointer;
             text-align: center;
             transition: all 0.3s;
+            color: #E5E7EB;
+            font-size: 0.875rem;
         }
         
         .mode-btn:hover {
-            border-color: #667eea;
+            border-color: #00D4FF;
+            background: #4B5563;
         }
         
         .mode-btn.active {
-            background: #667eea;
-            color: white;
-            border-color: #667eea;
+            background: #00D4FF;
+            color: #0B1426;
+            border-color: #00D4FF;
+            font-weight: 600;
         }
         
         .state-indicators {
             display: flex;
             justify-content: space-around;
-            margin-top: 20px;
+            margin-top: 0.5rem;
         }
         
         .state-indicator {
@@ -297,14 +317,14 @@ const char temperature_html[] PROGMEM = R"rawliteral(
         }
         
         .state-icon {
-            width: 60px;
-            height: 60px;
+            width: 40px;
+            height: 40px;
             border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 24px;
-            margin: 0 auto 10px;
+            font-size: 1.25rem;
+            margin: 0 auto 0.25rem;
         }
         
         .state-icon.on {
@@ -318,8 +338,8 @@ const char temperature_html[] PROGMEM = R"rawliteral(
         }
         
         .state-label {
-            font-size: 14px;
-            color: #666;
+            font-size: 0.75rem;
+            color: #9CA3AF;
         }
         
         .toggle-switch {
@@ -354,13 +374,13 @@ const char temperature_html[] PROGMEM = R"rawliteral(
             width: 26px;
             left: 4px;
             bottom: 4px;
-            background-color: #374151;
+            background-color: white;
             transition: .4s;
             border-radius: 50%;
         }
         
         input:checked + .toggle-slider {
-            background-color: #667eea;
+            background-color: #00D4FF;
         }
         
         input:checked + .toggle-slider:before {
@@ -368,22 +388,22 @@ const char temperature_html[] PROGMEM = R"rawliteral(
         }
         
         .emergency-section {
-            background: #fff5f5;
-            border: 2px solid #fc8181;
-            border-radius: 8px;
-            padding: 15px;
-            margin-top: 20px;
+            background: rgba(252, 129, 129, 0.1);
+            border: 1px solid #fc8181;
+            border-radius: 0.375rem;
+            padding: 0.75rem;
+            margin-top: 0.5rem;
         }
         
         .emergency-btn {
             width: 100%;
-            padding: 12px;
-            font-size: 16px;
-            font-weight: bold;
+            padding: 0.5rem;
+            font-size: 0.75rem;
+            font-weight: 600;
             border: none;
-            border-radius: 8px;
+            border-radius: 0.25rem;
             cursor: pointer;
-            margin-top: 10px;
+            margin-top: 0.25rem;
         }
         
         .emergency-stop {
@@ -399,14 +419,14 @@ const char temperature_html[] PROGMEM = R"rawliteral(
         .stats-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 15px;
-            margin-top: 20px;
+            gap: 0.5rem;
+            margin-bottom: 0.75rem;
         }
         
         .stat-item {
             background: #4B5563;
-            padding: 15px;
-            border-radius: 8px;
+            padding: 0.5rem;
+            border-radius: 0.375rem;
         }
         
         .stat-label {
@@ -416,10 +436,10 @@ const char temperature_html[] PROGMEM = R"rawliteral(
         }
         
         .stat-value {
-            font-size: 24px;
+            font-size: 1.25rem;
             font-weight: bold;
             color: #E5E7EB;
-            margin-top: 5px;
+            margin-top: 0.25rem;
         }
         
         .notification {
@@ -470,19 +490,6 @@ const char temperature_html[] PROGMEM = R"rawliteral(
     </div>
 
     <div class="container">
-        <div class="location-header">
-            <div class="location-name" id="locationDisplay">Loading...</div>
-            <div class="location-edit">
-                <input type="text" id="locationInput" placeholder="Enter location name">
-                <button class="btn-save" onclick="saveLocation()">Save Location</button>
-            </div>
-            <div class="status-bar">
-                <div class="status-item" id="systemStatus">System: --</div>
-                <div class="status-item" id="sensorStatus">Sensor: --</div>
-                <div class="status-item" id="emergencyStatus">Emergency: --</div>
-            </div>
-        </div>
-        
         <div class="main-grid">
             <div class="card">
                 <h2>Temperature Monitor</h2>
@@ -534,7 +541,7 @@ const char temperature_html[] PROGMEM = R"rawliteral(
                     </div>
                 </div>
                 <div class="control-group">
-                    <label>Setpoint Temperature: <span id="setpointValue">24.0</span>°C</label>
+                    <label>Setpoint: <span id="setpointValue">24.0</span>°C</label>
                     <div class="slider-container">
                         <input type="range" class="slider" id="setpointSlider" 
                                min="16" max="30" step="0.5" value="24" 
@@ -542,36 +549,33 @@ const char temperature_html[] PROGMEM = R"rawliteral(
                     </div>
                 </div>
                 <div class="control-group">
-                    <label>Hysteresis (Delta): <span id="deltaValue">1.0</span>°C</label>
+                    <label>Delta: <span id="deltaValue">1.0</span>°C</label>
                     <input type="range" class="slider" id="deltaSlider" 
                            min="0.5" max="3" step="0.5" value="1" 
                            oninput="updateDelta()">
                 </div>
             </div>
-        </div>
-        
-        <div class="main-grid">
+            
             <div class="card">
-                <h2>Calibration Settings</h2>
+                <h2>Calibration</h2>
                 <div class="control-group">
-                    <label>Sensor Compensation: <span id="compensationValue">0.0</span>°C</label>
+                    <label>Compensation: <span id="compensationValue">0.0</span>°C</label>
                     <input type="range" class="slider" id="compensationSlider" 
                            min="-5" max="5" step="0.5" value="0" 
                            oninput="updateCompensation()">
-                    <small style="color: #666;">Adjust if sensor reading differs from actual room temperature</small>
                 </div>
                 <div class="control-group">
-                    <label>Min On Time (minutes)</label>
+                    <label>Min On Time (min)</label>
                     <input type="number" id="minOnTime" value="3" min="1" max="10" onchange="updateTiming()">
                 </div>
                 <div class="control-group">
-                    <label>Min Off Time (minutes)</label>
+                    <label>Min Off Time (min)</label>
                     <input type="number" id="minOffTime" value="3" min="1" max="10" onchange="updateTiming()">
                 </div>
             </div>
             
             <div class="card">
-                <h2>System Statistics</h2>
+                <h2>Statistics</h2>
                 <div class="stats-grid">
                     <div class="stat-item">
                         <div class="stat-label">Runtime</div>
@@ -591,7 +595,6 @@ const char temperature_html[] PROGMEM = R"rawliteral(
                     </div>
                 </div>
                 <div class="emergency-section">
-                    <strong>Emergency Control</strong>
                     <button class="emergency-btn emergency-stop" onclick="emergencyStop()">EMERGENCY STOP</button>
                     <button class="emergency-btn emergency-clear" onclick="emergencyClear()">Clear Emergency</button>
                 </div>

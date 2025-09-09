@@ -867,30 +867,32 @@ void setupDeviceWebServer() {
         html += ".nav-links a { color: #dbeafe; text-decoration: none; padding: 0.375rem 0.75rem; border-radius: 0.375rem; transition: all 0.2s; font-size: 0.875rem; }";
         html += ".nav-links a:hover { background: rgba(255,255,255,0.2); }";
         html += ".nav-links a.active { background: #00D4FF; color: #0B1426; font-weight: 600; }";
-        html += ".container { max-width: 1200px; margin: 2rem auto; padding: 0 1rem; }";
-        html += ".sensor-card { background: linear-gradient(135deg, #1f2937 0%, #374151 100%); border: 1px solid #374151; border-radius: 0.75rem; margin: 1.5rem 0; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }";
-        html += ".sensor-header { background: #00D4FF; color: #0B1426; padding: 1rem 1.5rem; font-weight: 600; font-size: 1.125rem; }";
-        html += ".sensor-body { padding: 1.5rem; }";
-        html += ".config-row{display:flex;align-items:center;margin:15px 0;flex-wrap:wrap;gap:15px}";
-        html += ".config-label { min-width: 120px; font-weight: 600; color: #9CA3AF; font-size: 0.875rem; }";
-        html += ".config-control { flex: 1; min-width: 150px; }";
-        html += "select, input[type=number] { width: 100%; padding: 0.5rem; border: 1px solid #4B5563; border-radius: 0.375rem; background: #374151; color: #E5E7EB; font-size: 0.875rem; }";
+        html += ".container { max-width: 1200px; margin: 1rem auto; padding: 0 1rem; }";
+        html += ".sensors-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 1rem; align-items: start; }";
+        html += ".sensor-card { background: linear-gradient(135deg, #1f2937 0%, #374151 100%); border: 1px solid #374151; border-radius: 0.5rem; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.3); height: fit-content; display: flex; flex-direction: column; }";
+        html += ".sensor-header { background: #00D4FF; color: #0B1426; padding: 0.75rem 1rem; font-weight: 600; font-size: 1rem; flex-shrink: 0; }";
+        html += ".sensor-body { padding: 1rem; flex: 1; display: flex; flex-direction: column; gap: 0.75rem; }";
+        html += ".config-row { display: flex; align-items: center; flex-wrap: wrap; gap: 0.75rem; }";
+        html += ".config-label { min-width: 100px; font-weight: 600; color: #9CA3AF; font-size: 0.75rem; }";
+        html += ".config-control { flex: 1; min-width: 140px; display: flex; align-items: center; gap: 0.5rem; }";
+        html += "select, input[type=number] { flex: 1; padding: 0.375rem 0.5rem; border: 1px solid #4B5563; border-radius: 0.25rem; background: #374151; color: #E5E7EB; font-size: 0.75rem; }";
         html += "select:focus, input[type=number]:focus { outline: none; border-color: #00D4FF; box-shadow: 0 0 0 2px rgba(0, 212, 255, 0.2); }";
-        html += ".toggle{position:relative;display:inline-block;width:60px;height:34px}";
-        html += ".toggle input{opacity:0;width:0;height:0}";
-        html += ".slider{position:absolute;cursor:pointer;top:0;left:0;right:0;bottom:0;background-color:#ccc;transition:.4s;border-radius:34px}";
-        html += ".slider:before{position:absolute;content:'';height:26px;width:26px;left:4px;bottom:4px;background-color:white;transition:.4s;border-radius:50%}";
-        html += "input:checked + .slider{background-color:#28a745}";
-        html += "input:checked + .slider:before{transform:translateX(26px)}";
-        html += ".status-indicator{display:inline-block;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:bold;margin-left:10px}";
-        html += ".status-working{background:#d4edda;color:#155724}";
-        html += ".status-disabled{background:#f8d7da;color:#721c24}";
-        html += ".status-testing{background:#fff3cd;color:#856404}";
-        html += ".test-button{padding:6px 12px;background:#17a2b8;color:white;border:none;border-radius:4px;cursor:pointer;font-size:12px}";
-        html += ".test-button:hover{background:#138496}";
+        html += ".toggle { position: relative; display: inline-block; width: 50px; height: 28px; }";
+        html += ".toggle input { opacity: 0; width: 0; height: 0; }";
+        html += ".slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #4B5563; transition: .4s; border-radius: 34px; }";
+        html += ".slider:before { position: absolute; content: ''; height: 20px; width: 20px; left: 4px; bottom: 4px; background-color: white; transition: .4s; border-radius: 50%; }";
+        html += "input:checked + .slider { background-color: #00D4FF; }";
+        html += "input:checked + .slider:before { transform: translateX(22px); }";
+        html += ".status-indicator { display: inline-block; padding: 0.25rem 0.75rem; border-radius: 1rem; font-size: 0.75rem; font-weight: 600; }";
+        html += ".status-working { background: #d4edda; color: #155724; }";
+        html += ".status-disabled { background: #f8d7da; color: #721c24; }";
+        html += ".status-testing { background: #fff3cd; color: #856404; }";
+        html += ".test-button { padding: 0.375rem 0.75rem; background: #00D4FF; color: #0B1426; border: none; border-radius: 0.25rem; cursor: pointer; font-size: 0.75rem; font-weight: 600; flex-shrink: 0; }";
+        html += ".test-button:hover { background: #0099CC; }";
         html += ".save-button { background: #00D4FF; color: #0B1426; padding: 0.75rem 1.5rem; border: none; border-radius: 0.375rem; cursor: pointer; margin: 1rem 0.5rem; font-size: 0.875rem; font-weight: 600; }";
         html += ".reset-button { background: #EF4444; color: white; padding: 0.75rem 1.5rem; border: none; border-radius: 0.375rem; cursor: pointer; margin: 1rem 0.5rem; font-size: 0.875rem; font-weight: 600; }";
         html += ".back-button { background: #374151; color: #E5E7EB; padding: 0.5rem 1rem; border: 1px solid #4B5563; border-radius: 0.375rem; cursor: pointer; margin: 0.5rem; text-decoration: none; font-size: 0.875rem; }";
+        html += "@media (max-width: 768px) { .sensors-grid { grid-template-columns: 1fr; } }";
         html += "</style></head><body>";
         
         // Header with navigation
@@ -915,6 +917,7 @@ void setupDeviceWebServer() {
         SensorConfig* config = getSensorConfig();
         
         html += "<form id='sensorConfigForm'>";
+        html += "<div class='sensors-grid'>";
         
         // DS18B20 Configuration
         html += "<div class='sensor-card'>";
@@ -1041,6 +1044,7 @@ void setupDeviceWebServer() {
         
         html += "</div></div>";
         
+        html += "</div>"; // Close sensors-grid
         html += "</form>";
         
         // Action buttons
