@@ -11,6 +11,7 @@
 #include "schedule_manager.h"
 #include "modbus_manager.h"
 #include "utils.h"
+#include "webserver_api.h"
 #include <EEPROM.h>
 #include <esp_task_wdt.h>
 #include <WiFi.h>
@@ -2154,7 +2155,8 @@ void setupDeviceWebServer() {
     });
 
     // Schedule management endpoints
-    // Dedicated Temperature Control page
+    // Temperature route removed - using professional interface from webserver_api.h
+    /* REMOVED CONFLICTING ROUTE - START
     device_server->on("/temperature", []() {
         String html = "<!DOCTYPE html><html><head>";
         html += "<title>Temperature Control - MAC-SYS Industrial Controller</title>";
@@ -2358,6 +2360,7 @@ void setupDeviceWebServer() {
         
         device_server->send(200, "text/html", html);
     });
+    REMOVED CONFLICTING ROUTE - END */
 
     device_server->on("/schedule", []() {
         String html = "<!DOCTYPE html><html><head><title>MAC-SYS Schedule</title>";
@@ -3136,6 +3139,9 @@ void setupDeviceWebServer() {
         json += "}";
         device_server->send(200, "application/json", json);
     });
+    
+    // Setup professional temperature API endpoints with calibration controls
+    setupTemperatureAPI();
     
     device_server->begin();
     DEBUG_PRINTLN("[OK] Device web server started on port 80");

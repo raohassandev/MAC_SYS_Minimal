@@ -123,9 +123,10 @@ const char temperature_html[] PROGMEM = R"rawliteral(
         
         .status-item {
             padding: 10px 15px;
-            background: #f7f7f7;
+            background: #374151;
             border-radius: 8px;
             font-size: 14px;
+            color: #E5E7EB;
         }
         
         .status-item.active {
@@ -157,18 +158,19 @@ const char temperature_html[] PROGMEM = R"rawliteral(
         }
         
         .card {
-            background: white;
+            background: linear-gradient(135deg, #1f2937 0%, #374151 100%);
             border-radius: 15px;
             padding: 25px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            border: 1px solid #374151;
         }
         
         .card h2 {
-            color: #333;
+            color: #00D4FF;
             font-size: 20px;
             margin-bottom: 20px;
             padding-bottom: 10px;
-            border-bottom: 2px solid #f0f0f0;
+            border-bottom: 2px solid #374151;
         }
         
         .temperature-display {
@@ -196,7 +198,7 @@ const char temperature_html[] PROGMEM = R"rawliteral(
         
         .temp-setpoint {
             font-size: 24px;
-            color: #333;
+            color: #E5E7EB;
             margin-top: 20px;
         }
         
@@ -253,7 +255,7 @@ const char temperature_html[] PROGMEM = R"rawliteral(
         .slider-value {
             text-align: center;
             font-size: 18px;
-            color: #333;
+            color: #E5E7EB;
             margin-top: 10px;
         }
         
@@ -267,7 +269,7 @@ const char temperature_html[] PROGMEM = R"rawliteral(
         .mode-btn {
             padding: 12px;
             border: 2px solid #ddd;
-            background: white;
+            background: #374151;
             border-radius: 8px;
             cursor: pointer;
             text-align: center;
@@ -352,7 +354,7 @@ const char temperature_html[] PROGMEM = R"rawliteral(
             width: 26px;
             left: 4px;
             bottom: 4px;
-            background-color: white;
+            background-color: #374151;
             transition: .4s;
             border-radius: 50%;
         }
@@ -402,7 +404,7 @@ const char temperature_html[] PROGMEM = R"rawliteral(
         }
         
         .stat-item {
-            background: #f7f7f7;
+            background: #4B5563;
             padding: 15px;
             border-radius: 8px;
         }
@@ -416,7 +418,7 @@ const char temperature_html[] PROGMEM = R"rawliteral(
         .stat-value {
             font-size: 24px;
             font-weight: bold;
-            color: #333;
+            color: #E5E7EB;
             margin-top: 5px;
         }
         
@@ -453,9 +455,22 @@ const char temperature_html[] PROGMEM = R"rawliteral(
     </style>
 </head>
 <body>
+    <!-- Professional Navigation Header -->
+    <div class='header'>
+        <h1>Temperature Control System</h1>
+        <div class='nav-links'>
+            <a href='/'>Dashboard</a>
+            <a href='/system'>System</a>
+            <a href='/relays'>Relays</a>
+            <a href='/temperature' class='active'>Temperature</a>
+            <a href='/schedule'>Schedule</a>
+            <a href='/sensors'>Sensors</a>
+            <a href='/wifi-config'>Network</a>
+        </div>
+    </div>
+
     <div class="container">
-        <div class="header">
-            <h1>MAC-SYS Temperature Control</h1>
+        <div class="location-header">
             <div class="location-name" id="locationDisplay">Loading...</div>
             <div class="location-edit">
                 <input type="text" id="locationInput" placeholder="Enter location name">
