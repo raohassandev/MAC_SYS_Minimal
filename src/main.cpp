@@ -549,10 +549,30 @@ void setupDeviceWebServer() {
         html += ".arrow.down{transform:rotate(90deg)}";
         html += "button{transition:all 0.3s}";
         html += "button:hover{opacity:0.8;transform:translateY(-2px)}";
+        // Professional navigation styles to match other pages
+        html += ".header{background:linear-gradient(135deg,#1e3a8a 0%,#3b82f6 100%);color:white;padding:1rem 2rem;box-shadow:0 2px 10px rgba(0,0,0,0.3)}";
+        html += ".header h1{font-size:1.5rem;margin:0;display:flex;align-items:center;gap:0.75rem}";
+        html += ".nav-links{margin-top:0.75rem;display:flex;gap:1.5rem;flex-wrap:wrap}";
+        html += ".nav-links a{color:#dbeafe;text-decoration:none;padding:0.375rem 0.75rem;border-radius:0.375rem;transition:all 0.2s;font-size:0.875rem}";
+        html += ".nav-links a:hover{background:rgba(255,255,255,0.2)}";
+        html += ".nav-links a.active{background:#00D4FF;color:#0B1426;font-weight:600}";
         html += "</style></head><body>";
         
-        html += "<div class='container'>";
+        // Professional navigation header to match other pages
+        html += "<div class='header'>";
         html += "<h1>MAC-SYS Industrial Controller</h1>";
+        html += "<div class='nav-links'>";
+        html += "<a href='/' class='active'>Dashboard</a>";
+        html += "<a href='/system'>System</a>";
+        html += "<a href='/relays'>Relays</a>";
+        html += "<a href='/temperature'>Temperature</a>";
+        html += "<a href='/schedule'>Schedule</a>";
+        html += "<a href='/sensors'>Sensors</a>";
+        html += "<a href='/wifi-config'>Network</a>";
+        html += "</div>";
+        html += "</div>";
+        
+        html += "<div class='container'>";
         
         html += "<div class='status'>";
         html += "<div class='temp'>Temperature: " + String(g_system_status.current_temperature, 1) + "&deg;C</div>";
