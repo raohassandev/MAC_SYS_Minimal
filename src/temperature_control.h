@@ -10,7 +10,8 @@ enum TempControlMode {
     TEMP_MODE_HEATING = 1,
     TEMP_MODE_COOLING = 2,
     TEMP_MODE_AUTO = 3,
-    TEMP_MODE_MANUAL = 4
+    TEMP_MODE_MANUAL = 4,
+    TEMP_MODE_FAN_ONLY = 5
 };
 
 // Zone configuration

@@ -3,7 +3,7 @@
 
 #include <Arduino.h>
 #include "rtc_manager.h"
-#include "temperature_control.h"
+#include "simple_temp_control.h"
 
 // Schedule configuration
 #define MAX_SCHEDULE_EVENTS 24    // Maximum events per day per zone

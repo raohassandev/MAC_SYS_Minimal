@@ -303,17 +303,18 @@ void ScheduleManager::executeEvent(const ScheduleEvent& event) {
     
     switch (event.event_type) {
         case SCHEDULE_TEMP_SETPOINT:
-            temp_controller.setSetpoint(event.zone_id, event.value1);
-            temp_controller.setDelta(event.zone_id, event.value2);
+            // Single zone controller - ignore zone_id
+            simple_temp.setSetpoint(event.value1);
+            simple_temp.setDelta(event.value2);
             if (event.temp_mode != TEMP_MODE_OFF) {
-                temp_controller.setMode(event.zone_id, event.temp_mode);
+                simple_temp.setMode(event.temp_mode);
             }
             DEBUG_PRINTF("🌡️ Zone %d: Setpoint=%.1f°C, Delta=%.1f°C, Mode=%d\n", 
                         event.zone_id, event.value1, event.value2, event.temp_mode);
             break;
             
         case SCHEDULE_TEMP_MODE:
-            temp_controller.setMode(event.zone_id, event.temp_mode);
+            simple_temp.setMode(event.temp_mode);
             DEBUG_PRINTF("🔄 Zone %d: Mode changed to %d\n", event.zone_id, event.temp_mode);
             break;
             
@@ -345,8 +346,9 @@ void ScheduleManager::setOverride(uint8_t zone, float setpoint, TempControlMode 
     }
     
     // Apply override immediately
-    temp_controller.setSetpoint(zone, setpoint);
-    temp_controller.setMode(zone, mode);
+    // Single zone controller - ignore zone parameter
+    simple_temp.setSetpoint(setpoint);
+    simple_temp.setMode(mode);
     
     DEBUG_PRINTF("🔧 Override set for zone %d: %.1f°C, Mode=%d, Duration=%lu min\n", 
                 zone, setpoint, mode, duration_minutes);

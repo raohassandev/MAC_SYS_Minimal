@@ -1,0 +1,755 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MAC-SYS Temperature Control</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 25px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        }
+        
+        .header h1 {
+            color: #333;
+            font-size: 28px;
+            margin-bottom: 10px;
+        }
+        
+        .location-name {
+            font-size: 20px;
+            color: #666;
+            margin-bottom: 15px;
+        }
+        
+        .location-edit {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .location-edit input {
+            padding: 8px 12px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 16px;
+        }
+        
+        .btn-save {
+            padding: 8px 16px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        
+        .btn-save:hover {
+            background: #5a67d8;
+        }
+        
+        .status-bar {
+            display: flex;
+            gap: 15px;
+            margin-top: 20px;
+        }
+        
+        .status-item {
+            padding: 10px 15px;
+            background: #f7f7f7;
+            border-radius: 8px;
+            font-size: 14px;
+        }
+        
+        .status-item.active {
+            background: #48bb78;
+            color: white;
+        }
+        
+        .status-item.inactive {
+            background: #fc8181;
+            color: white;
+        }
+        
+        .status-item.warning {
+            background: #f6ad55;
+            color: white;
+        }
+        
+        .main-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 25px;
+            margin-bottom: 25px;
+        }
+        
+        @media (max-width: 768px) {
+            .main-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        .card {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        }
+        
+        .card h2 {
+            color: #333;
+            font-size: 20px;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #f0f0f0;
+        }
+        
+        .temperature-display {
+            text-align: center;
+            padding: 30px;
+        }
+        
+        .temp-current {
+            font-size: 72px;
+            font-weight: bold;
+            color: #667eea;
+            line-height: 1;
+        }
+        
+        .temp-unit {
+            font-size: 36px;
+            color: #999;
+        }
+        
+        .temp-compensated {
+            font-size: 18px;
+            color: #666;
+            margin-top: 10px;
+        }
+        
+        .temp-setpoint {
+            font-size: 24px;
+            color: #333;
+            margin-top: 20px;
+        }
+        
+        .control-group {
+            margin-bottom: 20px;
+        }
+        
+        .control-group label {
+            display: block;
+            color: #666;
+            font-size: 14px;
+            margin-bottom: 8px;
+        }
+        
+        .control-group input,
+        .control-group select {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 16px;
+        }
+        
+        .control-group input:focus,
+        .control-group select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .slider-container {
+            position: relative;
+            margin: 15px 0;
+        }
+        
+        .slider {
+            width: 100%;
+            -webkit-appearance: none;
+            height: 8px;
+            border-radius: 5px;
+            background: #ddd;
+            outline: none;
+        }
+        
+        .slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background: #667eea;
+            cursor: pointer;
+        }
+        
+        .slider-value {
+            text-align: center;
+            font-size: 18px;
+            color: #333;
+            margin-top: 10px;
+        }
+        
+        .mode-buttons {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+            gap: 10px;
+            margin-top: 10px;
+        }
+        
+        .mode-btn {
+            padding: 12px;
+            border: 2px solid #ddd;
+            background: white;
+            border-radius: 8px;
+            cursor: pointer;
+            text-align: center;
+            transition: all 0.3s;
+        }
+        
+        .mode-btn:hover {
+            border-color: #667eea;
+        }
+        
+        .mode-btn.active {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+        }
+        
+        .state-indicators {
+            display: flex;
+            justify-content: space-around;
+            margin-top: 20px;
+        }
+        
+        .state-indicator {
+            text-align: center;
+        }
+        
+        .state-icon {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            margin: 0 auto 10px;
+        }
+        
+        .state-icon.on {
+            background: #48bb78;
+            color: white;
+        }
+        
+        .state-icon.off {
+            background: #e2e8f0;
+            color: #a0aec0;
+        }
+        
+        .state-label {
+            font-size: 14px;
+            color: #666;
+        }
+        
+        .toggle-switch {
+            position: relative;
+            display: inline-block;
+            width: 60px;
+            height: 34px;
+        }
+        
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        
+        .toggle-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: .4s;
+            border-radius: 34px;
+        }
+        
+        .toggle-slider:before {
+            position: absolute;
+            content: "";
+            height: 26px;
+            width: 26px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+        
+        input:checked + .toggle-slider {
+            background-color: #667eea;
+        }
+        
+        input:checked + .toggle-slider:before {
+            transform: translateX(26px);
+        }
+        
+        .emergency-section {
+            background: #fff5f5;
+            border: 2px solid #fc8181;
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 20px;
+        }
+        
+        .emergency-btn {
+            width: 100%;
+            padding: 12px;
+            font-size: 16px;
+            font-weight: bold;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+        
+        .emergency-stop {
+            background: #fc8181;
+            color: white;
+        }
+        
+        .emergency-clear {
+            background: #48bb78;
+            color: white;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-top: 20px;
+        }
+        
+        .stat-item {
+            background: #f7f7f7;
+            padding: 15px;
+            border-radius: 8px;
+        }
+        
+        .stat-label {
+            font-size: 12px;
+            color: #666;
+            text-transform: uppercase;
+        }
+        
+        .stat-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #333;
+            margin-top: 5px;
+        }
+        
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 15px 20px;
+            background: #48bb78;
+            color: white;
+            border-radius: 8px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+            display: none;
+            z-index: 1000;
+        }
+        
+        .notification.error {
+            background: #fc8181;
+        }
+        
+        .notification.show {
+            display: block;
+            animation: slideIn 0.3s ease;
+        }
+        
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+            }
+            to {
+                transform: translateX(0);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>MAC-SYS Temperature Control</h1>
+            <div class="location-name" id="locationDisplay">Loading...</div>
+            <div class="location-edit">
+                <input type="text" id="locationInput" placeholder="Enter location name">
+                <button class="btn-save" onclick="saveLocation()">Save Location</button>
+            </div>
+            <div class="status-bar">
+                <div class="status-item" id="systemStatus">System: --</div>
+                <div class="status-item" id="sensorStatus">Sensor: --</div>
+                <div class="status-item" id="emergencyStatus">Emergency: --</div>
+            </div>
+        </div>
+        
+        <div class="main-grid">
+            <div class="card">
+                <h2>Temperature Monitor</h2>
+                <div class="temperature-display">
+                    <div>
+                        <span class="temp-current" id="currentTemp">--</span>
+                        <span class="temp-unit">°C</span>
+                    </div>
+                    <div class="temp-compensated">
+                        Compensated: <span id="compensatedTemp">--</span>°C
+                    </div>
+                    <div class="temp-setpoint">
+                        Setpoint: <span id="setpointDisplay">--</span>°C
+                    </div>
+                </div>
+                <div class="state-indicators">
+                    <div class="state-indicator">
+                        <div class="state-icon off" id="compressorIcon">❄️</div>
+                        <div class="state-label">Compressor</div>
+                    </div>
+                    <div class="state-indicator">
+                        <div class="state-icon off" id="heaterIcon">🔥</div>
+                        <div class="state-label">Heater</div>
+                    </div>
+                    <div class="state-indicator">
+                        <div class="state-icon off" id="fanIcon">💨</div>
+                        <div class="state-label">Fan</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card">
+                <h2>Control Settings</h2>
+                <div class="control-group">
+                    <label>System Enable</label>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="systemEnable" onchange="toggleSystem()">
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+                <div class="control-group">
+                    <label>Operation Mode</label>
+                    <div class="mode-buttons">
+                        <button class="mode-btn" onclick="setMode(0)">OFF</button>
+                        <button class="mode-btn" onclick="setMode(1)">HEAT</button>
+                        <button class="mode-btn" onclick="setMode(2)">COOL</button>
+                        <button class="mode-btn" onclick="setMode(3)">AUTO</button>
+                        <button class="mode-btn" onclick="setMode(4)">FAN</button>
+                    </div>
+                </div>
+                <div class="control-group">
+                    <label>Setpoint Temperature: <span id="setpointValue">24.0</span>°C</label>
+                    <div class="slider-container">
+                        <input type="range" class="slider" id="setpointSlider" 
+                               min="16" max="30" step="0.5" value="24" 
+                               oninput="updateSetpoint()">
+                    </div>
+                </div>
+                <div class="control-group">
+                    <label>Hysteresis (Delta): <span id="deltaValue">1.0</span>°C</label>
+                    <input type="range" class="slider" id="deltaSlider" 
+                           min="0.5" max="3" step="0.5" value="1" 
+                           oninput="updateDelta()">
+                </div>
+            </div>
+        </div>
+        
+        <div class="main-grid">
+            <div class="card">
+                <h2>Calibration Settings</h2>
+                <div class="control-group">
+                    <label>Sensor Compensation: <span id="compensationValue">0.0</span>°C</label>
+                    <input type="range" class="slider" id="compensationSlider" 
+                           min="-5" max="5" step="0.5" value="0" 
+                           oninput="updateCompensation()">
+                    <small style="color: #666;">Adjust if sensor reading differs from actual room temperature</small>
+                </div>
+                <div class="control-group">
+                    <label>Min On Time (minutes)</label>
+                    <input type="number" id="minOnTime" value="3" min="1" max="10" onchange="updateTiming()">
+                </div>
+                <div class="control-group">
+                    <label>Min Off Time (minutes)</label>
+                    <input type="number" id="minOffTime" value="3" min="1" max="10" onchange="updateTiming()">
+                </div>
+            </div>
+            
+            <div class="card">
+                <h2>System Statistics</h2>
+                <div class="stats-grid">
+                    <div class="stat-item">
+                        <div class="stat-label">Runtime</div>
+                        <div class="stat-value" id="runtime">-- hrs</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-label">Cycles</div>
+                        <div class="stat-value" id="cycles">--</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-label">Min Temp</div>
+                        <div class="stat-value" id="minTemp">--°C</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-label">Max Temp</div>
+                        <div class="stat-value" id="maxTemp">--°C</div>
+                    </div>
+                </div>
+                <div class="emergency-section">
+                    <strong>Emergency Control</strong>
+                    <button class="emergency-btn emergency-stop" onclick="emergencyStop()">EMERGENCY STOP</button>
+                    <button class="emergency-btn emergency-clear" onclick="emergencyClear()">Clear Emergency</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="notification" id="notification"></div>
+    
+    <script>
+        let currentMode = 0;
+        let updateInterval;
+        
+        function showNotification(message, isError = false) {
+            const notification = document.getElementById('notification');
+            notification.textContent = message;
+            notification.className = 'notification show' + (isError ? ' error' : '');
+            setTimeout(() => {
+                notification.classList.remove('show');
+            }, 3000);
+        }
+        
+        async function fetchAPI(endpoint, method = 'GET', data = null) {
+            try {
+                const options = {
+                    method: method,
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                };
+                
+                if (data) {
+                    options.body = JSON.stringify(data);
+                }
+                
+                const response = await fetch(`/api${endpoint}`, options);
+                if (!response.ok) throw new Error('Request failed');
+                return await response.json();
+            } catch (error) {
+                console.error('API Error:', error);
+                showNotification('Communication error', true);
+                return null;
+            }
+        }
+        
+        async function updateStatus() {
+            const status = await fetchAPI('/temperature/status');
+            if (!status) return;
+            
+            // Update temperature displays
+            document.getElementById('currentTemp').textContent = status.current_temp.toFixed(1);
+            document.getElementById('compensatedTemp').textContent = status.compensated_temp.toFixed(1);
+            document.getElementById('setpointDisplay').textContent = status.setpoint.toFixed(1);
+            
+            // Update location
+            document.getElementById('locationDisplay').textContent = status.location;
+            
+            // Update system status
+            const systemStatus = document.getElementById('systemStatus');
+            systemStatus.textContent = `System: ${status.enabled ? 'ON' : 'OFF'}`;
+            systemStatus.className = 'status-item ' + (status.enabled ? 'active' : 'inactive');
+            
+            // Update sensor status
+            const sensorStatus = document.getElementById('sensorStatus');
+            sensorStatus.textContent = `Sensor: ${status.sensor_valid ? 'OK' : 'ERROR'}`;
+            sensorStatus.className = 'status-item ' + (status.sensor_valid ? 'active' : 'inactive');
+            
+            // Update emergency status
+            const emergencyStatus = document.getElementById('emergencyStatus');
+            emergencyStatus.textContent = `Emergency: ${status.emergency_stop ? 'ACTIVE' : 'OK'}`;
+            emergencyStatus.className = 'status-item ' + (status.emergency_stop ? 'inactive' : 'active');
+            
+            // Update state indicators
+            document.getElementById('compressorIcon').className = 
+                'state-icon ' + (status.state.compressor ? 'on' : 'off');
+            document.getElementById('heaterIcon').className = 
+                'state-icon ' + (status.state.heater ? 'on' : 'off');
+            document.getElementById('fanIcon').className = 
+                'state-icon ' + (status.state.fan ? 'on' : 'off');
+            
+            // Update controls
+            document.getElementById('systemEnable').checked = status.enabled;
+            document.getElementById('setpointSlider').value = status.setpoint;
+            document.getElementById('setpointValue').textContent = status.setpoint.toFixed(1);
+            document.getElementById('deltaSlider').value = status.delta;
+            document.getElementById('deltaValue').textContent = status.delta.toFixed(1);
+            document.getElementById('compensationSlider').value = status.compensation;
+            document.getElementById('compensationValue').textContent = status.compensation.toFixed(1);
+            
+            // Update mode buttons
+            currentMode = status.mode;
+            document.querySelectorAll('.mode-btn').forEach((btn, index) => {
+                btn.className = 'mode-btn' + (index === currentMode ? ' active' : '');
+            });
+            
+            // Update statistics
+            if (status.stats) {
+                document.getElementById('runtime').textContent = 
+                    status.stats.runtime_hours.toFixed(1) + ' hrs';
+                document.getElementById('cycles').textContent = status.stats.cycles;
+                document.getElementById('minTemp').textContent = 
+                    status.stats.min_temp.toFixed(1) + '°C';
+                document.getElementById('maxTemp').textContent = 
+                    status.stats.max_temp.toFixed(1) + '°C';
+            }
+        }
+        
+        async function loadConfig() {
+            const config = await fetchAPI('/temperature/config');
+            if (!config) return;
+            
+            const timing = await fetchAPI('/temperature/timing');
+            if (timing) {
+                document.getElementById('minOnTime').value = timing.min_on_time / 60000;
+                document.getElementById('minOffTime').value = timing.min_off_time / 60000;
+            }
+        }
+        
+        async function saveLocation() {
+            const location = document.getElementById('locationInput').value;
+            if (!location) return;
+            
+            const result = await fetchAPI('/temperature/location', 'POST', { location });
+            if (result) {
+                showNotification('Location saved');
+                document.getElementById('locationInput').value = '';
+                updateStatus();
+            }
+        }
+        
+        async function toggleSystem() {
+            const enabled = document.getElementById('systemEnable').checked;
+            const endpoint = enabled ? '/temperature/enable' : '/temperature/disable';
+            const result = await fetchAPI(endpoint, 'POST');
+            if (result) {
+                showNotification(`System ${enabled ? 'enabled' : 'disabled'}`);
+            }
+        }
+        
+        async function setMode(mode) {
+            const result = await fetchAPI('/temperature/mode', 'POST', { mode });
+            if (result) {
+                const modeNames = ['OFF', 'HEATING', 'COOLING', 'AUTO', 'FAN'];
+                showNotification(`Mode set to ${modeNames[mode]}`);
+                updateStatus();
+            }
+        }
+        
+        async function updateSetpoint() {
+            const setpoint = parseFloat(document.getElementById('setpointSlider').value);
+            document.getElementById('setpointValue').textContent = setpoint.toFixed(1);
+            
+            const result = await fetchAPI('/temperature/setpoint', 'POST', { setpoint });
+            if (result) {
+                showNotification('Setpoint updated');
+            }
+        }
+        
+        async function updateDelta() {
+            const delta = parseFloat(document.getElementById('deltaSlider').value);
+            document.getElementById('deltaValue').textContent = delta.toFixed(1);
+            
+            const result = await fetchAPI('/temperature/setpoint', 'POST', { delta });
+            if (result) {
+                showNotification('Hysteresis updated');
+            }
+        }
+        
+        async function updateCompensation() {
+            const compensation = parseFloat(document.getElementById('compensationSlider').value);
+            document.getElementById('compensationValue').textContent = compensation.toFixed(1);
+            
+            const result = await fetchAPI('/temperature/compensation', 'POST', { compensation });
+            if (result) {
+                showNotification('Compensation updated');
+            }
+        }
+        
+        async function updateTiming() {
+            const minOnTime = parseInt(document.getElementById('minOnTime').value) * 60000;
+            const minOffTime = parseInt(document.getElementById('minOffTime').value) * 60000;
+            
+            const result = await fetchAPI('/temperature/timing', 'POST', {
+                min_on_time: minOnTime,
+                min_off_time: minOffTime
+            });
+            
+            if (result) {
+                showNotification('Timing protection updated');
+            }
+        }
+        
+        async function emergencyStop() {
+            if (confirm('Activate emergency stop?')) {
+                const result = await fetchAPI('/temperature/emergency/stop', 'POST');
+                if (result) {
+                    showNotification('EMERGENCY STOP ACTIVATED', true);
+                    updateStatus();
+                }
+            }
+        }
+        
+        async function emergencyClear() {
+            const result = await fetchAPI('/temperature/emergency/clear', 'POST');
+            if (result) {
+                showNotification('Emergency stop cleared');
+                updateStatus();
+            }
+        }
+        
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            updateStatus();
+            loadConfig();
+            
+            // Update every 2 seconds
+            updateInterval = setInterval(updateStatus, 2000);
+        });
+    </script>
+</body>
+</html>

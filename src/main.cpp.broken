@@ -6,7 +6,10 @@
 #include "wifi_manager.h"
 #include "temperature.h"
 #include "relay_control.h"
-#include "temperature_control.h"
+#include "simple_temp_control.h"
+
+// Include API implementation
+#include "webserver_api.h"
 #include "rtc_manager.h"
 #include "schedule_manager.h"
 #include "modbus_manager.h"
@@ -118,15 +121,9 @@ void setup() {
         DEBUG_PRINTLN("[OK] Relay and I/O system initialized successfully");
     }
     
-    // Initialize temperature control system
-    temp_controller.begin();
-    
-    // Set up initial zone configuration (Zone 0 as example)
-    temp_controller.getZoneConfig(0).enabled = true;
-    temp_controller.getZoneConfig(0).mode = TEMP_MODE_HEATING;
-    temp_controller.getZoneConfig(0).setpoint = 22.0;
-    temp_controller.getZoneConfig(0).delta = 1.0;
-    DEBUG_PRINTLN("[OK] Temperature control system initialized");
+    // Initialize simple temperature control system
+    simple_temp.begin();
+    DEBUG_PRINTLN("[OK] Simple temperature control system initialized");
 
     initializeModbus();
     
@@ -515,7 +512,10 @@ void readTemperatureSensors() {
     filtered_temp /= TEMP_FILTER_SAMPLES;
     
     g_system_status.current_temperature = filtered_temp;
-    g_system_status.setpoint_temperature = g_system_config.hvac.setpoint_temperature;
+    g_system_status.setpoint_temperature = simple_temp.getConfig().setpoint;
+    
+    // Update simple temperature controller
+    simple_temp.updateTemperature(filtered_temp);
     
     DEBUG_PRINTF("Temperature: %.2f°C\n", filtered_temp);
 }
@@ -530,24 +530,32 @@ void setupDeviceWebServer() {
     
     // Main device status page
     device_server->on("/", []() {
-        String html = "<!DOCTYPE html><html><head><title>MAC-SYS Device Status</title>";
+        String html = "<!DOCTYPE html><html><head><title>MAC-SYS Industrial Controller - Dashboard</title>";
         html += "<meta name='viewport' content='width=device-width, initial-scale=1'>";
         html += "<meta charset='UTF-8'>";
-        html += "<style>body{font-family:Arial,sans-serif;margin:20px;background:#f0f0f0}";
-        html += ".container{background:white;padding:20px;border-radius:10px;box-shadow:0 2px 10px rgba(0,0,0,0.1);max-width:1200px;margin:0 auto}";
-        html += ".status{background:#e8f5e8;padding:15px;border-radius:5px;margin:10px 0}";
-        html += ".temp{font-size:24px;color:#2c5234;font-weight:bold}";
-        html += ".info{display:flex;justify-content:space-between;margin:10px 0;padding:5px 0;border-bottom:1px solid #eee}";
-        html += ".label{font-weight:bold;color:#666}";
-        html += ".section{background:#f8f9fa;border-radius:8px;margin:20px 0;overflow:hidden;border:1px solid #dee2e6}";
-        html += ".section-header{background:#007bff;color:white;padding:12px 20px;cursor:pointer;user-select:none;display:flex;justify-content:space-between;align-items:center}";
-        html += ".section-header:hover{background:#0056b3}";
-        html += ".section-content{padding:20px;display:none}";
+        html += "<style>body{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;margin:0;padding:20px;background:#0B1426;color:#E5E7EB;line-height:1.6}";
+        html += ".container{background:linear-gradient(135deg,#1f2937 0%,#374151 100%);padding:30px;border-radius:15px;box-shadow:0 8px 25px rgba(0,0,0,0.3);max-width:1200px;margin:0 auto;border:1px solid #4B5563}";
+        html += ".status{background:linear-gradient(135deg,#064e3b 0%,#047857 100%);padding:20px;border-radius:12px;margin:15px 0;border:1px solid #10b981}";
+        html += ".temp{font-size:28px;color:#00D4FF;font-weight:700;text-shadow:0 2px 4px rgba(0,0,0,0.3)}";
+        html += ".info{display:flex;justify-content:space-between;margin:12px 0;padding:8px 0;border-bottom:1px solid #4B5563}";
+        html += ".label{font-weight:600;color:#9CA3AF}";
+        html += ".section{background:linear-gradient(135deg,#1f2937 0%,#374151 100%);border-radius:12px;margin:25px 0;overflow:hidden;border:1px solid #4B5563;box-shadow:0 4px 6px rgba(0,0,0,0.1)}";
+        html += ".section-header{background:linear-gradient(135deg,#1e3a8a 0%,#3b82f6 100%);color:white;padding:15px 25px;cursor:pointer;user-select:none;display:flex;justify-content:space-between;align-items:center;font-weight:600}";
+        html += ".section-header:hover{background:linear-gradient(135deg,#1d4ed8 0%,#2563eb 100%);transform:translateY(-1px)}";
+        html += ".section-content{padding:25px;display:none;background:#1f2937}";
         html += ".section-content.active{display:block}";
-        html += ".arrow{transition:transform 0.3s}";
+        html += ".arrow{transition:transform 0.3s;font-size:14px}";
         html += ".arrow.down{transform:rotate(90deg)}";
-        html += "button{transition:all 0.3s}";
-        html += "button:hover{opacity:0.8;transform:translateY(-2px)}";
+        html += "button{transition:all 0.3s;font-weight:500;border:none;padding:8px 16px;border-radius:6px;cursor:pointer}";
+        html += "button:hover{opacity:0.9;transform:translateY(-2px);box-shadow:0 4px 12px rgba(0,0,0,0.2)}";
+        html += "h1{color:#00D4FF;text-align:center;font-size:2.2rem;margin-bottom:2rem;text-shadow:0 2px 4px rgba(0,0,0,0.3)}";
+        html += "h2{color:#00D4FF;border-bottom:2px solid #00D4FF!important}";
+        html += "div[style*='background:white']{background:linear-gradient(135deg,#1f2937 0%,#374151 100%)!important;border:1px solid #4B5563!important;color:#E5E7EB!important}";
+        html += "button[style*='background:#007bff']{background:linear-gradient(135deg,#3b82f6 0%,#1d4ed8 100%)!important}";
+        html += "button[style*='background:#28a745']{background:linear-gradient(135deg,#10b981 0%,#059669 100%)!important}";
+        html += "button[style*='background:#dc3545']{background:linear-gradient(135deg,#ef4444 0%,#dc2626 100%)!important}";
+        html += "button[style*='background:#ff6b35']{background:linear-gradient(135deg,#f59e0b 0%,#d97706 100%)!important}";
+        html += "button[style*='background:#6f42c1']{background:linear-gradient(135deg,#8b5cf6 0%,#7c3aed 100%)!important}";
         html += "</style></head><body>";
         
         html += "<div class='container'>";
@@ -680,11 +688,11 @@ void setupDeviceWebServer() {
         html += "</div>";
         html += "<div class='section-content' id='temp-content'>";
         
-        // Zone 0 control
-        ZoneConfig& zone0 = temp_controller.getZoneConfig(0);
-        float currentTemp = temp_controller.getCompensatedTemp(0);
+        // Simple temperature control
+        SimpleTempConfig& config = simple_temp.getConfig();
+        float currentTemp = simple_temp.getCompensatedTemp();
         String modeStr = "";
-        switch(zone0.mode) {
+        switch(config.mode) {
             case TEMP_MODE_OFF: modeStr = "OFF"; break;
             case TEMP_MODE_HEATING: modeStr = "HEATING"; break;
             case TEMP_MODE_COOLING: modeStr = "COOLING"; break;
@@ -695,9 +703,10 @@ void setupDeviceWebServer() {
         html += "<div style='background:white;padding:15px;border-radius:6px;margin:10px 0'>";
         html += "<h3>Zone 1 Control</h3>";
         html += "<div class='info'><span class='label'>Current Temperature:</span><span style='font-weight:bold;color:#007bff'>" + String(currentTemp, 1) + "°C</span></div>";
-        html += "<div class='info'><span class='label'>Setpoint:</span><span>" + String(zone0.setpoint, 1) + "°C</span></div>";
+        html += "<div class='info'><span class='label'>Setpoint:</span><span>" + String(config.setpoint, 1) + "°C</span></div>";
         html += "<div class='info'><span class='label'>Mode:</span><span>" + modeStr + "</span></div>";
-        html += "<div class='info'><span class='label'>Status:</span><span style='color:" + String(zone0.current_state ? "#28a745" : "#dc3545") + "'>" + String(zone0.current_state ? "ACTIVE" : "IDLE") + "</span></div>";
+        bool isActive = config.compressor_state || config.heater_state;
+        html += "<div class='info'><span class='label'>Status:</span><span style='color:" + String(isActive ? "#28a745" : "#dc3545") + "'>" + String(isActive ? "ACTIVE" : "IDLE") + "</span></div>";
         
         // Temperature control form
         html += "<form method='post' action='/tempcontrol' style='margin-top:15px'>";
@@ -705,21 +714,21 @@ void setupDeviceWebServer() {
         
         html += "<div style='margin:10px 0'>";
         html += "<label>Setpoint (°C):</label><br>";
-        html += "<input type='number' name='setpoint' value='" + String(zone0.setpoint, 1) + "' min='5' max='40' step='0.5' style='width:100px;padding:5px'>";
+        html += "<input type='number' name='setpoint' value='" + String(config.setpoint, 1) + "' min='5' max='40' step='0.5' style='width:100px;padding:5px'>";
         html += "</div>";
         
         html += "<div style='margin:10px 0'>";
         html += "<label>Delta (±°C):</label><br>";
-        html += "<input type='number' name='delta' value='" + String(zone0.delta, 1) + "' min='0.5' max='5' step='0.5' style='width:100px;padding:5px'>";
+        html += "<input type='number' name='delta' value='" + String(config.delta_temp, 1) + "' min='0.5' max='5' step='0.5' style='width:100px;padding:5px'>";
         html += "</div>";
         
         html += "<div style='margin:10px 0'>";
         html += "<label>Mode:</label><br>";
         html += "<select name='mode' style='padding:5px'>";
-        html += "<option value='0'" + String(zone0.mode == TEMP_MODE_OFF ? " selected" : "") + ">OFF</option>";
-        html += "<option value='1'" + String(zone0.mode == TEMP_MODE_HEATING ? " selected" : "") + ">HEATING</option>";
-        html += "<option value='2'" + String(zone0.mode == TEMP_MODE_COOLING ? " selected" : "") + ">COOLING</option>";
-        html += "<option value='3'" + String(zone0.mode == TEMP_MODE_AUTO ? " selected" : "") + ">AUTO</option>";
+        html += "<option value='0'" + String(config.mode == TEMP_MODE_OFF ? " selected" : "") + ">OFF</option>";
+        html += "<option value='1'" + String(config.mode == TEMP_MODE_HEATING ? " selected" : "") + ">HEATING</option>";
+        html += "<option value='2'" + String(config.mode == TEMP_MODE_COOLING ? " selected" : "") + ">COOLING</option>";
+        html += "<option value='3'" + String(config.mode == TEMP_MODE_AUTO ? " selected" : "") + ">AUTO</option>";
         html += "</select>";
         html += "</div>";
         
@@ -1793,10 +1802,10 @@ void setupDeviceWebServer() {
         float delta = deltaStr.toFloat();
         int mode = modeStr.toInt();
         
-        // Apply settings
-        temp_controller.setSetpoint(zone, setpoint);
-        temp_controller.setDelta(zone, delta);
-        temp_controller.setMode(zone, (TempControlMode)mode);
+        // Apply settings (ignore zone parameter - single zone system)
+        simple_temp.setSetpoint(setpoint);
+        simple_temp.setDelta(delta);
+        simple_temp.setMode((TempControlMode)mode);
         
         String html = "<!DOCTYPE html><html><head><title>Temperature Control Updated</title>";
         html += "<meta name='viewport' content='width=device-width, initial-scale=1'>";
@@ -2154,8 +2163,7 @@ void setupDeviceWebServer() {
     });
 
     // Schedule management endpoints
-    // Dedicated Temperature Control page
-    device_server->on("/temperature", []() {
+    // Temperature Control page now handled by webserver_api.h
         String html = "<!DOCTYPE html><html><head>";
         html += "<title>Temperature Control - MAC-SYS Industrial Controller</title>";
         html += "<meta name='viewport' content='width=device-width, initial-scale=1'>";
@@ -2223,7 +2231,7 @@ void setupDeviceWebServer() {
         html += "<div class='main-content'>";
         
         // Emergency status if active
-        if (temp_controller.isEmergencyStopped()) {
+        if (simple_temp.isEmergencyStopped()) {
             html += "<div class='emergency-section'>";
             html += "<div class='emergency-title'>EMERGENCY STOP ACTIVE</div>";
             html += "<div class='emergency-info'>";
@@ -2244,22 +2252,24 @@ void setupDeviceWebServer() {
         
         html += "<div class='temp-grid'>";
         
-        // Generate cards for all 4 zones
-        for (int zone = 0; zone < 4; zone++) {
-            ZoneConfig& zoneConfig = temp_controller.getZoneConfig(zone);
-            float currentTemp = temp_controller.getCompensatedTemp(zone);
-            bool sensorValid = temp_controller.isSensorValid(zone);
+        // Generate card for single zone system
+        {
+            SimpleTempConfig& zoneConfig = simple_temp.getConfig();
+            float currentTemp = simple_temp.getCompensatedTemp();
+            bool sensorValid = simple_temp.isSensorValid();
+            int zone = 0; // Single zone system
             
             html += "<div class='temp-card'>";
             html += "<div class='zone-header'>";
-            html += "<div class='zone-title'>Zone " + String(zone + 1) + "</div>";
+            html += "<div class='zone-title'>" + String(zoneConfig.location_name) + "</div>";
             
             String statusClass = "status-disabled";
             String statusText = "DISABLED";
             if (zoneConfig.enabled) {
                 if (sensorValid) {
-                    statusClass = zoneConfig.current_state ? "status-active" : "status-idle";
-                    statusText = zoneConfig.current_state ? "ACTIVE" : "IDLE";
+                    bool isActive = zoneConfig.compressor_state || zoneConfig.heater_state;
+                    statusClass = isActive ? "status-active" : "status-idle";
+                    statusText = isActive ? "ACTIVE" : "IDLE";
                 } else {
                     statusClass = "status-disabled";
                     statusText = "SENSOR ERROR";
@@ -2325,11 +2335,11 @@ void setupDeviceWebServer() {
         html += "<div class='emergency-info'>";
         html += "<div class='emergency-item'>";
         html += "<div class='emergency-label'>High Limit</div>";
-        html += "<div class='emergency-value' style='color: #EF4444;'>" + String(temp_controller.getEmergencyHighLimit(), 1) + "°C</div>";
+        html += "<div class='emergency-value' style='color: #EF4444;'>" + String(simple_temp.getEmergencyHighLimit(), 1) + "°C</div>";
         html += "</div>";
         html += "<div class='emergency-item'>";
         html += "<div class='emergency-label'>Low Limit</div>";
-        html += "<div class='emergency-value' style='color: #3B82F6;'>" + String(temp_controller.getEmergencyLowLimit(), 1) + "°C</div>";
+        html += "<div class='emergency-value' style='color: #3B82F6;'>" + String(simple_temp.getEmergencyLowLimit(), 1) + "°C</div>";
         html += "</div>";
         html += "</div>";
         html += "</div>";
@@ -2954,22 +2964,21 @@ void setupDeviceWebServer() {
         device_server->send(200, "application/json", json);
     });
     
-    // Temperature Control API - GET zone configuration
+    // Temperature Control API - GET zone configuration (single zone)
     device_server->on("/api/temperature/zones", HTTP_GET, []() {
         String json = "{\"zones\":[";
-        for (int i = 0; i < MAX_ZONES; i++) {
-            if (i > 0) json += ",";
-            ZoneConfig& zone = temp_controller.getZoneConfig(i);
-            json += "{";
-            json += "\"id\":" + String(i) + ",";
-            json += "\"name\":\"Zone " + String(i + 1) + "\",";
-            json += "\"enabled\":" + String(zone.enabled ? "true" : "false") + ",";
-            json += "\"setpoint\":" + String(zone.setpoint, 1) + ",";
-            json += "\"mode\":\"" + String(zone.mode) + "\",";
-            json += "\"current_state\":" + String(zone.current_state ? "true" : "false") + ",";
-            json += "\"current_temp\":" + String(temp_controller.getCompensatedTemp(i), 1);
-            json += "}";
-        }
+        SimpleTempConfig& zone = simple_temp.getConfig();
+        json += "{";
+        json += "\"id\":0,";
+        json += "\"name\":\"" + String(zone.location_name) + "\",";
+        json += "\"enabled\":" + String(zone.enabled ? "true" : "false") + ",";
+        json += "\"setpoint\":" + String(zone.setpoint, 1) + ",";
+        json += "\"mode\":\"" + String(zone.mode) + "\",";
+        json += "\"compressor_state\":" + String(zone.compressor_state ? "true" : "false") + ",";
+        json += "\"heater_state\":" + String(zone.heater_state ? "true" : "false") + ",";
+        json += "\"fan_state\":" + String(zone.fan_state ? "true" : "false") + ",";
+        json += "\"current_temp\":" + String(simple_temp.getCompensatedTemp(), 1);
+        json += "}";
         json += "]}";
         device_server->send(200, "application/json", json);
     });
@@ -2979,46 +2988,42 @@ void setupDeviceWebServer() {
         String json = "{\"success\":false,\"error\":\"Invalid parameters\"}";
         int statusCode = 400;
         
-        if (device_server->hasArg("zone")) {
-            int zoneId = device_server->arg("zone").toInt();
-            if (zoneId >= 0 && zoneId < MAX_ZONES) {
-                ZoneConfig& zone = temp_controller.getZoneConfig(zoneId);
-                bool configChanged = false;
-                
-                if (device_server->hasArg("setpoint")) {
-                    float setpoint = device_server->arg("setpoint").toFloat();
-                    if (setpoint >= 10.0 && setpoint <= 40.0) {
-                        zone.setpoint = setpoint;
-                        configChanged = true;
-                    }
-                }
-                
-                if (device_server->hasArg("mode")) {
-                    String mode = device_server->arg("mode");
-                    if (mode == "OFF") zone.mode = TEMP_MODE_OFF;
-                    else if (mode == "HEATING") zone.mode = TEMP_MODE_HEATING;
-                    else if (mode == "COOLING") zone.mode = TEMP_MODE_COOLING;
-                    else if (mode == "AUTO") zone.mode = TEMP_MODE_AUTO;
-                    else if (mode == "MANUAL") zone.mode = TEMP_MODE_MANUAL;
-                    configChanged = true;
-                }
-                
-                if (device_server->hasArg("enabled")) {
-                    zone.enabled = device_server->arg("enabled").equalsIgnoreCase("true") || 
-                                  device_server->arg("enabled") == "1";
-                    configChanged = true;
-                }
-                
-                if (configChanged) {
-                    // Zone config save implementation pending
-                    json = "{";
-                    json += "\"success\":true,";
-                    json += "\"zone\":" + String(zoneId) + ",";
-                    json += "\"message\":\"Zone " + String(zoneId + 1) + " configuration updated\"";
-                    json += "}";
-                    statusCode = 200;
-                }
+        // Single zone system - ignore zone parameter but keep for compatibility
+        bool configChanged = false;
+        
+        if (device_server->hasArg("setpoint")) {
+            float setpoint = device_server->arg("setpoint").toFloat();
+            if (setpoint >= 5.0 && setpoint <= 40.0) {
+                simple_temp.setSetpoint(setpoint);
+                configChanged = true;
             }
+        }
+        
+        if (device_server->hasArg("mode")) {
+            String mode = device_server->arg("mode");
+            TempControlMode newMode = TEMP_MODE_OFF;
+            if (mode == "OFF") newMode = TEMP_MODE_OFF;
+            else if (mode == "HEATING") newMode = TEMP_MODE_HEATING;
+            else if (mode == "COOLING") newMode = TEMP_MODE_COOLING;
+            else if (mode == "AUTO") newMode = TEMP_MODE_AUTO;
+            else if (mode == "MANUAL") newMode = TEMP_MODE_MANUAL;
+            simple_temp.setMode(newMode);
+            configChanged = true;
+        }
+        
+        if (device_server->hasArg("enabled")) {
+            bool enabled = device_server->arg("enabled").equalsIgnoreCase("true") || 
+                          device_server->arg("enabled") == "1";
+            simple_temp.setEnabled(enabled);
+            configChanged = true;
+        }
+        
+        if (configChanged) {
+            json = "{";
+            json += "\"success\":true,";
+            json += "\"message\":\"Temperature configuration updated\"";
+            json += "}";
+            statusCode = 200;
         }
         device_server->send(statusCode, "application/json", json);
     });
@@ -3032,7 +3037,7 @@ void setupDeviceWebServer() {
             String action = device_server->arg("action");
             
             if (action == "clear") {
-                temp_controller.clearEmergency();
+                simple_temp.clearEmergency();
                 json += "\"success\":true,";
                 json += "\"message\":\"Emergency stop cleared\"";
             } else {
@@ -3137,6 +3142,9 @@ void setupDeviceWebServer() {
         device_server->send(200, "application/json", json);
     });
     
+    // Setup temperature control API endpoints
+    setupTemperatureAPI();
+    
     device_server->begin();
     DEBUG_PRINTLN("[OK] Device web server started on port 80");
     DEBUG_PRINTF("[WEB] Access at: http://%s/\n", WiFi.localIP().toString().c_str());
@@ -3176,11 +3184,7 @@ void updateIOSystem() {
         last_logged_inputs = current_inputs;
     }
     
-    // Update temperature controller with current temperature
-    float current_temp = g_system_status.current_temperature;
-    temp_controller.updateTemperature(0, current_temp);  // Update zone 0
-    
-    // Process temperature control logic
-    temp_controller.process();
+    // Process simple temperature control logic
+    simple_temp.process();
 }
 

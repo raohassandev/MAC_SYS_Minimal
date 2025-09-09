@@ -58,7 +58,9 @@
       "Bash(ping:*)",
       "Bash(./test_system.sh:*)",
       "Bash(timeout 30 cat /dev/cu.usbserial-110)",
-      "Bash(grep:*)"
+      "Bash(grep:*)",
+      "Bash(git restore:*)",
+      "Bash(./test_api.sh:*)"
     ],
     "deny": [],
     "ask": [],
