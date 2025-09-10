@@ -719,20 +719,6 @@ void setupDeviceWebServer() {
         html += "  fetch('/api/schedule/control-mode', { method: 'POST' })";
         html += "  .then(r => r.json()).then(d => location.reload()).catch(e => console.error(e));";
         html += "}";
-        html += "function updateDashboard() {";
-        html += "  fetch('/api/status').then(r => r.json()).then(d => {";
-        html += "    const tempValue = document.querySelector('.metric-value');";
-        html += "    if (tempValue && d.temperature) { tempValue.textContent = d.temperature.toFixed(1) + '°C'; }";
-        html += "    const memoryCard = document.querySelectorAll('.metric-value')[3];";
-        html += "    if (memoryCard && d.free_memory) { memoryCard.textContent = Math.floor(d.free_memory/1024) + 'KB'; }";
-        html += "    const uptimeCard = document.querySelectorAll('.metric-value')[2];";
-        html += "    if (uptimeCard && d.uptime) { uptimeCard.textContent = Math.floor(d.uptime/3600) + 'h'; }";
-        html += "    const subtitleUptime = document.querySelectorAll('.metric-subtitle')[2];";
-        html += "    if (subtitleUptime && d.uptime) { subtitleUptime.textContent = d.uptime + ' seconds'; }";
-        html += "    const memorySubtitle = document.querySelectorAll('.metric-subtitle')[3];";
-        html += "    if (memorySubtitle && d.free_memory) { memorySubtitle.textContent = d.free_memory + ' bytes available'; }";
-        html += "  }).catch(e => console.error('Dashboard update failed:', e));";
-        html += "}";
         html += "let tempHistory = [];";
         html += "function toggleTempGraph(header) {";
         html += "  const content = document.getElementById('temp-graph-content');";
@@ -786,7 +772,9 @@ void setupDeviceWebServer() {
         html += "    if (memorySubtitle && d.free_memory) { memorySubtitle.textContent = d.free_memory + ' bytes available'; }";
         html += "  }).catch(e => console.error('Dashboard update failed:', e));";
         html += "}";
+        html += "// Auto-refresh dashboard every 15 seconds";
         html += "setInterval(updateDashboard, 15000);";
+        html += "// Initial update after 2 seconds";
         html += "setTimeout(updateDashboard, 2000);";
         
         html += "</script>";
