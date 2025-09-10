@@ -277,7 +277,7 @@ const char temperature_html[] PROGMEM = R"rawliteral(
         
         .mode-buttons {
             display: grid;
-            grid-template-columns: repeat(5, 1fr);
+            grid-template-columns: repeat(4, 1fr);
             gap: 0.5rem;
             margin-top: 0.5rem;
         }
@@ -308,8 +308,9 @@ const char temperature_html[] PROGMEM = R"rawliteral(
         
         .state-indicators {
             display: flex;
-            justify-content: space-around;
+            justify-content: space-evenly;
             margin-top: 0.5rem;
+            gap: 2rem;
         }
         
         .state-indicator {
@@ -362,7 +363,7 @@ const char temperature_html[] PROGMEM = R"rawliteral(
             left: 0;
             right: 0;
             bottom: 0;
-            background-color: #ccc;
+            background-color: #4B5563;
             transition: .4s;
             border-radius: 34px;
         }
@@ -431,7 +432,7 @@ const char temperature_html[] PROGMEM = R"rawliteral(
         
         .stat-label {
             font-size: 12px;
-            color: #666;
+            color: #9CA3AF;
             text-transform: uppercase;
         }
         
@@ -514,10 +515,6 @@ const char temperature_html[] PROGMEM = R"rawliteral(
                         <div class="state-icon off" id="heaterIcon">🔥</div>
                         <div class="state-label">Heater</div>
                     </div>
-                    <div class="state-indicator">
-                        <div class="state-icon off" id="fanIcon">💨</div>
-                        <div class="state-label">Fan</div>
-                    </div>
                 </div>
             </div>
             
@@ -537,7 +534,6 @@ const char temperature_html[] PROGMEM = R"rawliteral(
                         <button class="mode-btn" onclick="setMode(1)">HEAT</button>
                         <button class="mode-btn" onclick="setMode(2)">COOL</button>
                         <button class="mode-btn" onclick="setMode(3)">AUTO</button>
-                        <button class="mode-btn" onclick="setMode(4)">FAN</button>
                     </div>
                 </div>
                 <div class="control-group">
@@ -672,8 +668,6 @@ const char temperature_html[] PROGMEM = R"rawliteral(
                 'state-icon ' + (status.state.compressor ? 'on' : 'off');
             document.getElementById('heaterIcon').className = 
                 'state-icon ' + (status.state.heater ? 'on' : 'off');
-            document.getElementById('fanIcon').className = 
-                'state-icon ' + (status.state.fan ? 'on' : 'off');
             
             // Update controls
             document.getElementById('systemEnable').checked = status.enabled;
@@ -737,7 +731,7 @@ const char temperature_html[] PROGMEM = R"rawliteral(
         async function setMode(mode) {
             const result = await fetchAPI('/temperature/mode', 'POST', { mode });
             if (result) {
-                const modeNames = ['OFF', 'HEATING', 'COOLING', 'AUTO', 'FAN'];
+                const modeNames = ['OFF', 'HEATING', 'COOLING', 'AUTO'];
                 showNotification(`Mode set to ${modeNames[mode]}`);
                 updateStatus();
             }
