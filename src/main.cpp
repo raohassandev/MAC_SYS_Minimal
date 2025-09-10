@@ -119,6 +119,9 @@ void setup() {
         DEBUG_PRINTLN("[OK] Relay and I/O system initialized successfully");
     }
     
+    // Initialize temperature sensors from EEPROM
+    initializeTemperatureSensors();
+    
     // Initialize temperature control system
     temp_controller.begin();
     
@@ -784,7 +787,7 @@ void setupDeviceWebServer() {
         bool found = false;
         
         // Test common GPIO pins for DS18B20
-        int testPins[] = {2, 4, 5, 13, 14, 16, 17, 18, 19, 21, 22, 23, 25, 26, 27, 32, 33};
+        int testPins[] = {32, 33};
         int numPins = sizeof(testPins) / sizeof(testPins[0]);
         
         for (int i = 0; i < numPins; i++) {
