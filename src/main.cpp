@@ -1169,14 +1169,18 @@ void setupDeviceWebServer() {
         html += "  }";
         html += "}";
         html += "  ";
-        html += "// Initialize status on page load";
-        html += "document.addEventListener('DOMContentLoaded', updateSensorStatus);";
-        html += "  ";
-        html += "// Add event listeners to checkboxes";
+        html += "// Initialize everything on page load";
         html += "document.addEventListener('DOMContentLoaded', function() {";
+        html += "  // Initial status update based on server-generated checkbox states";
+        html += "  setTimeout(updateSensorStatus, 500); // Delay to ensure DOM is ready";
+        html += "  ";
+        html += "  // Add event listeners to checkboxes for real-time updates";
         html += "  document.getElementById('ds18b20_enabled').addEventListener('change', updateSensorStatus);";
         html += "  document.getElementById('am2302_enabled').addEventListener('change', updateSensorStatus);";
         html += "  document.getElementById('lm35_enabled').addEventListener('change', updateSensorStatus);";
+        html += "  ";
+        html += "  // Periodic status updates every 30 seconds for live sensor readings";
+        html += "  setInterval(updateSensorStatus, 30000);";
         html += "});";
         html += "</script>";
         
@@ -1247,6 +1251,23 @@ void setupDeviceWebServer() {
         applySensorConfiguration();
         
         String json = "{\"success\":true,\"message\":\"Configuration reset to defaults\"}";
+        device_server->send(200, "application/json", json);
+    });
+    
+    // GET endpoint to retrieve current sensor configuration
+    device_server->on("/api/sensors/config", HTTP_GET, []() {
+        SensorConfig* config = getSensorConfig();
+        String json = "{";
+        json += "\"ds18b20_enabled\":" + String(config->ds18b20_enabled ? "true" : "false") + ",";
+        json += "\"ds18b20_pin\":" + String(config->ds18b20_pin) + ",";
+        json += "\"ds18b20_priority\":" + String(config->ds18b20_priority) + ",";
+        json += "\"am2302_enabled\":" + String(config->am2302_enabled ? "true" : "false") + ",";
+        json += "\"am2302_pin\":" + String(config->am2302_pin) + ",";
+        json += "\"am2302_priority\":" + String(config->am2302_priority) + ",";
+        json += "\"lm35_enabled\":" + String(config->lm35_enabled ? "true" : "false") + ",";
+        json += "\"lm35_pin\":" + String(config->lm35_pin) + ",";
+        json += "\"lm35_priority\":" + String(config->lm35_priority);
+        json += "}";
         device_server->send(200, "application/json", json);
     });
     
