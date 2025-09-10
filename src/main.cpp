@@ -931,7 +931,7 @@ void setupDeviceWebServer() {
         html += "<input type='checkbox' id='ds18b20_enabled' " + String(config->ds18b20_enabled ? "checked" : "") + ">";
         html += "<span class='slider'></span>";
         html += "</label>";
-        html += "<span class='status-indicator status-working'>Working (33.2°C)</span>";
+        html += "<span class='status-indicator' id='ds18b20_status'>Loading...</span>";
         html += "</div>";
         html += "</div>";
         
@@ -973,7 +973,7 @@ void setupDeviceWebServer() {
         html += "<input type='checkbox' id='am2302_enabled' " + String(config->am2302_enabled ? "checked" : "") + ">";
         html += "<span class='slider'></span>";
         html += "</label>";
-        html += "<span class='status-indicator status-disabled'>Disabled</span>";
+        html += "<span class='status-indicator' id='am2302_status'>Loading...</span>";
         html += "</div>";
         html += "</div>";
         
@@ -1014,7 +1014,7 @@ void setupDeviceWebServer() {
         html += "<input type='checkbox' id='lm35_enabled' " + String(config->lm35_enabled ? "checked" : "") + ">";
         html += "<span class='slider'></span>";
         html += "</label>";
-        html += "<span class='status-indicator status-working'>Fallback Ready</span>";
+        html += "<span class='status-indicator' id='lm35_status'>Loading...</span>";
         html += "</div>";
         html += "</div>";
         
@@ -1089,7 +1089,9 @@ void setupDeviceWebServer() {
         html += "  .then(response => response.json())";
         html += "  .then(data => {";
         html += "    if (data.success) {";
-        html += "      alert('[OK] Configuration saved successfully!\\nReboot recommended for all changes to take effect.');";
+        html += "      updateSensorStatus();";
+        html += "      alert('[OK] Configuration saved successfully!\\nPage will reload to reflect changes.');";
+        html += "      setTimeout(() => location.reload(), 1500);";
         html += "    } else {";
         html += "      alert('[ERROR] Failed to save configuration: ' + data.message);";
         html += "    }";
@@ -1112,6 +1114,70 @@ void setupDeviceWebServer() {
         html += "      .catch(err => alert('[ERROR] Reset failed: ' + err));";
         html += "  }";
         html += "}";
+        
+        // Add status update functions
+        html += "function updateSensorStatus() {";
+        html += "  // Update DS18B20 status";
+        html += "  const ds18b20Enabled = document.getElementById('ds18b20_enabled').checked;";
+        html += "  const ds18b20Status = document.getElementById('ds18b20_status');";
+        html += "  if (ds18b20Enabled) {";
+        html += "    ds18b20Status.className = 'status-indicator status-working';";
+        html += "    ds18b20Status.textContent = 'Enabled';";
+        html += "    // Try to get real sensor reading";
+        html += "    const pin = document.getElementById('ds18b20_pin').value;";
+        html += "    fetch('/api/sensors/test?type=2&pin=' + pin)";
+        html += "      .then(response => response.text())";
+        html += "      .then(result => {";
+        html += "        if (result.includes('°C')) {";
+        html += "          ds18b20Status.textContent = 'Working (' + result.split(']')[1].trim() + ')';";
+        html += "        }";
+        html += "      }).catch(() => {});";
+        html += "  } else {";
+        html += "    ds18b20Status.className = 'status-indicator status-disabled';";
+        html += "    ds18b20Status.textContent = 'Disabled';";
+        html += "  }";
+        html += "  ";
+        html += "  // Update AM2302 status";
+        html += "  const am2302Enabled = document.getElementById('am2302_enabled').checked;";
+        html += "  const am2302Status = document.getElementById('am2302_status');";
+        html += "  if (am2302Enabled) {";
+        html += "    am2302Status.className = 'status-indicator status-working';";
+        html += "    am2302Status.textContent = 'Enabled';";
+        html += "    // Try to get real sensor reading";
+        html += "    const pin = document.getElementById('am2302_pin').value;";
+        html += "    fetch('/api/sensors/test?type=1&pin=' + pin)";
+        html += "      .then(response => response.text())";
+        html += "      .then(result => {";
+        html += "        if (result.includes('°C')) {";
+        html += "          am2302Status.textContent = 'Working (' + result.split(']')[1].trim() + ')';";
+        html += "        }";
+        html += "      }).catch(() => {});";
+        html += "  } else {";
+        html += "    am2302Status.className = 'status-indicator status-disabled';";
+        html += "    am2302Status.textContent = 'Disabled';";
+        html += "  }";
+        html += "  ";
+        html += "  // Update LM35 status";
+        html += "  const lm35Enabled = document.getElementById('lm35_enabled').checked;";
+        html += "  const lm35Status = document.getElementById('lm35_status');";
+        html += "  if (lm35Enabled) {";
+        html += "    lm35Status.className = 'status-indicator status-working';";
+        html += "    lm35Status.textContent = 'Fallback Ready';";
+        html += "  } else {";
+        html += "    lm35Status.className = 'status-indicator status-disabled';";
+        html += "    lm35Status.textContent = 'Disabled';";
+        html += "  }";
+        html += "}";
+        html += "  ";
+        html += "// Initialize status on page load";
+        html += "document.addEventListener('DOMContentLoaded', updateSensorStatus);";
+        html += "  ";
+        html += "// Add event listeners to checkboxes";
+        html += "document.addEventListener('DOMContentLoaded', function() {";
+        html += "  document.getElementById('ds18b20_enabled').addEventListener('change', updateSensorStatus);";
+        html += "  document.getElementById('am2302_enabled').addEventListener('change', updateSensorStatus);";
+        html += "  document.getElementById('lm35_enabled').addEventListener('change', updateSensorStatus);";
+        html += "});";
         html += "</script>";
         
         html += "</div></body></html>";
