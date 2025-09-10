@@ -754,13 +754,14 @@ void setupDeviceWebServer() {
         html += "  ctx.fillText('Max: ' + maxTemp.toFixed(1) + '°C', width - 80, 15);";
         html += "}";
         html += "function updateDashboard() {";
+        html += "  console.log('Dashboard update started...');";
         html += "  fetch('/api/status').then(r => r.json()).then(d => {";
         html += "    const tempValue = document.querySelector('.metric-value');";
         html += "    if (tempValue && d.temperature) { ";
         html += "      tempValue.textContent = d.temperature.toFixed(1) + '°C'; ";
         html += "      tempHistory.push(d.temperature);";
         html += "      if (tempHistory.length > 10) tempHistory.shift();";
-        html += "      if (document.getElementById('temp-graph-content').style.display === 'block') drawTempChart();";
+        html += "      try { if (document.getElementById('temp-graph-content') && document.getElementById('temp-graph-content').style.display === 'block') drawTempChart(); } catch(e) {}";
         html += "    }";
         html += "    const memoryCard = document.querySelectorAll('.metric-value')[3];";
         html += "    if (memoryCard && d.free_memory) { memoryCard.textContent = Math.floor(d.free_memory/1024) + 'KB'; }";
