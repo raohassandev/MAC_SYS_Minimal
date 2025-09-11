@@ -641,42 +641,64 @@ const char temperature_html[] PROGMEM = R"rawliteral(
             if (!status) return;
             
             // Update temperature displays
-            document.getElementById('currentTemp').textContent = status.current_temp.toFixed(1);
-            document.getElementById('compensatedTemp').textContent = status.compensated_temp.toFixed(1);
-            document.getElementById('setpointDisplay').textContent = status.setpoint.toFixed(1);
+            const currentTemp = document.getElementById('currentTemp');
+            if (currentTemp) currentTemp.textContent = status.current_temp.toFixed(1);
+            
+            const compensatedTemp = document.getElementById('compensatedTemp');
+            if (compensatedTemp) compensatedTemp.textContent = status.compensated_temp.toFixed(1);
+            
+            const setpointDisplay = document.getElementById('setpointDisplay');
+            if (setpointDisplay) setpointDisplay.textContent = status.setpoint.toFixed(1);
             
             // Update location
-            document.getElementById('locationDisplay').textContent = status.location;
+            const locationDisplay = document.getElementById('locationDisplay');
+            if (locationDisplay) locationDisplay.textContent = status.location;
             
             // Update system status
             const systemStatus = document.getElementById('systemStatus');
-            systemStatus.textContent = `System: ${status.enabled ? 'ON' : 'OFF'}`;
-            systemStatus.className = 'status-item ' + (status.enabled ? 'active' : 'inactive');
+            if (systemStatus) {
+                systemStatus.textContent = `System: ${status.enabled ? 'ON' : 'OFF'}`;
+                systemStatus.className = 'status-item ' + (status.enabled ? 'active' : 'inactive');
+            }
             
             // Update sensor status
             const sensorStatus = document.getElementById('sensorStatus');
-            sensorStatus.textContent = `Sensor: ${status.sensor_valid ? 'OK' : 'ERROR'}`;
-            sensorStatus.className = 'status-item ' + (status.sensor_valid ? 'active' : 'inactive');
+            if (sensorStatus) sensorStatus.textContent = `Sensor: ${status.sensor_valid ? 'OK' : 'ERROR'}`;
+            if (sensorStatus) sensorStatus.className = 'status-item ' + (status.sensor_valid ? 'active' : 'inactive');
             
             // Update emergency status
             const emergencyStatus = document.getElementById('emergencyStatus');
-            emergencyStatus.textContent = `Emergency: ${status.emergency_stop ? 'ACTIVE' : 'OK'}`;
-            emergencyStatus.className = 'status-item ' + (status.emergency_stop ? 'inactive' : 'active');
+            if (emergencyStatus) {
+                emergencyStatus.textContent = `Emergency: ${status.emergency_stop ? 'ACTIVE' : 'OK'}`;
+                emergencyStatus.className = 'status-item ' + (status.emergency_stop ? 'inactive' : 'active');
+            }
             
             // Update state indicators
-            document.getElementById('compressorIcon').className = 
-                'state-icon ' + (status.state.compressor ? 'on' : 'off');
-            document.getElementById('heaterIcon').className = 
-                'state-icon ' + (status.state.heater ? 'on' : 'off');
+            const compressorIcon = document.getElementById('compressorIcon');
+            if (compressorIcon) compressorIcon.className = 'state-icon ' + (status.state.compressor ? 'on' : 'off');
+            
+            const heaterIcon = document.getElementById('heaterIcon');
+            if (heaterIcon) heaterIcon.className = 'state-icon ' + (status.state.heater ? 'on' : 'off');
             
             // Update controls
-            document.getElementById('systemEnable').checked = status.enabled;
-            document.getElementById('setpointSlider').value = status.setpoint;
-            document.getElementById('setpointValue').textContent = status.setpoint.toFixed(1);
-            document.getElementById('deltaSlider').value = status.delta;
-            document.getElementById('deltaValue').textContent = status.delta.toFixed(1);
-            document.getElementById('compensationSlider').value = status.compensation;
-            document.getElementById('compensationValue').textContent = status.compensation.toFixed(1);
+            const systemEnable = document.getElementById('systemEnable');
+            if (systemEnable) systemEnable.checked = status.enabled;
+            const setpointSlider = document.getElementById('setpointSlider');
+            if (setpointSlider) setpointSlider.value = status.setpoint;
+            
+            const setpointValue = document.getElementById('setpointValue');
+            if (setpointValue) setpointValue.textContent = status.setpoint.toFixed(1);
+            
+            const deltaSlider = document.getElementById('deltaSlider');
+            if (deltaSlider) deltaSlider.value = status.delta;
+            
+            const deltaValue = document.getElementById('deltaValue');
+            if (deltaValue) deltaValue.textContent = status.delta.toFixed(1);
+            const compensationSlider = document.getElementById('compensationSlider');
+            if (compensationSlider) compensationSlider.value = status.compensation;
+            
+            const compensationValue = document.getElementById('compensationValue');
+            if (compensationValue) compensationValue.textContent = status.compensation.toFixed(1);
             
             // Update mode buttons
             currentMode = status.mode;
@@ -686,13 +708,16 @@ const char temperature_html[] PROGMEM = R"rawliteral(
             
             // Update statistics
             if (status.stats) {
-                document.getElementById('runtime').textContent = 
-                    status.stats.runtime_hours.toFixed(1) + ' hrs';
-                document.getElementById('cycles').textContent = status.stats.cycles;
-                document.getElementById('minTemp').textContent = 
-                    status.stats.min_temp.toFixed(1) + '°C';
-                document.getElementById('maxTemp').textContent = 
-                    status.stats.max_temp.toFixed(1) + '°C';
+                const runtime = document.getElementById('runtime');
+                if (runtime) runtime.textContent = status.stats.runtime_hours.toFixed(1) + ' hrs';
+                
+                const cycles = document.getElementById('cycles');
+                if (cycles) cycles.textContent = status.stats.cycles;
+                const minTemp = document.getElementById('minTemp');
+                if (minTemp) minTemp.textContent = status.stats.min_temp.toFixed(1) + '°C';
+                
+                const maxTemp = document.getElementById('maxTemp');
+                if (maxTemp) maxTemp.textContent = status.stats.max_temp.toFixed(1) + '°C';
             }
         }
         

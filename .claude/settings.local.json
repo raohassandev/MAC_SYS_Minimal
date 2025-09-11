@@ -61,7 +61,10 @@
       "Bash(grep:*)",
       "Bash(git restore:*)",
       "Bash(./test_api.sh:*)",
-      "Bash(sed:*)"
+      "Bash(sed:*)",
+      "WebFetch(domain:192.168.1.2)",
+      "WebFetch(domain:192.168.1.2)",
+      "WebFetch(domain:192.168.1.3)"
     ],
     "deny": [],
     "ask": [],
