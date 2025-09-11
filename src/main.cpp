@@ -719,7 +719,7 @@ void setupDeviceWebServer() {
         html += "  fetch('/api/schedule/control-mode', { method: 'POST' })";
         html += "  .then(r => r.json()).then(d => location.reload()).catch(e => console.error(e));";
         html += "}";
-        html += "let tempHistory = [];";
+        html += "var callCount = 0;";
         html += "function toggleTempGraph(header) {";
         html += "  const content = document.getElementById('temp-graph-content');";
         html += "  const arrow = document.getElementById('graph-arrow');";
@@ -753,30 +753,27 @@ void setupDeviceWebServer() {
         html += "  ctx.fillText('Min: ' + minTemp.toFixed(1) + '°C', 5, height - 5);";
         html += "  ctx.fillText('Max: ' + maxTemp.toFixed(1) + '°C', width - 80, 15);";
         html += "}";
-        html += "function updateDashboard() {";
-        html += "  console.log('Dashboard update started...');";
-        html += "  fetch('/api/status').then(r => r.json()).then(d => {";
-        html += "    const tempValue = document.querySelector('.metric-value');";
-        html += "    if (tempValue && d.temperature) { ";
-        html += "      tempValue.textContent = d.temperature.toFixed(1) + '°C'; ";
-        html += "      tempHistory.push(d.temperature);";
-        html += "      if (tempHistory.length > 10) tempHistory.shift();";
-        html += "      try { if (document.getElementById('temp-graph-content') && document.getElementById('temp-graph-content').style.display === 'block') drawTempChart(); } catch(e) {}";
-        html += "    }";
-        html += "    const memoryCard = document.querySelectorAll('.metric-value')[3];";
-        html += "    if (memoryCard && d.free_memory) { memoryCard.textContent = Math.floor(d.free_memory/1024) + 'KB'; }";
-        html += "    const uptimeCard = document.querySelectorAll('.metric-value')[2];";
-        html += "    if (uptimeCard && d.uptime) { uptimeCard.textContent = Math.floor(d.uptime/3600) + 'h'; }";
-        html += "    const subtitleUptime = document.querySelectorAll('.metric-subtitle')[2];";
-        html += "    if (subtitleUptime && d.uptime) { subtitleUptime.textContent = d.uptime + ' seconds'; }";
-        html += "    const memorySubtitle = document.querySelectorAll('.metric-subtitle')[3];";
-        html += "    if (memorySubtitle && d.free_memory) { memorySubtitle.textContent = d.free_memory + ' bytes available'; }";
-        html += "  }).catch(e => console.error('Dashboard update failed:', e));";
+        html += "function refreshData() {";
+        html += "  callCount++;";
+        html += "  console.log('API Call #' + callCount);";
+        html += "  fetch('/api/status').then(function(response) {";
+        html += "    return response.json();";
+        html += "  }).then(function(data) {";
+        html += "    console.log('Data received:', data);";
+        html += "    var cards = document.querySelectorAll('.metric-value');";
+        html += "    var subtitles = document.querySelectorAll('.metric-subtitle');";
+        html += "    if(cards[0]) cards[0].textContent = data.temperature.toFixed(1) + '°C';";
+        html += "    if(cards[2]) cards[2].textContent = Math.floor(data.uptime/3600) + 'h';";
+        html += "    if(cards[3]) cards[3].textContent = Math.floor(data.free_memory/1024) + 'KB';";
+        html += "    if(subtitles[2]) subtitles[2].textContent = data.uptime + ' seconds';";
+        html += "    if(subtitles[3]) subtitles[3].textContent = data.free_memory + ' bytes available';";
+        html += "  }).catch(function(error) {";
+        html += "    console.error('Error:', error);";
+        html += "  });";
         html += "}";
-        html += "// Auto-refresh dashboard every 15 seconds";
-        html += "setInterval(updateDashboard, 15000);";
-        html += "// Initial update after 2 seconds";
-        html += "setTimeout(updateDashboard, 2000);";
+        html += "console.log('Starting auto-refresh...');";
+        html += "setInterval(refreshData, 2000);";
+        html += "setTimeout(refreshData, 1000);";
         
         html += "</script>";
         
@@ -793,6 +790,13 @@ void setupDeviceWebServer() {
     
     // JSON API endpoint
     device_server->on("/api/status", []() {
+        static int api_call_count = 0;
+        api_call_count++;
+        Serial.println("[API] /api/status called #" + String(api_call_count) + " - sending live data");
+        Serial.println("Temperature: " + String(g_system_status.current_temperature, 1) + "°C");
+        Serial.println("Uptime: " + String(g_system_status.uptime) + "s");
+        Serial.println("Memory: " + String(g_system_status.free_memory) + " bytes");
+        
         String json = "{";
         json += "\"temperature\":" + String(g_system_status.current_temperature, 1) + ",";
         json += "\"state\":" + String(g_system_status.state) + ",";
@@ -1193,15 +1197,12 @@ void setupDeviceWebServer() {
         html += "  }";
         html += "}";
         
-        // Add status update functions
         html += "function updateSensorStatus() {";
-        html += "  // Update DS18B20 status";
         html += "  const ds18b20Enabled = document.getElementById('ds18b20_enabled').checked;";
         html += "  const ds18b20Status = document.getElementById('ds18b20_status');";
         html += "  if (ds18b20Enabled) {";
         html += "    ds18b20Status.className = 'status-indicator status-working';";
         html += "    ds18b20Status.textContent = 'Enabled';";
-        html += "    // Try to get real sensor reading";
         html += "    const pin = document.getElementById('ds18b20_pin').value;";
         html += "    fetch('/api/sensors/test?type=2&pin=' + pin)";
         html += "      .then(response => response.text())";
@@ -1214,14 +1215,11 @@ void setupDeviceWebServer() {
         html += "    ds18b20Status.className = 'status-indicator status-disabled';";
         html += "    ds18b20Status.textContent = 'Disabled';";
         html += "  }";
-        html += "  ";
-        html += "  // Update AM2302 status";
         html += "  const am2302Enabled = document.getElementById('am2302_enabled').checked;";
         html += "  const am2302Status = document.getElementById('am2302_status');";
         html += "  if (am2302Enabled) {";
         html += "    am2302Status.className = 'status-indicator status-working';";
         html += "    am2302Status.textContent = 'Enabled';";
-        html += "    // Try to get real sensor reading";
         html += "    const pin = document.getElementById('am2302_pin').value;";
         html += "    fetch('/api/sensors/test?type=1&pin=' + pin)";
         html += "      .then(response => response.text())";
@@ -1234,8 +1232,6 @@ void setupDeviceWebServer() {
         html += "    am2302Status.className = 'status-indicator status-disabled';";
         html += "    am2302Status.textContent = 'Disabled';";
         html += "  }";
-        html += "  ";
-        html += "  // Update LM35 status";
         html += "  const lm35Enabled = document.getElementById('lm35_enabled').checked;";
         html += "  const lm35Status = document.getElementById('lm35_status');";
         html += "  if (lm35Enabled) {";
@@ -1246,18 +1242,11 @@ void setupDeviceWebServer() {
         html += "    lm35Status.textContent = 'Disabled';";
         html += "  }";
         html += "}";
-        html += "  ";
-        html += "// Initialize everything on page load";
         html += "document.addEventListener('DOMContentLoaded', function() {";
-        html += "  // Initial status update based on server-generated checkbox states";
-        html += "  setTimeout(updateSensorStatus, 500); // Delay to ensure DOM is ready";
-        html += "  ";
-        html += "  // Add event listeners to checkboxes for real-time updates";
+        html += "  setTimeout(updateSensorStatus, 500);";
         html += "  document.getElementById('ds18b20_enabled').addEventListener('change', updateSensorStatus);";
         html += "  document.getElementById('am2302_enabled').addEventListener('change', updateSensorStatus);";
         html += "  document.getElementById('lm35_enabled').addEventListener('change', updateSensorStatus);";
-        html += "  ";
-        html += "  // Periodic status updates every 30 seconds for live sensor readings";
         html += "  setInterval(updateSensorStatus, 30000);";
         html += "});";
         html += "</script>";
