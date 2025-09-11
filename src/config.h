@@ -55,7 +55,7 @@
 
 // WiFi Manager Configuration
 #define WIFI_MANAGER_TIMEOUT 300000  // 5 minutes timeout for config portal
-#define DNS_PORT 53
+#define CUSTOM_DNS_PORT 53
 #define CONFIG_PORTAL_SSID "MAC-SYS-Setup"
 #define CONFIG_PORTAL_PASSWORD ""    // Open AP for easy setup
 

@@ -4,6 +4,7 @@
 #include "relay_control.h"
 #include "config.h"
 #include "temperature_html.h"
+#include "wifi_professional.h"
 
 extern WebServer* device_server;
 extern float currentTemperature;
@@ -366,5 +367,172 @@ void setupTemperatureAPI() {
     device_server->on("/temperature", HTTP_GET, []() {
         device_server->send_P(200, "text/html", temperature_html);
     });
+}
+
+// Professional Network Management API
+// Integrates with existing webserver_api.h structure
+void setupNetworkAPI() {
+    if (!device_server) return;
+    
+    // GET /api/wifi/status - Current WiFi status
+    device_server->on("/api/wifi/status", HTTP_GET, []() {
+        DynamicJsonDocument doc(512);
+        doc["connected"] = wifiPro.isConnected();
+        doc["ssid"] = wifiPro.getSSID();
+        doc["ip_address"] = wifiPro.getIP();
+        doc["rssi"] = wifiPro.getRSSI();
+        doc["signal_quality"] = wifiPro.getConnectionQuality();
+        doc["uptime_seconds"] = wifiPro.getUptime() / 1000;
+        doc["connection_time_ms"] = wifiPro.getConnectionTime();
+        doc["mac_address"] = WiFi.macAddress();
+        doc["hostname"] = WiFi.getHostname();
+        
+        if (wifiPro.isConnected()) {
+            doc["gateway"] = WiFi.gatewayIP().toString();
+            doc["dns"] = WiFi.dnsIP().toString();
+            doc["subnet"] = WiFi.subnetMask().toString();
+        }
+        
+        String response;
+        serializeJson(doc, response);
+        device_server->send(200, "application/json", response);
+    });
+    
+    // GET /api/wifi/scan - Scan available networks
+    device_server->on("/api/wifi/scan", HTTP_GET, []() {
+        DynamicJsonDocument doc(2048);
+        JsonArray networks = doc.createNestedArray("networks");
+        
+        int n = wifiPro.scanNetworks();
+        doc["scan_count"] = n;
+        
+        for (int i = 0; i < n && i < 20; i++) {  // Limit to 20 networks
+            JsonObject network = networks.createNestedObject();
+            network["ssid"] = wifiPro.getScannedSSID(i);
+            network["rssi"] = wifiPro.getScannedRSSI(i);
+            network["encryption"] = wifiPro.getScannedEncryption(i);
+            network["channel"] = WiFi.channel(i);
+            
+            // Add signal quality indicator
+            int rssi = wifiPro.getScannedRSSI(i);
+            if (rssi >= -50) network["quality"] = "excellent";
+            else if (rssi >= -60) network["quality"] = "good";
+            else if (rssi >= -70) network["quality"] = "fair";
+            else if (rssi >= -80) network["quality"] = "weak";
+            else network["quality"] = "very_weak";
+        }
+        
+        String response;
+        serializeJson(doc, response);
+        device_server->send(200, "application/json", response);
+    });
+    
+    // POST /api/wifi/connect - Connect to network
+    device_server->on("/api/wifi/connect", HTTP_POST, []() {
+        if (device_server->hasArg("plain")) {
+            DynamicJsonDocument doc(256);
+            DeserializationError error = deserializeJson(doc, device_server->arg("plain"));
+            
+            if (!error && doc.containsKey("ssid")) {
+                String ssid = doc["ssid"];
+                String password = doc["password"] | "";
+                bool use_static = doc["use_static"] | false;
+                
+                bool success = false;
+                
+                if (use_static && doc.containsKey("static_ip") && 
+                    doc.containsKey("gateway") && doc.containsKey("subnet")) {
+                    // Static IP connection
+                    IPAddress static_ip, gateway, subnet, dns;
+                    static_ip.fromString(doc["static_ip"].as<String>());
+                    gateway.fromString(doc["gateway"].as<String>());
+                    subnet.fromString(doc["subnet"].as<String>());
+                    dns.fromString(doc["dns"] | "8.8.8.8");
+                    
+                    success = wifiPro.connectWithStaticIP(ssid.c_str(), password.c_str(),
+                                                         static_ip, gateway, subnet, dns);
+                } else {
+                    // DHCP connection
+                    success = wifiPro.connectToNetwork(ssid.c_str(), password.c_str());
+                }
+                
+                if (success) {
+                    device_server->send(200, "application/json", 
+                        "{\"status\":\"success\",\"message\":\"Connected successfully\"}");
+                } else {
+                    device_server->send(400, "application/json", 
+                        "{\"status\":\"error\",\"message\":\"Connection failed\"}");
+                }
+            } else {
+                device_server->send(400, "application/json", 
+                    "{\"status\":\"error\",\"message\":\"Invalid request format\"}");
+            }
+        } else {
+            device_server->send(400, "application/json", 
+                "{\"status\":\"error\",\"message\":\"No data provided\"}");
+        }
+    });
+    
+    // POST /api/wifi/disconnect - Disconnect from current network
+    device_server->on("/api/wifi/disconnect", HTTP_POST, []() {
+        wifiPro.disconnect();
+        device_server->send(200, "application/json", 
+            "{\"status\":\"success\",\"message\":\"Disconnected from WiFi\"}");
+    });
+    
+    // POST /api/wifi/reset - Reset WiFi settings
+    device_server->on("/api/wifi/reset", HTTP_POST, []() {
+        wifiPro.resetSettings();
+        device_server->send(200, "application/json", 
+            "{\"status\":\"success\",\"message\":\"WiFi settings reset\"}");
+    });
+    
+    // POST /api/wifi/config-portal - Start configuration portal
+    device_server->on("/api/wifi/config-portal", HTTP_POST, []() {
+        wifiPro.startConfigPortal();
+        device_server->send(200, "application/json", 
+            "{\"status\":\"success\",\"message\":\"Configuration portal started\"}");
+    });
+    
+    // GET /api/wifi/diagnostics - Network diagnostics
+    device_server->on("/api/wifi/diagnostics", HTTP_GET, []() {
+        DynamicJsonDocument doc(512);
+        
+        if (wifiPro.isConnected()) {
+            doc["connected"] = true;
+            doc["ping_gateway"] = wifiPro.pingHost(WiFi.gatewayIP());
+            doc["ping_dns"] = wifiPro.pingHost(WiFi.dnsIP());
+            doc["gateway_ip"] = WiFi.gatewayIP().toString();
+            doc["dns_ip"] = WiFi.dnsIP().toString();
+            doc["local_ip"] = WiFi.localIP().toString();
+            doc["subnet_mask"] = WiFi.subnetMask().toString();
+            doc["bssid"] = WiFi.BSSIDstr();
+            doc["channel"] = WiFi.channel();
+        } else {
+            doc["connected"] = false;
+            doc["message"] = "Not connected to WiFi";
+        }
+        
+        String response;
+        serializeJson(doc, response);
+        device_server->send(200, "application/json", response);
+    });
+    
+    // GET /api/wifi/info - Device network information
+    device_server->on("/api/wifi/info", HTTP_GET, []() {
+        DynamicJsonDocument doc(256);
+        doc["hostname"] = WiFi.getHostname();
+        doc["mac_address"] = WiFi.macAddress();
+        doc["has_stored_credentials"] = wifiPro.hasStoredCredentials();
+        doc["firmware_version"] = FIRMWARE_VERSION;
+        doc["device_name"] = SYSTEM_NAME;
+        doc["manufacturer"] = MANUFACTURER;
+        
+        String response;
+        serializeJson(doc, response);
+        device_server->send(200, "application/json", response);
+    });
+    
+    DEBUG_PRINTLN("Network API endpoints configured");
 }
 

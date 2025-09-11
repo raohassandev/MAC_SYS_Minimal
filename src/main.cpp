@@ -3,7 +3,7 @@
 #include "network.h"
 #include "auth.h"
 #include "display.h"
-#include "wifi_manager.h"
+#include "wifi_professional.h"
 #include "temperature.h"
 #include "relay_control.h"
 #include "temperature_control.h"
@@ -101,15 +101,8 @@ void setup() {
         DEBUG_PRINTLN("WARNING: Display initialization failed");
     }
     
-    // Initialize WiFi Manager
-    if (initializeWiFiManager()) {
-        DEBUG_PRINTLN("WiFi Manager initialized successfully");
-        
-        // Auto-start config mode if needed
-        autoStartConfigMode();
-    } else {
-        DEBUG_PRINTLN("WARNING: WiFi Manager initialization failed");
-    }
+    // Professional WiFi system is initialized in initializeNetwork() 
+    DEBUG_PRINTLN("Professional WiFi system will be initialized with network stack");
     
     // Initialize relay and I/O system
     if (!relay_controller.begin()) {
@@ -183,8 +176,8 @@ void loop() {
     // Process schedule manager
     schedule_manager.process();
     
-    // Handle WiFi Manager
-    handleWiFiManager();
+    // Handle Professional WiFi Manager
+    wifiPro.process();
     
     // Handle device web server
     handleDeviceWebServer();
@@ -222,64 +215,59 @@ void initializeSystem() {
 // initializeHardware() function is implemented in hardware.cpp
 
 void initializeNetwork() {
-    DEBUG_PRINTLN("Initializing network interface...");
+    Serial.println("=== NETWORK INIT START ===");
+    DEBUG_PRINTLN("Initializing Professional WiFi System...");
     
-    // Initialize network stack
-    if (!initializeNetworkStack()) {
-        DEBUG_PRINTLN("ERROR: Network stack initialization failed");
+    // Set device information for WiFiManager
+    Serial.println("Setting device info...");
+    wifiPro.setDeviceInfo("macsys-controller", "MAC-SYS-Setup");
+    
+    // Set callback functions to integrate with existing system
+    wifiPro.setOnConnectedCallback([]() {
+        g_wifi_connected = true;
+        DEBUG_PRINTF("WiFi connected: IP %s, RSSI %d dBm\n", 
+                    wifiPro.getIP().c_str(), wifiPro.getRSSI());
+        
+        // Synchronize time with NTP servers
+        rtc_manager.syncWithNTP();
+        
+        DEBUG_PRINTF("Connection Quality: %s\n", wifiPro.getConnectionQuality().c_str());
+    });
+    
+    wifiPro.setOnDisconnectedCallback([]() {
+        g_wifi_connected = false;
+        DEBUG_PRINTLN("WiFi connection lost");
         g_system_status.last_error = ERROR_WIFI;
-        return;
+    });
+    
+    wifiPro.setOnConfigModeCallback([](WiFiManager* wm) {
+        DEBUG_PRINTLN("WiFi Configuration Portal Active");
+        DEBUG_PRINTF("Connect to: %s\n", wm->getConfigPortalSSID().c_str());
+        DEBUG_PRINTF("Access at: %s\n", WiFi.softAPIP().toString().c_str());
+    });
+    
+    // Initialize the professional WiFi system
+    Serial.println("Calling wifiPro.begin()...");
+    bool sta_mode = wifiPro.begin();
+    Serial.println("wifiPro.begin() returned: " + String(sta_mode));
+    
+    if (sta_mode) {
+        // WiFi connected successfully - the callback already set g_wifi_connected
+        // But we also need to ensure it's set here for immediate use
+        g_wifi_connected = true;
+        Serial.println("WiFi: STA mode active - Connected!");
+        DEBUG_PRINTLN("Professional WiFi System initialized in STA mode");
+        
+        // Force start the web server immediately
+        Serial.println("Starting web server immediately...");
+        setupDeviceWebServer();
+    } else {
+        g_wifi_connected = false;
+        Serial.println("WiFi: AP mode active - Configuration Portal should be available");
+        DEBUG_PRINTLN("Professional WiFi System initialized in AP mode (configuration portal)");
     }
     
-    // Start Access Point if enabled
-    if (g_system_config.network.enable_ap) {
-        DEBUG_PRINTLN("Starting Access Point mode...");
-        startConfigurationMode();
-    }
-    
-    // Connect to WiFi network if configured
-    if (strlen(g_system_config.network.ssid) > 0) {
-        DEBUG_PRINTF("Connecting to WiFi: %s\n", g_system_config.network.ssid);
-        
-        bool connection_success = false;
-        
-        if (!g_system_config.network.use_dhcp) {
-            // Use static IP configuration
-            IPAddress ip(g_system_config.network.ip_address);
-            IPAddress gateway(g_system_config.network.gateway);
-            IPAddress subnet(g_system_config.network.subnet);
-            IPAddress dns1(g_system_config.network.dns1);
-            IPAddress dns2(g_system_config.network.dns2);
-            
-            connection_success = connectToWiFi(g_system_config.network.ssid,
-                                              g_system_config.network.password, false);
-        } else {
-            // Use DHCP
-            connection_success = connectToWiFi(g_system_config.network.ssid,
-                                             g_system_config.network.password);
-        }
-        
-        if (connection_success) {
-            g_wifi_connected = true;
-            DEBUG_PRINTF("WiFi connected: IP %s, RSSI %d dBm\n", 
-                        "N/A", getCurrentRSSI());
-            
-            // Synchronize time with NTP servers
-            rtc_manager.syncWithNTP();
-            
-            // Start mDNS service
-            if (startMDNS(g_system_config.network.hostname)) {
-                DEBUG_PRINTF("mDNS service started: %s.local\n", g_system_config.network.hostname);
-            }
-        } else {
-            DEBUG_PRINTLN("WiFi connection failed");
-            g_system_status.last_error = ERROR_WIFI;
-        }
-    }
-    
-    // Enable auto-reconnect
-    setAutoReconnectEnabled(true);
-    
+    Serial.println("=== NETWORK INIT COMPLETE ===");
     DEBUG_PRINTLN("Network initialization complete");
 }
 
@@ -525,10 +513,22 @@ void readTemperatureSensors() {
 }
 
 void setupDeviceWebServer() {
-    if (!g_wifi_connected || device_server != nullptr) {
-        return;  // Only start when WiFi is connected and not already running
+    Serial.println("[WEB] setupDeviceWebServer called");
+    Serial.println("[WEB] g_wifi_connected = " + String(g_wifi_connected));
+    Serial.println("[WEB] device_server = " + String(device_server != nullptr ? "EXISTS" : "NULL"));
+    
+    // Check if WiFi is actually connected (not just the flag)
+    if (WiFi.status() != WL_CONNECTED) {
+        Serial.println("[WEB] Skipping - WiFi not connected (status=" + String(WiFi.status()) + ")");
+        return;
     }
     
+    if (device_server != nullptr) {
+        Serial.println("[WEB] Skipping - server already exists");
+        return;  // Server already running
+    }
+    
+    Serial.println("[WEB] Starting device web server...");
     DEBUG_PRINTLN("Starting device web server...");
     device_server = new WebServer(80);
     
@@ -1466,8 +1466,9 @@ void setupDeviceWebServer() {
     
     // WiFi network change page
     device_server->on("/wifi-config", []() {
-        String html = "<!DOCTYPE html><html><head><title>Network Configuration - MAC-SYS Industrial Controller</title>";
+        String html = "<!DOCTYPE html><html><head><title>Professional Network Management - MAC-SYS Industrial Controller</title>";
         html += "<meta name='viewport' content='width=device-width, initial-scale=1'>";
+        html += "<meta charset='UTF-8'>";
         html += "<style>";
         html += "* { margin: 0; padding: 0; box-sizing: border-box; }";
         html += "body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #0B1426; color: #E5E7EB; line-height: 1.6; padding-top: 6rem; }";
@@ -1477,24 +1478,48 @@ void setupDeviceWebServer() {
         html += ".nav-links a { color: #dbeafe; text-decoration: none; padding: 0.375rem 0.75rem; border-radius: 0.375rem; transition: all 0.2s; font-size: 0.875rem; }";
         html += ".nav-links a:hover { background: rgba(255,255,255,0.2); }";
         html += ".nav-links a.active { background: #00D4FF; color: #0B1426; font-weight: 600; }";
-        html += ".container { max-width: 1200px; margin: 2rem auto; padding: 0 1rem; }";
-        html += ".network-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.5rem; margin: 1.5rem 0; }";
+        html += ".container { max-width: 1400px; margin: 2rem auto; padding: 0 1rem; }";
+        html += ".network-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 1.5rem; margin: 1.5rem 0; }";
         html += ".network-card { background: linear-gradient(135deg, #1f2937 0%, #374151 100%); border-radius: 0.75rem; padding: 1.5rem; border: 1px solid #374151; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }";
-        html += ".card-header { color: #00D4FF; font-size: 1.125rem; font-weight: 600; margin-bottom: 1rem; }";
-        html += ".warning { background: rgba(245, 158, 11, 0.1); border: 1px solid #F59E0B; color: #FCD34D; padding: 1rem; border-radius: 0.5rem; margin: 1rem 0; }";
+        html += ".card-header { color: #00D4FF; font-size: 1.125rem; font-weight: 600; margin-bottom: 1rem; display: flex; align-items: center; justify-content: space-between; }";
         html += ".network-item { display: flex; justify-content: space-between; align-items: center; padding: 0.75rem 0; border-bottom: 1px solid #374151; }";
         html += ".network-item:last-child { border-bottom: none; }";
         html += ".network-label { color: #9CA3AF; font-size: 0.875rem; }";
         html += ".network-value { color: #E5E7EB; font-weight: 600; }";
+        html += ".status-indicator { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 0.5rem; }";
+        html += ".status-excellent { background: #10B981; }";
+        html += ".status-good { background: #00D4FF; }";
+        html += ".status-fair { background: #F59E0B; }";
+        html += ".status-weak { background: #EF4444; }";
         html += ".btn { padding: 0.5rem 1rem; border: none; border-radius: 0.375rem; font-size: 0.875rem; font-weight: 600; cursor: pointer; transition: all 0.2s; margin: 0.25rem; }";
+        html += ".btn:hover { transform: translateY(-1px); }";
+        html += ".btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }";
         html += ".btn-primary { background: #00D4FF; color: #0B1426; }";
+        html += ".btn-primary:hover { background: #0094CC; }";
+        html += ".btn-success { background: #10B981; color: white; }";
+        html += ".btn-success:hover { background: #059669; }";
         html += ".btn-danger { background: #EF4444; color: white; }";
+        html += ".btn-danger:hover { background: #DC2626; }";
         html += ".btn-secondary { background: #374151; color: #E5E7EB; border: 1px solid #4B5563; }";
+        html += ".btn-secondary:hover { background: #4B5563; }";
+        html += ".network-list { max-height: 400px; overflow-y: auto; margin: 1rem 0; }";
+        html += ".network-entry { display: flex; justify-content: space-between; align-items: center; padding: 0.75rem; border: 1px solid #374151; border-radius: 0.5rem; margin-bottom: 0.5rem; background: #1f2937; }";
+        html += ".network-entry:hover { background: #374151; }";
+        html += ".network-info { flex-grow: 1; }";
+        html += ".network-ssid { font-weight: 600; color: #E5E7EB; }";
+        html += ".network-details { font-size: 0.75rem; color: #9CA3AF; margin-top: 0.25rem; }";
+        html += ".form-group { margin: 1rem 0; }";
+        html += ".form-label { display: block; color: #9CA3AF; font-size: 0.875rem; margin-bottom: 0.5rem; }";
+        html += ".form-control { width: 100%; padding: 0.75rem; border: 1px solid #4B5563; border-radius: 0.375rem; background: #1f2937; color: #E5E7EB; }";
+        html += ".form-control:focus { outline: none; border-color: #00D4FF; box-shadow: 0 0 0 2px rgba(0, 212, 255, 0.2); }";
+        html += ".loading { display: none; text-align: center; padding: 2rem; color: #9CA3AF; }";
+        html += ".success-message { background: rgba(16, 185, 129, 0.1); border: 1px solid #10B981; color: #34D399; padding: 1rem; border-radius: 0.5rem; margin: 1rem 0; }";
+        html += ".error-message { background: rgba(239, 68, 68, 0.1); border: 1px solid #EF4444; color: #FCA5A5; padding: 1rem; border-radius: 0.5rem; margin: 1rem 0; }";
         html += "</style></head><body>";
         
         // Header with navigation
         html += "<div class='header'>";
-        html += "<h1>Network Configuration</h1>";
+        html += "<h1>🌐 Professional Network Management</h1>";
         html += "<div class='nav-links'>";
         html += "<a href='/'>Dashboard</a>";
         html += "<a href='/system'>System</a>";
@@ -1511,59 +1536,238 @@ void setupDeviceWebServer() {
         
         // Current Network Status Card
         html += "<div class='network-card'>";
-        html += "<div class='card-header'>Current Network Status</div>";
-        
+        html += "<div class='card-header'>Current Connection";
+        html += "<button class='btn btn-secondary' onclick='refreshStatus()'>🔄 Refresh</button>";
+        html += "</div>";
+        html += "<div id='current-status'>";
         html += "<div class='network-item'>";
-        html += "<span class='network-label'>Network SSID</span>";
-        html += "<span class='network-value'>" + WiFi.SSID() + "</span>";
+        html += "<span class='network-label'>Status</span>";
+        html += "<span class='network-value' id='connection-status'>Loading...</span>";
+        html += "</div>";
+        html += "<div class='network-item'>";
+        html += "<span class='network-label'>Network Name</span>";
+        html += "<span class='network-value' id='current-ssid'>-</span>";
         html += "</div>";
         html += "<div class='network-item'>";
         html += "<span class='network-label'>IP Address</span>";
-        html += "<span class='network-value'>" + WiFi.localIP().toString() + "</span>";
+        html += "<span class='network-value' id='current-ip'>-</span>";
         html += "</div>";
         html += "<div class='network-item'>";
-        html += "<span class='network-label'>Signal Strength</span>";
-        html += "<span class='network-value'>" + String(WiFi.RSSI()) + " dBm</span>";
+        html += "<span class='network-label'>Signal Quality</span>";
+        html += "<span class='network-value' id='signal-quality'>-</span>";
+        html += "</div>";
+        html += "<div class='network-item'>";
+        html += "<span class='network-label'>Connection Time</span>";
+        html += "<span class='network-value' id='connection-time'>-</span>";
+        html += "</div>";
+        html += "</div>";
+        html += "<div style='margin-top: 1rem; text-align: center;'>";
+        html += "<button class='btn btn-danger' onclick='disconnectWiFi()'>Disconnect</button>";
+        html += "<button class='btn btn-secondary' onclick='startConfigPortal()'>Config Portal</button>";
+        html += "</div>";
+        html += "</div>";
+        
+        // Available Networks Scanner
+        html += "<div class='network-card'>";
+        html += "<div class='card-header'>Available Networks";
+        html += "<button class='btn btn-primary' onclick='scanNetworks()'>🔍 Scan</button>";
+        html += "</div>";
+        html += "<div id='scan-loading' class='loading'>Scanning for networks...</div>";
+        html += "<div id='networks-list' class='network-list'></div>";
+        html += "</div>";
+        
+        // Network Connection Form
+        html += "<div class='network-card'>";
+        html += "<div class='card-header'>Connect to Network</div>";
+        html += "<form id='connect-form'>";
+        html += "<div class='form-group'>";
+        html += "<label class='form-label'>Network Name (SSID)</label>";
+        html += "<input type='text' class='form-control' id='connect-ssid' placeholder='Enter network name'>";
+        html += "</div>";
+        html += "<div class='form-group'>";
+        html += "<label class='form-label'>Password</label>";
+        html += "<input type='password' class='form-control' id='connect-password' placeholder='Enter network password'>";
+        html += "</div>";
+        html += "<div class='form-group'>";
+        html += "<label class='form-label'>";
+        html += "<input type='checkbox' id='use-static-ip'> Use Static IP Configuration";
+        html += "</label>";
+        html += "</div>";
+        html += "<div id='static-ip-config' style='display: none;'>";
+        html += "<div class='form-group'>";
+        html += "<label class='form-label'>IP Address</label>";
+        html += "<input type='text' class='form-control' id='static-ip' placeholder='192.168.1.100'>";
+        html += "</div>";
+        html += "<div class='form-group'>";
+        html += "<label class='form-label'>Gateway</label>";
+        html += "<input type='text' class='form-control' id='static-gateway' placeholder='192.168.1.1'>";
+        html += "</div>";
+        html += "<div class='form-group'>";
+        html += "<label class='form-label'>Subnet Mask</label>";
+        html += "<input type='text' class='form-control' id='static-subnet' placeholder='255.255.255.0'>";
+        html += "</div>";
+        html += "<div class='form-group'>";
+        html += "<label class='form-label'>DNS Server</label>";
+        html += "<input type='text' class='form-control' id='static-dns' placeholder='8.8.8.8'>";
+        html += "</div>";
+        html += "</div>";
+        html += "<div style='text-align: center;'>";
+        html += "<button type='button' class='btn btn-success' onclick='connectToNetwork()'>🔗 Connect</button>";
+        html += "</div>";
+        html += "</form>";
+        html += "</div>";
+        
+        // Network Diagnostics Card
+        html += "<div class='network-card'>";
+        html += "<div class='card-header'>Network Diagnostics</div>";
+        html += "<div id='diagnostics-results'>";
+        html += "<div class='network-item'>";
+        html += "<span class='network-label'>Device Hostname</span>";
+        html += "<span class='network-value' id='device-hostname'>macsys-controller</span>";
         html += "</div>";
         html += "<div class='network-item'>";
         html += "<span class='network-label'>MAC Address</span>";
-        html += "<span class='network-value'>" + WiFi.macAddress() + "</span>";
+        html += "<span class='network-value' id='mac-address'>-</span>";
+        html += "</div>";
+        html += "<div class='network-item'>";
+        html += "<span class='network-label'>mDNS Service</span>";
+        html += "<span class='network-value' id='mdns-status'>-</span>";
+        html += "</div>";
+        html += "</div>";
+        html += "<div style='text-align: center; margin-top: 1rem;'>";
+        html += "<button class='btn btn-primary' onclick='testNetworkDiagnostics()'>🩺 Run Diagnostics</button>";
         html += "</div>";
         html += "</div>";
         
-        // Network Configuration Card
-        html += "<div class='network-card'>";
-        html += "<div class='card-header'>Network Configuration</div>";
-        html += "<div class='warning'><strong>Warning:</strong> Changing WiFi settings will disconnect the current connection and start configuration mode.</div>";
-        
-        html += "<h3 style='color: #E5E7EB; margin: 1rem 0;'>Change Network Instructions</h3>";
-        html += "<ol style='color: #9CA3AF; margin-left: 1.5rem;'>";
-        html += "<li>Click <strong>Reset WiFi Settings</strong> below</li>";
-        html += "<li>Device will restart in configuration mode</li>";
-        html += "<li>Connect to <strong>MAC-SYS-CONFIG</strong> network (password: admin123)</li>";
-        html += "<li>Configure new network settings</li>";
-        html += "</ol>";
-        
-        html += "<div style='margin: 2rem 0; text-align: center;'>";
-        html += "<button class='btn btn-secondary' onclick=\"location.href='/'\">← Back to Dashboard</button>";
-        html += "<button class='btn btn-danger' onclick='resetWiFi()'>Reset WiFi Settings</button>";
-        html += "</div>";
-        html += "</div>";
         html += "</div>"; // network-grid
         html += "</div>"; // container
-        html += "</div>";
         
+        // JavaScript for dynamic functionality
         html += "<script>";
-        html += "function resetWiFi() {";
-        html += "  if(confirm('Are you sure? This will disconnect the current WiFi and restart configuration mode.')) {";
-        html += "    fetch('/reset-wifi', {method:'POST'}).then(()=>{";
-        html += "      alert('WiFi settings reset! Device restarting in configuration mode...');";
-        html += "    });";
+        html += "let scanInProgress = false;";
+        html += "let connectInProgress = false;";
+        
+        // Auto-refresh status on page load
+        html += "document.addEventListener('DOMContentLoaded', function() {";
+        html += "  refreshStatus();";
+        html += "  document.getElementById('use-static-ip').addEventListener('change', function() {";
+        html += "    document.getElementById('static-ip-config').style.display = this.checked ? 'block' : 'none';";
+        html += "  });";
+        html += "});";
+        
+        // Refresh current status
+        html += "function refreshStatus() {";
+        html += "  fetch('/api/wifi/status').then(r => r.json()).then(data => {";
+        html += "    document.getElementById('connection-status').innerHTML = data.connected ? '<span class=\"status-indicator status-excellent\"></span>Connected' : '<span class=\"status-indicator status-weak\"></span>Disconnected';";
+        html += "    document.getElementById('current-ssid').textContent = data.ssid || '-';";
+        html += "    document.getElementById('current-ip').textContent = data.ip || '-';";
+        html += "    document.getElementById('signal-quality').textContent = data.quality || '-';";
+        html += "    document.getElementById('connection-time').textContent = data.uptime || '-';";
+        html += "    document.getElementById('mac-address').textContent = data.mac || '-';";
+        html += "  }).catch(e => console.error('Status refresh failed:', e));";
+        html += "}";
+        
+        // Network scanning
+        html += "function scanNetworks() {";
+        html += "  if (scanInProgress) return;";
+        html += "  scanInProgress = true;";
+        html += "  document.getElementById('scan-loading').style.display = 'block';";
+        html += "  document.getElementById('networks-list').innerHTML = '';";
+        html += "  fetch('/api/wifi/scan').then(r => r.json()).then(data => {";
+        html += "    document.getElementById('scan-loading').style.display = 'none';";
+        html += "    const list = document.getElementById('networks-list');";
+        html += "    if (data.networks && data.networks.length > 0) {";
+        html += "      data.networks.forEach(network => {";
+        html += "        const div = document.createElement('div');";
+        html += "        div.className = 'network-entry';";
+        html += "        const strengthIcon = network.rssi >= -50 ? 'status-excellent' : network.rssi >= -60 ? 'status-good' : network.rssi >= -70 ? 'status-fair' : 'status-weak';";
+        html += "        div.innerHTML = `<div class='network-info'><div class='network-ssid'><span class='status-indicator ${strengthIcon}'></span>${network.ssid}</div><div class='network-details'>${network.encryption} • ${network.rssi} dBm</div></div><button class='btn btn-primary' onclick='selectNetwork(\\\"${network.ssid}\\\")'>Select</button>`;";
+        html += "        list.appendChild(div);";
+        html += "      });";
+        html += "    } else {";
+        html += "      list.innerHTML = '<p style=\"text-align: center; color: #9CA3AF; padding: 2rem;\">No networks found</p>';";
+        html += "    }";
+        html += "    scanInProgress = false;";
+        html += "  }).catch(e => { document.getElementById('scan-loading').style.display = 'none'; scanInProgress = false; console.error('Scan failed:', e); });";
+        html += "}";
+        
+        // Select network from scan
+        html += "function selectNetwork(ssid) {";
+        html += "  document.getElementById('connect-ssid').value = ssid;";
+        html += "  document.getElementById('connect-password').focus();";
+        html += "}";
+        
+        // Connect to network
+        html += "function connectToNetwork() {";
+        html += "  if (connectInProgress) return;";
+        html += "  const ssid = document.getElementById('connect-ssid').value.trim();";
+        html += "  const password = document.getElementById('connect-password').value;";
+        html += "  if (!ssid) { alert('Please enter network name'); return; }";
+        html += "  connectInProgress = true;";
+        html += "  const btn = event.target;";
+        html += "  btn.textContent = 'Connecting...';";
+        html += "  btn.disabled = true;";
+        html += "  const data = { ssid, password };";
+        html += "  if (document.getElementById('use-static-ip').checked) {";
+        html += "    data.static_ip = document.getElementById('static-ip').value;";
+        html += "    data.gateway = document.getElementById('static-gateway').value;";
+        html += "    data.subnet = document.getElementById('static-subnet').value;";
+        html += "    data.dns = document.getElementById('static-dns').value;";
+        html += "  }";
+        html += "  fetch('/api/wifi/connect', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data) })";
+        html += "  .then(r => r.json()).then(result => {";
+        html += "    if (result.success) {";
+        html += "      alert('Connected successfully! Refreshing page...');";
+        html += "      setTimeout(() => location.reload(), 2000);";
+        html += "    } else {";
+        html += "      alert('Connection failed: ' + (result.message || 'Unknown error'));";
+        html += "    }";
+        html += "    btn.textContent = '🔗 Connect';";
+        html += "    btn.disabled = false;";
+        html += "    connectInProgress = false;";
+        html += "  }).catch(e => { alert('Connection error: ' + e); btn.textContent = '🔗 Connect'; btn.disabled = false; connectInProgress = false; });";
+        html += "}";
+        
+        // Disconnect WiFi
+        html += "function disconnectWiFi() {";
+        html += "  if (confirm('Disconnect from current WiFi network?')) {";
+        html += "    fetch('/api/wifi/disconnect', { method: 'POST' }).then(r => r.json()).then(result => {";
+        html += "      if (result.success) {";
+        html += "        alert('Disconnected successfully');";
+        html += "        refreshStatus();";
+        html += "      } else {";
+        html += "        alert('Disconnect failed: ' + (result.message || 'Unknown error'));";
+        html += "      }";
+        html += "    }).catch(e => alert('Disconnect error: ' + e));";
         html += "  }";
         html += "}";
-        html += "</script>";
         
-        html += "</div></body></html>";
+        // Start configuration portal
+        html += "function startConfigPortal() {";
+        html += "  if (confirm('Start WiFi configuration portal? This will enable AP mode for advanced configuration.')) {";
+        html += "    fetch('/api/wifi/portal', { method: 'POST' }).then(r => r.json()).then(result => {";
+        html += "      if (result.success) {";
+        html += "        alert('Configuration portal started. Connect to: ' + result.ap_name);";
+        html += "      } else {";
+        html += "        alert('Portal start failed: ' + (result.message || 'Unknown error'));";
+        html += "      }";
+        html += "    }).catch(e => alert('Portal error: ' + e));";
+        html += "  }";
+        html += "}";
+        
+        // Network diagnostics
+        html += "function testNetworkDiagnostics() {";
+        html += "  fetch('/api/wifi/diagnostics').then(r => r.json()).then(data => {";
+        html += "    document.getElementById('mdns-status').textContent = data.mdns_active ? 'Active' : 'Inactive';";
+        html += "    alert('Diagnostics completed:\\n' + JSON.stringify(data, null, 2));";
+        html += "  }).catch(e => alert('Diagnostics failed: ' + e));";
+        html += "}";
+        
+        // Auto-refresh every 30 seconds
+        html += "setInterval(refreshStatus, 30000);";
+        
+        html += "</script>";
+        html += "</body></html>";
         
         device_server->send(200, "text/html", html);
     });
@@ -2928,6 +3132,7 @@ void setupDeviceWebServer() {
     
     // Setup professional temperature API endpoints with calibration controls
     setupTemperatureAPI();
+    setupNetworkAPI();
     
     device_server->begin();
     DEBUG_PRINTLN("[OK] Device web server started on port 80");
@@ -2936,12 +3141,13 @@ void setupDeviceWebServer() {
 
 void handleDeviceWebServer() {
     // Start server if WiFi connected and not running
-    if (g_wifi_connected && device_server == nullptr) {
+    if (WiFi.status() == WL_CONNECTED && device_server == nullptr) {
+        Serial.println("[WEB] WiFi connected, starting web server from loop");
         setupDeviceWebServer();
     }
     
     // Stop server if WiFi disconnected
-    if (!g_wifi_connected && device_server != nullptr) {
+    if (WiFi.status() != WL_CONNECTED && device_server != nullptr) {
         DEBUG_PRINTLN("Stopping device web server (WiFi disconnected)");
         device_server->stop();
         delete device_server;
