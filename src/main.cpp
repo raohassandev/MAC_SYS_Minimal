@@ -140,7 +140,13 @@ void loop() {
     // Feed watchdog timer
     esp_task_wdt_reset();
     
-    // Handle status LED
+    // PRIORITY: Handle Modbus TCP first for industrial responsiveness
+    handleModbus();
+    
+    // Handle device web server (also high priority for responsiveness)  
+    handleDeviceWebServer();
+    
+    // Handle status LED (lightweight)
     handleStatusLED();
     
     // Main system loop (runs every second)
@@ -148,6 +154,9 @@ void loop() {
         systemLoop();
         last_system_update = current_time;
     }
+    
+    // Handle Modbus again after potentially heavy systemLoop()
+    handleModbus();
     
     // Temperature reading loop
     if (current_time - last_temp_reading >= TEMP_READ_INTERVAL) {
@@ -161,14 +170,17 @@ void loop() {
         last_status_update = current_time;
     }
     
-    // Display update loop
-    updateDisplay();
-    
     // I/O system update loop
     if (current_time - last_io_update >= 100) {  // Update I/O every 100ms
         updateIOSystem();
         last_io_update = current_time;
     }
+    
+    // Handle Modbus again for rapid polling support
+    handleModbus();
+    
+    // Display update loop (potentially slow operation moved later)
+    updateDisplay();
     
     // Update RTC manager (for NTP sync)
     rtc_manager.updateTime();
@@ -179,10 +191,7 @@ void loop() {
     // Handle Professional WiFi Manager
     wifiPro.process();
     
-    // Handle device web server
-    handleDeviceWebServer();
-
-    // Handle Modbus
+    // Final Modbus handling pass for maximum responsiveness
     handleModbus();
     
     
@@ -205,6 +214,9 @@ void initializeSystem() {
     
     // Initialize network components
     initializeNetwork();
+    
+    // Initialize Modbus TCP server
+    initializeModbus();
     
     // Set initial system state
     g_system_status.state = STATE_CONNECTING;
@@ -638,6 +650,16 @@ void setupDeviceWebServer() {
         html += "</div>";
         html += "<div class='metric-value'>" + String(g_system_status.free_memory/1024) + "KB</div>";
         html += "<div class='metric-subtitle'>" + String(g_system_status.free_memory) + " bytes available</div>";
+        html += "</div>";
+        
+        // Modbus TCP Server Status Card
+        html += "<div class='metric-card'>";
+        html += "<div class='metric-header'>";
+        html += "<span class='metric-icon'>🏭</span>";
+        html += "<span class='metric-title'>Modbus TCP Server</span>";
+        html += "</div>";
+        html += "<div class='metric-value'>ACTIVE</div>";
+        html += "<div class='metric-subtitle'><span class='status-indicator status-running'></span>Port 502 - <a href='/modbus/manual' download style='color: #00D4FF; text-decoration: none;'>📥 Download Manual</a></div>";
         html += "</div>";
         html += "</div>";
         
@@ -1934,6 +1956,31 @@ void setupDeviceWebServer() {
         html += "</div>";
         html += "</div>";
         
+        // Modbus TCP Information Card  
+        html += "<div class='status-card'>";
+        html += "<div class='card-header'>🏭 Modbus TCP Server</div>";
+        html += "<div class='status-item'>";
+        html += "<span class='status-label'>Server Status</span>";
+        html += "<span class='status-value status-good'>Running</span>";
+        html += "</div>";
+        html += "<div class='status-item'>";
+        html += "<span class='status-label'>Port</span>";
+        html += "<span class='status-value'>502</span>";
+        html += "</div>";
+        html += "<div class='status-item'>";
+        html += "<span class='status-label'>Active Clients</span>";
+        html += "<span class='status-value'>" + String(modbus_server.getActiveClientCount()) + "/5</span>";
+        html += "</div>";
+        html += "<div class='status-item'>";
+        html += "<span class='status-label'>Total Requests</span>";
+        html += "<span class='status-value'>" + String(modbus_server.getStatistics().total_requests) + "</span>";
+        html += "</div>";
+        html += "<div class='status-item'>";
+        html += "<span class='status-label'>Documentation</span>";
+        html += "<span class='status-value'><a href='/modbus/manual' style='color: #00D4FF; text-decoration: none;' download>📥 Download Manual</a></span>";
+        html += "</div>";
+        html += "</div>";
+        
         // Time Information Card
         html += "<div class='status-card'>";
         html += "<div class='card-header'>Time & Date</div>";
@@ -3133,6 +3180,7 @@ void setupDeviceWebServer() {
     // Setup professional temperature API endpoints with calibration controls
     setupTemperatureAPI();
     setupNetworkAPI();
+    setupModbusAPI();
     
     device_server->begin();
     DEBUG_PRINTLN("[OK] Device web server started on port 80");
