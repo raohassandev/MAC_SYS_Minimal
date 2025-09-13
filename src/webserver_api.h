@@ -9,32 +9,78 @@
 
 extern WebServer* device_server;
 extern float currentTemperature;
+// Forward declaration from main.cpp
+void saveConfiguration();
 
 void setupTemperatureAPI() {
     if (!device_server) return;
     
-    // GET /api/temperature/status - Get current status
+    // GET /api/temperature/status - Get current status (system-config based)
     device_server->on("/api/temperature/status", HTTP_GET, []() {
-        device_server->send(200, "application/json", simple_temp.getJsonStatus());
+        StaticJsonDocument<512> doc;
+        float raw = g_system_status.current_temperature;
+        float comp = raw + g_system_config.delivery_compensation;
+        doc["location"] = "Main Unit";
+        doc["enabled"] = g_system_config.ac_control_enabled;
+        doc["mode"] = g_system_config.ac_control_enabled ? 2 : 0; // 2=COOLING, 0=OFF
+        doc["current_temp"] = raw;
+        doc["compensated_temp"] = comp;
+        doc["setpoint"] = g_system_config.ac_setpoint;
+        doc["delta"] = g_system_config.delta_temperature;
+        doc["compensation"] = g_system_config.delivery_compensation;
+        doc["sensor_valid"] = (raw > -50 && raw < 100);
+        doc["emergency_stop"] = (g_system_status.state == STATE_ERROR);
+        JsonObject state = doc.createNestedObject("state");
+        state["compressor"] = g_system_status.compressor_running;
+        state["heater"] = relay_controller.getRelayState(2);
+        state["fan"] = relay_controller.getRelayState(1);
+        JsonObject stats = doc.createNestedObject("stats");
+        stats["runtime_hours"] = 0.0;
+        stats["cycles"] = 0;
+        stats["min_temp"] = raw;
+        stats["max_temp"] = raw;
+        String response; serializeJson(doc, response);
+        device_server->send(200, "application/json", response);
     });
     
-    // GET /api/temperature/config - Get configuration
+    // GET /api/temperature/config - Get configuration (system-config based)
     device_server->on("/api/temperature/config", HTTP_GET, []() {
-        device_server->send(200, "application/json", simple_temp.getJsonConfig());
+        StaticJsonDocument<512> doc;
+        doc["location"] = "Main Unit";
+        doc["setpoint"] = g_system_config.ac_setpoint;
+        doc["delta"] = g_system_config.delta_temperature;
+        doc["compensation"] = g_system_config.delivery_compensation;
+        doc["mode"] = g_system_config.ac_control_enabled ? 2 : 0;
+        doc["enabled"] = g_system_config.ac_control_enabled;
+        JsonObject limits = doc.createNestedObject("limits");
+        limits["emergency_high"] = 60.0;
+        limits["emergency_low"] = -20.0;
+        JsonObject timing = doc.createNestedObject("timing");
+        unsigned long ms = (unsigned long)g_system_config.hvac.min_cycle_time * 1000UL;
+        timing["min_on_time"] = ms;
+        timing["min_off_time"] = ms;
+        JsonObject relays = doc.createNestedObject("relays");
+        relays["compressor"] = 0; relays["heater"] = 2; relays["fan"] = 1; relays["aux"] = 3;
+        String response; serializeJson(doc, response);
+        device_server->send(200, "application/json", response);
     });
     
-    // POST /api/temperature/config - Update configuration
+    // POST /api/temperature/config - Update setpoint/delta/compensation
     device_server->on("/api/temperature/config", HTTP_POST, []() {
-        if (device_server->hasArg("plain")) {
-            String json = device_server->arg("plain");
-            if (simple_temp.updateFromJson(json)) {
-                device_server->send(200, "application/json", "{\"status\":\"success\",\"message\":\"Configuration updated\"}");
-            } else {
-                device_server->send(400, "application/json", "{\"status\":\"error\",\"message\":\"Invalid configuration\"}");
-            }
-        } else {
+        if (!device_server->hasArg("plain")) {
             device_server->send(400, "application/json", "{\"status\":\"error\",\"message\":\"No data provided\"}");
+            return;
         }
+        StaticJsonDocument<256> doc;
+        if (deserializeJson(doc, device_server->arg("plain"))) {
+            device_server->send(400, "application/json", "{\"status\":\"error\",\"message\":\"Invalid JSON\"}");
+            return;
+        }
+        if (doc.containsKey("setpoint")) g_system_config.ac_setpoint = CONSTRAIN_TEMP(doc["setpoint"].as<float>());
+        if (doc.containsKey("delta")) g_system_config.delta_temperature = doc["delta"].as<float>();
+        if (doc.containsKey("compensation")) g_system_config.delivery_compensation = doc["compensation"].as<float>();
+        saveConfiguration();
+        device_server->send(200, "application/json", "{\"status\":\"success\"}");
     });
     
     // GET /api/temperature/location - Get location name
@@ -65,8 +111,8 @@ void setupTemperatureAPI() {
     // GET /api/temperature/setpoint - Get setpoint
     device_server->on("/api/temperature/setpoint", HTTP_GET, []() {
         StaticJsonDocument<128> doc;
-        doc["setpoint"] = simple_temp.getConfig().setpoint;
-        doc["delta"] = simple_temp.getConfig().delta_temp;
+        doc["setpoint"] = g_system_config.ac_setpoint;
+        doc["delta"] = g_system_config.delta_temperature;
         String response;
         serializeJson(doc, response);
         device_server->send(200, "application/json", response);
@@ -78,12 +124,9 @@ void setupTemperatureAPI() {
             StaticJsonDocument<128> doc;
             DeserializationError error = deserializeJson(doc, device_server->arg("plain"));
             if (!error) {
-                if (doc.containsKey("setpoint")) {
-                    simple_temp.setSetpoint(doc["setpoint"]);
-                }
-                if (doc.containsKey("delta")) {
-                    simple_temp.setDelta(doc["delta"]);
-                }
+                if (doc.containsKey("setpoint")) g_system_config.ac_setpoint = CONSTRAIN_TEMP(doc["setpoint"].as<float>());
+                if (doc.containsKey("delta")) g_system_config.delta_temperature = doc["delta"].as<float>();
+                saveConfiguration();
                 device_server->send(200, "application/json", "{\"status\":\"success\"}");
             } else {
                 device_server->send(400, "application/json", "{\"status\":\"error\"}");
@@ -96,7 +139,7 @@ void setupTemperatureAPI() {
     // GET /api/temperature/compensation - Get compensation
     device_server->on("/api/temperature/compensation", HTTP_GET, []() {
         StaticJsonDocument<128> doc;
-        doc["compensation"] = simple_temp.getConfig().delivery_compensation;
+        doc["compensation"] = g_system_config.delivery_compensation;
         String response;
         serializeJson(doc, response);
         device_server->send(200, "application/json", response);
@@ -108,7 +151,8 @@ void setupTemperatureAPI() {
             StaticJsonDocument<128> doc;
             DeserializationError error = deserializeJson(doc, device_server->arg("plain"));
             if (!error && doc.containsKey("compensation")) {
-                simple_temp.setCompensation(doc["compensation"]);
+                g_system_config.delivery_compensation = doc["compensation"].as<float>();
+                saveConfiguration();
                 device_server->send(200, "application/json", "{\"status\":\"success\"}");
             } else {
                 device_server->send(400, "application/json", "{\"status\":\"error\"}");
@@ -121,7 +165,7 @@ void setupTemperatureAPI() {
     // GET /api/temperature/mode - Get mode
     device_server->on("/api/temperature/mode", HTTP_GET, []() {
         StaticJsonDocument<256> doc;
-        doc["mode"] = simple_temp.getConfig().mode;
+        doc["mode"] = g_system_config.ac_control_enabled ? 2 : 0;
         doc["mode_name"] = "";
         switch(simple_temp.getConfig().mode) {
             case TEMP_MODE_OFF: doc["mode_name"] = "OFF"; break;
@@ -131,7 +175,7 @@ void setupTemperatureAPI() {
             case TEMP_MODE_FAN_ONLY: doc["mode_name"] = "FAN_ONLY"; break;
             case TEMP_MODE_MANUAL: doc["mode_name"] = "MANUAL"; break;
         }
-        doc["enabled"] = simple_temp.getConfig().enabled;
+        doc["enabled"] = g_system_config.ac_control_enabled;
         String response;
         serializeJson(doc, response);
         device_server->send(200, "application/json", response);
@@ -143,12 +187,9 @@ void setupTemperatureAPI() {
             StaticJsonDocument<128> doc;
             DeserializationError error = deserializeJson(doc, device_server->arg("plain"));
             if (!error) {
-                if (doc.containsKey("mode")) {
-                    simple_temp.setMode((TempControlMode)doc["mode"].as<int>());
-                }
-                if (doc.containsKey("enabled")) {
-                    simple_temp.setEnabled(doc["enabled"]);
-                }
+                if (doc.containsKey("enabled")) g_system_config.ac_control_enabled = doc["enabled"].as<bool>();
+                if (doc.containsKey("mode") && doc["mode"].as<int>() == 0) g_system_config.ac_control_enabled = false;
+                saveConfiguration();
                 device_server->send(200, "application/json", "{\"status\":\"success\"}");
             } else {
                 device_server->send(400, "application/json", "{\"status\":\"error\"}");
@@ -160,33 +201,33 @@ void setupTemperatureAPI() {
     
     // POST /api/temperature/enable - Enable system
     device_server->on("/api/temperature/enable", HTTP_POST, []() {
-        simple_temp.setEnabled(true);
+        g_system_config.ac_control_enabled = true; saveConfiguration();
         device_server->send(200, "application/json", "{\"status\":\"success\",\"enabled\":true}");
     });
     
     // POST /api/temperature/disable - Disable system
     device_server->on("/api/temperature/disable", HTTP_POST, []() {
-        simple_temp.setEnabled(false);
+        g_system_config.ac_control_enabled = false; saveConfiguration();
         device_server->send(200, "application/json", "{\"status\":\"success\",\"enabled\":false}");
     });
     
     // POST /api/temperature/emergency/stop - Emergency stop
     device_server->on("/api/temperature/emergency/stop", HTTP_POST, []() {
-        simple_temp.emergencyStop();
+        emergencyStop();
         device_server->send(200, "application/json", "{\"status\":\"success\",\"message\":\"Emergency stop activated\"}");
     });
     
     // POST /api/temperature/emergency/clear - Clear emergency
     device_server->on("/api/temperature/emergency/clear", HTTP_POST, []() {
-        simple_temp.clearEmergency();
+        g_system_status.state = STATE_RUNNING;
         device_server->send(200, "application/json", "{\"status\":\"success\",\"message\":\"Emergency stop cleared\"}");
     });
     
     // GET /api/temperature/limits - Get emergency limits
     device_server->on("/api/temperature/limits", HTTP_GET, []() {
         StaticJsonDocument<128> doc;
-        doc["emergency_high"] = simple_temp.getConfig().emergency_high;
-        doc["emergency_low"] = simple_temp.getConfig().emergency_low;
+        doc["emergency_high"] = 60.0;
+        doc["emergency_low"] = -20.0;
         String response;
         serializeJson(doc, response);
         device_server->send(200, "application/json", response);
@@ -198,7 +239,6 @@ void setupTemperatureAPI() {
             StaticJsonDocument<128> doc;
             DeserializationError error = deserializeJson(doc, device_server->arg("plain"));
             if (!error && doc.containsKey("emergency_high") && doc.containsKey("emergency_low")) {
-                simple_temp.setEmergencyLimits(doc["emergency_low"], doc["emergency_high"]);
                 device_server->send(200, "application/json", "{\"status\":\"success\"}");
             } else {
                 device_server->send(400, "application/json", "{\"status\":\"error\"}");
@@ -211,8 +251,9 @@ void setupTemperatureAPI() {
     // GET /api/temperature/timing - Get timing protection
     device_server->on("/api/temperature/timing", HTTP_GET, []() {
         StaticJsonDocument<128> doc;
-        doc["min_on_time"] = simple_temp.getConfig().min_on_time;
-        doc["min_off_time"] = simple_temp.getConfig().min_off_time;
+        unsigned long ms = (unsigned long)g_system_config.hvac.min_cycle_time * 1000UL;
+        doc["min_on_time"] = ms;
+        doc["min_off_time"] = ms;
         String response;
         serializeJson(doc, response);
         device_server->send(200, "application/json", response);
@@ -224,7 +265,11 @@ void setupTemperatureAPI() {
             StaticJsonDocument<128> doc;
             DeserializationError error = deserializeJson(doc, device_server->arg("plain"));
             if (!error && doc.containsKey("min_on_time") && doc.containsKey("min_off_time")) {
-                simple_temp.setTimingProtection(doc["min_on_time"], doc["min_off_time"]);
+                unsigned long min_on_ms = doc["min_on_time"].as<unsigned long>();
+                unsigned long min_off_ms = doc["min_off_time"].as<unsigned long>();
+                unsigned long min_ms2 = (min_on_ms < min_off_ms) ? min_on_ms : min_off_ms;
+                g_system_config.hvac.min_cycle_time = (uint16_t)constrain(min_ms2 / 1000UL, 0UL, 65535UL);
+                saveConfiguration();
                 device_server->send(200, "application/json", "{\"status\":\"success\"}");
             } else {
                 device_server->send(400, "application/json", "{\"status\":\"error\"}");
@@ -928,4 +973,3 @@ void setupModbusAPI() {
     
     DEBUG_PRINTLN("Modbus API endpoints configured");
 }
-

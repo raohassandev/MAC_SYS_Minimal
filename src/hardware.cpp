@@ -181,13 +181,18 @@ bool setCompressorState(bool state) {
     // Implement minimum cycle times for compressor protection
     if (state != last_compressor_state) {
         unsigned long time_since_change = millis() - last_compressor_change;
-        
-        if (state && time_since_change < MIN_COMPRESSOR_CYCLE_TIME) {
+        // Use configured minimum cycle time (seconds) if available
+        unsigned long min_cycle_ms = (unsigned long)g_system_config.hvac.min_cycle_time * 1000UL;
+        if (min_cycle_ms == 0) {
+            min_cycle_ms = MIN_COMPRESSOR_CYCLE_TIME; // fallback to compile-time constant (ms)
+        }
+
+        if (state && time_since_change < min_cycle_ms) {
             DEBUG_PRINTLN("Compressor start blocked - minimum off time not met");
             return false;
         }
         
-        if (!state && time_since_change < MIN_COMPRESSOR_CYCLE_TIME) {
+        if (!state && time_since_change < min_cycle_ms) {
             DEBUG_PRINTLN("Compressor stop blocked - minimum on time not met");
             return false;
         }

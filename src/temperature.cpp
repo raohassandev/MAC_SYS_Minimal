@@ -321,35 +321,40 @@ float readLM35Temperature() {
 }
 
 void runTemperatureControl() {
-    // Get current temperature with delivery compensation
-    float rawTemp = readTemperature();
+    // Honor emergency stop: keep compressor off until cleared
+    if (g_system_status.state == STATE_ERROR) {
+        setCompressorState(false);
+        return;
+    }
+    // Get current temperature with delivery compensation (non-blocking: use cached value)
+    float rawTemp = g_system_status.current_temperature;
     float compensatedTemp = applyDeliveryCompensation(rawTemp, g_system_config.delivery_compensation);
     
     // Get target setpoint based on operation mode
     float targetSetpoint = g_system_config.ac_setpoint;
     bool shouldProceedWithControl = true;
     
-    DEBUG_PRINTF("[TEMP] CONTROL: Raw=%.1f°C, Compensated=%.1f°C, Target=%.1f°C\n",
-                 rawTemp, compensatedTemp, targetSetpoint);
+    // DEBUG_PRINTF("[TEMP] CONTROL: Raw=%.1f°C, Compensated=%.1f°C, Target=%.1f°C\n",
+    //              rawTemp, compensatedTemp, targetSetpoint);
     
     // Operation mode logic (from MAC_SYS specification)
     if (g_system_config.operation_mode == OPERATION_MODE_DIRECT) {
         // Direct Mode: Always use manual setpoint
         targetSetpoint = g_system_config.ac_setpoint;
         shouldProceedWithControl = true;
-        DEBUG_PRINTLN("🎯 DIRECT MODE: Using manual setpoint");
+        // DEBUG_PRINTLN("DIRECT MODE: Using manual setpoint");
     } else {
         // Schedule Mode: Only operate when schedule is active
         // TODO: Implement schedule checking
         // For now, assume no schedules are active
         shouldProceedWithControl = false;
-        DEBUG_PRINTLN("🎯 SCHEDULE MODE: No schedules implemented yet - AC OFF");
+        // DEBUG_PRINTLN("SCHEDULE MODE: No schedules implemented yet - AC OFF");
     }
     
     // Central vs Local control mode
     if (!g_system_config.central_control_mode) {
         // Local mode: Force compressor ON for manual control
-        DEBUG_PRINTLN("📍 LOCAL MODE: Force compressor ON");
+        // DEBUG_PRINTLN("LOCAL MODE: Force compressor ON");
         if (!g_system_status.compressor_running) {
             setCompressorState(true);
         }
@@ -358,7 +363,7 @@ void runTemperatureControl() {
     
     if (!g_system_config.ac_control_enabled) {
         // AC disabled: Force compressor OFF
-        DEBUG_PRINTLN("📍 AC DISABLED: Force compressor OFF");
+        // DEBUG_PRINTLN("AC DISABLED: Force compressor OFF");
         if (g_system_status.compressor_running) {
             setCompressorState(false);
         }
@@ -370,7 +375,7 @@ void runTemperatureControl() {
         // No control needed - turn off compressor
         if (g_system_status.compressor_running) {
             setCompressorState(false);
-            DEBUG_PRINTLN("🚫 No control required - turning OFF compressor");
+            // DEBUG_PRINTLN("No control required - turning OFF compressor");
         }
         return;
     }
@@ -383,17 +388,17 @@ void runTemperatureControl() {
         // Compressor OFF - check if we should turn it ON
         if (shouldStartCooling(compensatedTemp, targetSetpoint, deltaTemp)) {
             shouldCool = true;
-            DEBUG_PRINTF("🔥 START COOLING: %.1f°C > %.1f°C\n", compensatedTemp, targetSetpoint);
+            // DEBUG_PRINTF("START COOLING: %.1f°C > %.1f°C\n", compensatedTemp, targetSetpoint);
         }
     } else {
         // Compressor ON - check if we should turn it OFF
         if (!shouldStopCooling(compensatedTemp, targetSetpoint, deltaTemp)) {
             shouldCool = true; // Continue cooling
-            DEBUG_PRINTF("🔥 CONTINUE COOLING: %.1f°C > %.1f°C\n", 
-                         compensatedTemp, targetSetpoint - deltaTemp);
+            // DEBUG_PRINTF("CONTINUE COOLING: %.1f°C > %.1f°C\n", 
+            //              compensatedTemp, targetSetpoint - deltaTemp);
         } else {
-            DEBUG_PRINTF("❄️ STOP COOLING: %.1f°C <= %.1f°C\n", 
-                         compensatedTemp, targetSetpoint - deltaTemp);
+            // DEBUG_PRINTF("STOP COOLING: %.1f°C <= %.1f°C\n", 
+            //              compensatedTemp, targetSetpoint - deltaTemp);
         }
     }
     
