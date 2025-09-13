@@ -16,14 +16,18 @@
 // Time sync intervals
 #define NTP_SYNC_INTERVAL 3600000  // Sync every hour (ms)
 #define RTC_SYNC_INTERVAL 86400000 // Daily RTC sync (ms)
+// Upper bound for one NTP attempt to complete (non-blocking window)
+#define NTP_ATTEMPT_TIMEOUT 15000   // 15 seconds
 
 class RTCManager {
 private:
     RTC_DS1307 rtc;
     bool rtc_available;
     bool ntp_synced;
+    bool ntp_in_progress;          // true while waiting for SNTP to update time
     unsigned long last_ntp_sync;
     unsigned long last_rtc_sync;
+    unsigned long ntp_request_time; // when current NTP attempt started
     
     // Time zone and formatting
     const char* timezone_name;
@@ -38,7 +42,7 @@ public:
     bool isNTPSynced() { return ntp_synced; }
     
     // Time synchronization
-    bool syncWithNTP();
+    bool syncWithNTP();             // kick off non-blocking NTP sync
     bool syncRTCWithNTP();
     void updateTime(); // Call regularly to maintain sync
     

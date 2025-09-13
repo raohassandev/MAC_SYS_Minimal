@@ -74,6 +74,8 @@ bool ProfessionalWiFi::begin() {
     
     connection_established = true;
     connection_established_time = millis();
+    // Reduce latency for HTTP by disabling modem sleep
+    WiFi.setSleep(false);
     onWiFiConnected();
     
     return true;  // Indicates STA mode

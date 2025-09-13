@@ -119,8 +119,8 @@ void showTemperatureScreen() {
     
     display.drawLine(0, 10, SCREEN_WIDTH, 10, SSD1306_WHITE);
     
-    // Get current temperature
-    float currentTemp = readTemperature();
+    // Use last measured temperature from system status to avoid blocking sensor reads here
+    float currentTemp = g_system_status.current_temperature;
     float setpoint = g_system_config.ac_setpoint;
     float compensation = g_system_config.delivery_compensation;
     float compensatedTemp = applyDeliveryCompensation(currentTemp, compensation);

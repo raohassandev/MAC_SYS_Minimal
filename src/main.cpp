@@ -43,6 +43,33 @@ unsigned long last_led_toggle = 0;
 // Web server for device management
 WebServer* device_server = nullptr;
 
+// Cached status JSON for ultra-fast /api/status responses
+static String g_cached_status_json;
+static unsigned long g_cached_status_at = 0;
+
+static inline void refreshStatusJson() {
+    // Rebuild cached JSON from current status; keep it small and fast
+    StaticJsonDocument<256> doc;
+    doc["temperature"] = g_system_status.current_temperature;
+    doc["state"] = g_system_status.state;
+    doc["uptime"] = g_system_status.uptime;
+    doc["free_memory"] = g_system_status.free_memory;
+    doc["current_time"] = rtc_manager.getFormattedDateTime();
+    if (WiFi.status() == WL_CONNECTED) {
+        doc["wifi_ssid"] = WiFi.SSID();
+        doc["ip_address"] = WiFi.localIP().toString();
+        doc["rssi"] = WiFi.RSSI();
+    } else {
+        doc["wifi_ssid"] = "";
+        doc["ip_address"] = "0.0.0.0";
+        doc["rssi"] = -100;
+    }
+    String tmp;
+    serializeJson(doc, tmp);
+    g_cached_status_json = tmp;
+    g_cached_status_at = millis();
+}
+
 // Forward declarations
 void initializeSystem();
 bool initializeHardware();
@@ -118,6 +145,11 @@ void setup() {
     // Initialize temperature control system
     temp_controller.begin();
     
+    // Initialize simple temperature controller for API consistency
+    simple_temp.begin();
+    // Align compensation with system config at startup
+    simple_temp.setCompensation(g_system_config.delivery_compensation);
+    
     // Set up initial zone configuration (Zone 0 as example)
     temp_controller.getZoneConfig(0).enabled = true;
     temp_controller.getZoneConfig(0).mode = TEMP_MODE_HEATING;
@@ -143,7 +175,8 @@ void loop() {
     // PRIORITY: Handle Modbus TCP first for industrial responsiveness
     handleModbus();
     
-    // Handle device web server (also high priority for responsiveness)  
+    // Handle device web server early and often for snappy API responses
+    handleDeviceWebServer();
     handleDeviceWebServer();
     
     // Handle status LED (lightweight)
@@ -157,6 +190,8 @@ void loop() {
     
     // Handle Modbus again after potentially heavy systemLoop()
     handleModbus();
+    // Yield to WiFi/HTTP stack
+    delay(0);
     
     // Temperature reading loop
     if (current_time - last_temp_reading >= TEMP_READ_INTERVAL) {
@@ -178,6 +213,8 @@ void loop() {
     
     // Handle Modbus again for rapid polling support
     handleModbus();
+    // Yield again to keep networking responsive
+    delay(0);
     
     // Display update loop (potentially slow operation moved later)
     updateDisplay();
@@ -190,6 +227,10 @@ void loop() {
     
     // Handle Professional WiFi Manager
     wifiPro.process();
+
+    // Give HTTP server more chances in the same loop iteration
+    handleDeviceWebServer();
+    handleDeviceWebServer();
     
     // Final Modbus handling pass for maximum responsiveness
     handleModbus();
@@ -433,6 +474,9 @@ void updateSystemStatus() {
                 break;
         }
     }
+
+    // Refresh cached status JSON at the same cadence
+    refreshStatusJson();
 }
 
 void handleStatusLED() {
@@ -519,6 +563,8 @@ void readTemperatureSensors() {
     filtered_temp /= TEMP_FILTER_SAMPLES;
     
     g_system_status.current_temperature = filtered_temp;
+    // Keep SimpleTempController in sync so /api/temperature/status reports the same value
+    simple_temp.updateTemperature(filtered_temp);
     g_system_status.setpoint_temperature = g_system_config.hvac.setpoint_temperature;
     
     DEBUG_PRINTF("Temperature: %.2f°C\n", filtered_temp);
@@ -810,27 +856,18 @@ void setupDeviceWebServer() {
         device_server->send(200, "text/html", html);
     });
     
-    // JSON API endpoint
+    // JSON API endpoint - optimized using cached snapshot
     device_server->on("/api/status", []() {
-        static int api_call_count = 0;
-        api_call_count++;
-        Serial.println("[API] /api/status called #" + String(api_call_count) + " - sending live data");
-        Serial.println("Temperature: " + String(g_system_status.current_temperature, 1) + "°C");
-        Serial.println("Uptime: " + String(g_system_status.uptime) + "s");
-        Serial.println("Memory: " + String(g_system_status.free_memory) + " bytes");
-        
-        String json = "{";
-        json += "\"temperature\":" + String(g_system_status.current_temperature, 1) + ",";
-        json += "\"state\":" + String(g_system_status.state) + ",";
-        json += "\"uptime\":" + String(g_system_status.uptime) + ",";
-        json += "\"free_memory\":" + String(g_system_status.free_memory) + ",";
-        json += "\"current_time\":\"" + rtc_manager.getFormattedDateTime() + "\",";
-        json += "\"wifi_ssid\":\"" + WiFi.SSID() + "\",";
-        json += "\"ip_address\":\"" + WiFi.localIP().toString() + "\",";
-        json += "\"rssi\":" + String(WiFi.RSSI());
-        json += "}";
-        
-        device_server->send(200, "application/json", json);
+        // Avoid slow Serial prints in hot path
+
+        // If cache is stale for any reason, rebuild quickly
+        if (millis() - g_cached_status_at > STATUS_UPDATE_INTERVAL + 200) {
+            refreshStatusJson();
+        }
+
+        // Ensure short-lived connection for faster turnaround
+        device_server->sendHeader("Connection", "close");
+        device_server->send(200, "application/json", g_cached_status_json.length() ? g_cached_status_json : String("{}"));
     });
     
     // Time API endpoint
@@ -3229,4 +3266,3 @@ void updateIOSystem() {
     // Process temperature control logic
     temp_controller.process();
 }
-

@@ -7,8 +7,10 @@ RTCManager rtc_manager;
 RTCManager::RTCManager() {
     rtc_available = false;
     ntp_synced = false;
+    ntp_in_progress = false;
     last_ntp_sync = 0;
     last_rtc_sync = 0;
+    ntp_request_time = 0;
     timezone_name = "PKT";
     timezone_offset = TIMEZONE_OFFSET;
 }
@@ -42,41 +44,18 @@ bool RTCManager::begin() {
 
 bool RTCManager::syncWithNTP() {
     if (WiFi.status() != WL_CONNECTED) {
-        DEBUG_PRINTLN("❌ WiFi not connected, cannot sync NTP");
+        DEBUG_PRINTLN("❌ WiFi not connected, cannot start NTP sync");
         return false;
     }
-    
-    DEBUG_PRINTLN("🌐 Synchronizing with NTP servers...");
-    
-    // Configure NTP
-    configTime(timezone_offset, DST_OFFSET, NTP_SERVER1, NTP_SERVER2, NTP_SERVER3);
-    
-    // Wait for time sync (up to 10 seconds)
-    int timeout = 100; // 10 seconds (100 * 100ms)
-    while (timeout > 0) {
-        time_t now = time(nullptr);
-        if (now > 1000000000) { // Valid timestamp (after 2001)
-            struct tm* timeinfo = localtime(&now);
-            DEBUG_PRINTF("[OK] NTP synchronized: %04d-%02d-%02d %02d:%02d:%02d %s\n",
-                        timeinfo->tm_year + 1900, timeinfo->tm_mon + 1, timeinfo->tm_mday,
-                        timeinfo->tm_hour, timeinfo->tm_min, timeinfo->tm_sec, timezone_name);
-            
-            ntp_synced = true;
-            last_ntp_sync = millis();
-            
-            // Sync RTC with NTP time if RTC is available
-            if (rtc_available) {
-                syncRTCWithNTP();
-            }
-            
-            return true;
-        }
-        delay(100);
-        timeout--;
+    if (ntp_in_progress) {
+        // Already waiting for SNTP update
+        return true;
     }
-    
-    DEBUG_PRINTLN("❌ NTP synchronization failed");
-    return false;
+    DEBUG_PRINTLN("🌐 Starting non-blocking NTP sync...");
+    configTime(timezone_offset, DST_OFFSET, NTP_SERVER1, NTP_SERVER2, NTP_SERVER3);
+    ntp_in_progress = true;
+    ntp_request_time = millis();
+    return true; // Started
 }
 
 bool RTCManager::syncRTCWithNTP() {
@@ -101,17 +80,40 @@ bool RTCManager::syncRTCWithNTP() {
 }
 
 void RTCManager::updateTime() {
-    unsigned long now = millis();
+    unsigned long now_ms = millis();
     
-    // Check if NTP sync is needed
-    if (WiFi.status() == WL_CONNECTED && 
-        (now - last_ntp_sync) > NTP_SYNC_INTERVAL) {
+    // Kick off a new NTP sync periodically (non-blocking)
+    if (WiFi.status() == WL_CONNECTED &&
+        (now_ms - last_ntp_sync) > NTP_SYNC_INTERVAL && !ntp_in_progress) {
         syncWithNTP();
     }
     
-    // Check if RTC sync is needed
-    if (rtc_available && ntp_synced && 
-        (now - last_rtc_sync) > RTC_SYNC_INTERVAL) {
+    // If an NTP attempt is in progress, poll for completion or timeout
+    if (ntp_in_progress) {
+        time_t now = time(nullptr);
+        if (now > 1000000000) { // Valid timestamp received
+            struct tm* timeinfo = localtime(&now);
+            DEBUG_PRINTF("[OK] NTP synchronized: %04d-%02d-%02d %02d:%02d:%02d %s\n",
+                        timeinfo->tm_year + 1900, timeinfo->tm_mon + 1, timeinfo->tm_mday,
+                        timeinfo->tm_hour, timeinfo->tm_min, timeinfo->tm_sec, timezone_name);
+            ntp_synced = true;
+            last_ntp_sync = now_ms;
+            ntp_in_progress = false;
+            
+            // Sync RTC with NTP time if RTC is available
+            if (rtc_available) {
+                syncRTCWithNTP();
+            }
+        } else if (now_ms - ntp_request_time > NTP_ATTEMPT_TIMEOUT) {
+            // Give up for now; will retry next interval
+            DEBUG_PRINTLN("❌ NTP synchronization timed out (non-blocking)");
+            ntp_in_progress = false;
+        }
+    }
+    
+    // Periodic RTC resync from NTP
+    if (rtc_available && ntp_synced &&
+        (now_ms - last_rtc_sync) > RTC_SYNC_INTERVAL) {
         syncRTCWithNTP();
     }
 }
