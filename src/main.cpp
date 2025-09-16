@@ -55,6 +55,13 @@ static inline void refreshStatusJson() {
     doc["uptime"] = g_system_status.uptime;
     doc["free_memory"] = g_system_status.free_memory;
     doc["current_time"] = rtc_manager.getFormattedDateTime();
+    // Control context for dashboard
+    doc["operation_mode"] = g_system_config.operation_mode; // 0=Direct, 1=Schedule
+    doc["setpoint"] = g_system_config.ac_setpoint;
+    // Control context and AC status
+    doc["operation_mode"] = g_system_config.operation_mode; // 0=Direct,1=Schedule
+    doc["setpoint"] = g_system_config.ac_setpoint;
+    doc["ac_on"] = g_system_status.compressor_running;
     if (WiFi.status() == WL_CONNECTED) {
         doc["wifi_ssid"] = WiFi.SSID();
         doc["ip_address"] = WiFi.localIP().toString();
@@ -662,6 +669,8 @@ void setupDeviceWebServer() {
         html += "<a href='/sensors'>Sensors</a>";
         html += "<a href='/wifi-config'>WiFi Config</a>";
         html += "</div>";
+        
+        // Mode toggle moved to Temperature page
         html += "</div>";
         
         html += "<div class='container'>";
@@ -672,30 +681,39 @@ void setupDeviceWebServer() {
         html += "<div class='metric-header'>";
         html += "<span class='metric-title'>Temperature</span>";
         html += "</div>";
-        html += "<div class='metric-value'>" + String(g_system_status.current_temperature, 1) + "°C</div>";
-        html += "<div class='metric-subtitle'>Current reading</div>";
+        html += "<div class='metric-value' id='tempValue'>" + String(g_system_status.current_temperature, 1) + "°C</div>";
+        html += "<div class='metric-subtitle' id='modeSubtitle'>Mode: " + String(g_system_config.operation_mode==1?"Schedule":"Direct") + "</div>";
         html += "</div>";
         html += "<div class='metric-card'>";
         html += "<div class='metric-header'>";
         html += "<span class='metric-icon'>⚡</span>";
         html += "<span class='metric-title'>System Status</span>";
         html += "</div>";
-        html += "<div class='metric-value'>" + String(g_system_status.state == 1 ? "ACTIVE" : "IDLE") + "</div>";
-        html += "<div class='metric-subtitle'><span class='status-indicator " + String(g_system_status.state == 1 ? "status-running" : "status-idle") + "'></span>System state</div>";
+        html += "<div class='metric-value' id='systemStatusValue'>" + String(g_system_status.state == 1 ? "ACTIVE" : "IDLE") + "</div>";
+        html += "<div class='metric-subtitle' id='setpointSubtitle'>Setpoint: " + String(g_system_config.ac_setpoint,1) + "°C</div>";
+        html += "</div>";
+        // AC Status Card
+        html += "<div class='metric-card'>";
+        html += "<div class='metric-header'>";
+        html += "<span class='metric-icon'>❄️</span>";
+        html += "<span class='metric-title'>AC Status</span>";
+        html += "</div>";
+        html += "<div class='metric-value' id='acStatusValue'>" + String(g_system_status.compressor_running ? "ON" : "OFF") + "</div>";
+        html += "<div class='metric-subtitle'>Compressor (relay 0)</div>";
         html += "</div>";
         html += "<div class='metric-card'>";
         html += "<div class='metric-header'>";
         html += "<span class='metric-title'>Uptime</span>";
         html += "</div>";
-        html += "<div class='metric-value'>" + String(g_system_status.uptime/3600) + "h</div>";
-        html += "<div class='metric-subtitle'>" + String(g_system_status.uptime) + " seconds</div>";
+        html += "<div class='metric-value' id='uptimeValue'>" + String(g_system_status.uptime/3600) + "h</div>";
+        html += "<div class='metric-subtitle' id='uptimeSubtitle'>" + String(g_system_status.uptime) + " seconds</div>";
         html += "</div>";
         html += "<div class='metric-card'>";
         html += "<div class='metric-header'>";
         html += "<span class='metric-title'>Free Memory</span>";
         html += "</div>";
-        html += "<div class='metric-value'>" + String(g_system_status.free_memory/1024) + "KB</div>";
-        html += "<div class='metric-subtitle'>" + String(g_system_status.free_memory) + " bytes available</div>";
+        html += "<div class='metric-value' id='freeMemValue'>" + String(g_system_status.free_memory/1024) + "KB</div>";
+        html += "<div class='metric-subtitle' id='freeMemSubtitle'>" + String(g_system_status.free_memory) + " bytes available</div>";
         html += "</div>";
         
         // Modbus TCP Server Status Card
@@ -731,7 +749,7 @@ void setupDeviceWebServer() {
         html += "<h3>📅 Schedule Control</h3>";
         html += "<div class='control-actions'>";
         html += "<button class='btn btn-primary' onclick=\"location.href='/schedule'\">Schedule Editor</button>";
-        html += "<button class='btn btn-secondary' onclick='toggleControlMode()'>Toggle Mode</button>";
+        // Toggle Mode button removed from dashboard
         html += "</div>";
         html += "</div>";
         html += "</div>";
@@ -785,7 +803,7 @@ void setupDeviceWebServer() {
         
         html += "function toggleControlMode() {";
         html += "  fetch('/api/schedule/control-mode', { method: 'POST' })";
-        html += "  .then(r => r.json()).then(d => location.reload()).catch(e => console.error(e));";
+        html += "  .then(r => r.json()).then(d => { setTimeout(refreshData, 200); }).catch(e => console.error(e));";
         html += "}";
         html += "var callCount = 0;";
         html += "function toggleTempGraph(header) {";
@@ -821,23 +839,20 @@ void setupDeviceWebServer() {
         html += "  ctx.fillText('Min: ' + minTemp.toFixed(1) + '°C', 5, height - 5);";
         html += "  ctx.fillText('Max: ' + maxTemp.toFixed(1) + '°C', width - 80, 15);";
         html += "}";
-        html += "function refreshData() {";
-        html += "  callCount++;";
-        html += "  console.log('API Call #' + callCount);";
-        html += "  fetch('/api/status').then(function(response) {";
-        html += "    return response.json();";
-        html += "  }).then(function(data) {";
-        html += "    console.log('Data received:', data);";
-        html += "    var cards = document.querySelectorAll('.metric-value');";
-        html += "    var subtitles = document.querySelectorAll('.metric-subtitle');";
-        html += "    if(cards[0]) cards[0].textContent = data.temperature.toFixed(1) + '°C';";
-        html += "    if(cards[2]) cards[2].textContent = Math.floor(data.uptime/3600) + 'h';";
-        html += "    if(cards[3]) cards[3].textContent = Math.floor(data.free_memory/1024) + 'KB';";
-        html += "    if(subtitles[2]) subtitles[2].textContent = data.uptime + ' seconds';";
-        html += "    if(subtitles[3]) subtitles[3].textContent = data.free_memory + ' bytes available';";
-        html += "  }).catch(function(error) {";
-        html += "    console.error('Error:', error);";
-        html += "  });";
+        html += "function refreshData(){";
+        html += "  fetch('/api/status',{cache:'no-store'}).then(r=>r.json()).then(data=>{";
+        html += "    const $=id=>document.getElementById(id);";
+        html += "    if($('tempValue')) $('tempValue').textContent=(data.temperature||0).toFixed(1)+'°C';";
+        html += "    const modeName=(data.operation_mode===1?'Schedule':'Direct');";
+        html += "    if($('modeSubtitle')) $('modeSubtitle').textContent='Mode: '+modeName;";
+        html += "    if($('modeLabel')) $('modeLabel').textContent=modeName;";
+        html += "    if($('setpointSubtitle')) $('setpointSubtitle').textContent='Setpoint: '+(data.setpoint||0).toFixed(1)+'°C';";
+        html += "    if($('acStatusValue')) $('acStatusValue').textContent = (data.ac_on?'ON':'OFF');";
+        html += "    if($('uptimeValue')) $('uptimeValue').textContent=Math.floor((data.uptime||0)/3600)+'h';";
+        html += "    if($('uptimeSubtitle')) $('uptimeSubtitle').textContent=(data.uptime||0)+' seconds';";
+        html += "    if($('freeMemValue')) $('freeMemValue').textContent=Math.floor((data.free_memory||0)/1024)+'KB';";
+        html += "    if($('freeMemSubtitle')) $('freeMemSubtitle').textContent=(data.free_memory||0)+' bytes available';";
+        html += "  }).catch(()=>{});";
         html += "}";
         html += "console.log('Starting auto-refresh...');";
         html += "setInterval(refreshData, 2000);";
@@ -2817,13 +2832,38 @@ void setupDeviceWebServer() {
     
     // Simplified schedule API endpoints for new UI
     device_server->on("/api/schedule/toggle", HTTP_POST, []() {
+        bool enabled = false;
+        bool provided = false;
+
+        // 1) Form/query parameter: enabled=true/false
         if (device_server->hasArg("enabled")) {
-            bool enabled = device_server->arg("enabled") == "true";
-            schedule_manager.setGlobalEnabled(enabled);
-            device_server->send(200, "application/json", "{\"success\":true}");
-        } else {
-            device_server->send(400, "application/json", "{\"success\":false,\"error\":\"Missing enabled parameter\"}");
+            String v = device_server->arg("enabled");
+            v.toLowerCase();
+            enabled = (v == "true" || v == "1" || v == "on");
+            provided = true;
         }
+
+        // 2) JSON body: {"enabled": true}
+        if (!provided && device_server->hasArg("plain")) {
+            StaticJsonDocument<64> doc;
+            if (deserializeJson(doc, device_server->arg("plain")) == DeserializationError::Ok && doc.containsKey("enabled")) {
+                enabled = doc["enabled"].as<bool>();
+                provided = true;
+            }
+        }
+
+        // 3) If not provided, toggle current global state (best-effort)
+        if (!provided) {
+            enabled = !schedule_manager.isScheduleActive();
+        }
+
+        schedule_manager.setGlobalEnabled(enabled);
+
+        StaticJsonDocument<96> resp;
+        resp["success"] = true;
+        resp["enabled"] = enabled;
+        String out; serializeJson(resp, out);
+        device_server->send(200, "application/json", out);
     });
     
     device_server->on("/api/schedule/save", HTTP_POST, []() {

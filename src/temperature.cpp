@@ -1,6 +1,8 @@
 #include "temperature.h"
 #include "config.h"
 #include "hardware.h"
+#include "schedule_manager.h"
+#include "simple_temp_control.h"
 #include <OneWire.h>
 #include <DallasTemperature.h>
 #include <DHTesp.h>
@@ -344,11 +346,19 @@ void runTemperatureControl() {
         shouldProceedWithControl = true;
         // DEBUG_PRINTLN("DIRECT MODE: Using manual setpoint");
     } else {
-        // Schedule Mode: Only operate when schedule is active
-        // TODO: Implement schedule checking
-        // For now, assume no schedules are active
-        shouldProceedWithControl = false;
-        // DEBUG_PRINTLN("SCHEDULE MODE: No schedules implemented yet - AC OFF");
+        // Schedule Mode: Use schedule setpoint only when scheduling is enabled and zone has entries
+        bool globalOn = schedule_manager.isScheduleActive();
+        WeeklySchedule& z0 = schedule_manager.getZoneSchedule(0);
+        bool zoneReady = z0.enabled && z0.active_events > 0;
+        if (globalOn && zoneReady) {
+            // schedule_manager applies events to simple_temp; use its current setpoint
+            targetSetpoint = simple_temp.getConfig().setpoint;
+            shouldProceedWithControl = true;
+            // DEBUG_PRINTLN("SCHEDULE MODE: Using scheduled setpoint");
+        } else {
+            shouldProceedWithControl = false; // No active schedule context → keep AC off
+            // DEBUG_PRINTLN("SCHEDULE MODE: No active schedule - AC OFF");
+        }
     }
     
     // Central vs Local control mode
