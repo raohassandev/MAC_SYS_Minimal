@@ -2543,9 +2543,6 @@ void setupDeviceWebServer() {
         html += "<div class='schedule-table'>";
         html += "<div class='table-header'>";
         html += "<h2>Weekly Schedule</h2>";
-        html += "<button class='btn btn-primary' onclick='toggleSchedule()' id='scheduleToggle'>";
-        html += "Schedule " + String(schedule_manager.isScheduleActive() ? "ON" : "OFF");
-        html += "</button>";
         html += "</div>";
         
         // Simple weekly schedule table
@@ -2638,15 +2635,28 @@ void setupDeviceWebServer() {
         }
         html += "];";
         
-        html += "function toggleSchedule() {";
-        html += "  const btn = document.getElementById('scheduleToggle');";
-        html += "  const isActive = btn.textContent.includes('ON');";
-        html += "  fetch('/api/schedule/toggle', {method: 'POST', body: 'enabled=' + (!isActive)})";
-        html += "    .then(() => {";
-        html += "      btn.textContent = 'Schedule ' + (!isActive ? 'ON' : 'OFF');";
-        html += "      btn.className = 'btn ' + (!isActive ? 'btn-success' : 'btn-toggle');";
-        html += "    });";
+        // toggleSchedule removed (CRUD-only mode)
+        
+        // Load saved schedules from CRUD GET and populate table
+        html += "async function loadSavedSchedules(){";
+        html += "  try {";
+        html += "    const res = await fetch('/api/schedule');";
+        html += "    if(!res.ok){console.error('GET /api/schedule failed');return;}";
+        html += "    const data = await res.json();";
+        html += "    // Reset local model";
+        html += "    for(let i=0;i<7;i++){scheduleData[i]={day:i,start:'--:--',end:'--:--',temp:22,enabled:false};}";
+        html += "    if(Array.isArray(data.events)){";
+        html += "      data.events.forEach(ev=>{";
+        html += "        for(let d=0; d<7; d++){ if((ev.days & (1<<d))!==0){";
+        html += "          scheduleData[d].start = ev.time || '--:--';";
+        html += "          scheduleData[d].temp = (ev.setpoint!==undefined?ev.setpoint:22);";
+        html += "          scheduleData[d].enabled = !!ev.enabled;";
+        html += "          updateDisplay(d);";
+        html += "        }}});";
+        html += "    }";
+        html += "  } catch(e){ console.error('loadSavedSchedules error', e);}";
         html += "}";
+        html += "document.addEventListener('DOMContentLoaded', ()=>{ loadSavedSchedules(); });";
         
         html += "function toggleDay(day) {";
         html += "  scheduleData[day].enabled = !scheduleData[day].enabled;";
@@ -2705,7 +2715,7 @@ void setupDeviceWebServer() {
         html += "}";
         
         html += "function saveSchedule() {";
-        html += "  fetch('/api/schedule/save', {";
+        html += "  fetch('/api/schedule', {";
         html += "    method: 'POST',";
         html += "    headers: {'Content-Type': 'application/json'},";
         html += "    body: JSON.stringify(scheduleData)";
@@ -2717,6 +2727,7 @@ void setupDeviceWebServer() {
         device_server->send(200, "text/html", html);
     });
     
+#if 0
     // Schedule API endpoints
     device_server->on("/api/schedule/global", HTTP_POST, []() {
         if (device_server->hasArg("enabled")) {
@@ -2777,7 +2788,7 @@ void setupDeviceWebServer() {
         }
     });
     
-    device_server->on("/api/schedule/event", HTTP_DELETE, []() {
+    // device_server->on("/api/schedule/event", HTTP_DELETE, []() {
         if (device_server->hasArg("zone") && device_server->hasArg("index")) {
             uint8_t zone = device_server->arg("zone").toInt();
             uint8_t index = device_server->arg("index").toInt();
@@ -2792,6 +2803,180 @@ void setupDeviceWebServer() {
         }
     });
     
+#endif
+    // New schedule GET endpoint (returns persisted schedules for zone 0)
+    device_server->on("/api/schedule", HTTP_GET, []() {
+        StaticJsonDocument<2048> doc;
+        WeeklySchedule& sched = schedule_manager.getZoneSchedule(0);
+
+        doc["global_enabled"] = schedule_manager.isScheduleActive();
+        doc["zone_enabled"] = sched.enabled;
+        doc["zone_name"] = String(sched.zone_name);
+        doc["active_events"] = sched.active_events;
+
+        JsonArray events = doc.createNestedArray("events");
+        for (int i = 0; i < sched.active_events; i++) {
+            const ScheduleEvent& ev = sched.events[i];
+            JsonObject e = events.createNestedObject();
+            e["enabled"] = ev.enabled;
+            e["time"] = schedule_manager.formatTimeFromMinutes(ev.time_minutes);
+            e["setpoint"] = ev.value1;
+            e["delta"] = ev.value2;
+            e["days"] = ev.day_mask;
+            e["description"] = String(ev.description);
+        }
+
+        String out;
+        serializeJson(doc, out);
+        device_server->send(200, "application/json", out);
+    });
+
+#if 0
+    // (Removed legacy) /api/schedule/save (disabled)
+        if (body.length() == 0) body = device_server->arg("scheduleData");
+        if (body.length() == 0) {
+            device_server->send(400, "application/json", "{\"success\":false,\"error\":\"No data\"}");
+            return;
+        }
+
+        StaticJsonDocument<4096> doc;
+        DeserializationError err = deserializeJson(doc, body);
+        if (err) {
+            device_server->send(400, "application/json", "{\"success\":false,\"error\":\"Invalid JSON\"}");
+            return;
+        }
+
+        // Replace zone 0 schedule with provided events
+        schedule_manager.clearSchedule(0);
+        bool any = false;
+
+        auto appendEvent = [&](JsonObject obj) {
+            ScheduleEvent ev{};
+            ev.enabled = obj["enabled"].is<bool>() ? obj["enabled"].as<bool>() : true;
+            ev.zone_id = 0;
+            ev.event_type = SCHEDULE_TEMP_SETPOINT;
+            ev.value1 = obj["setpoint"].is<float>() ? obj["setpoint"].as<float>() : 24.0f;
+            ev.value2 = obj["delta"].is<float>() ? obj["delta"].as<float>() : 1.0f;
+            ev.day_mask = obj["days"].is<uint8_t>() ? obj["days"].as<uint8_t>() : (1 << 0);
+            const char* timeStr = obj["time"].is<const char*>() ? obj["time"].as<const char*>() : "00:00";
+            ev.time_minutes = schedule_manager.parseTimeToMinutes(String(timeStr));
+            const char* desc = obj["description"].is<const char*>() ? obj["description"].as<const char*>() : "Schedule Event";
+            strncpy(ev.description, desc, sizeof(ev.description)-1);
+            ev.description[sizeof(ev.description)-1] = '\0';
+            ev.temp_mode = (TempControlMode)1; // AUTO default
+            if (schedule_manager.addEvent(0, ev)) any = true;
+        };
+
+        if (doc.is<JsonArray>()) {
+            for (JsonObject e : doc.as<JsonArray>()) appendEvent(e);
+        } else if (doc.is<JsonObject>()) {
+            appendEvent(doc.as<JsonObject>());
+        }
+
+        if (any) {
+            schedule_manager.setZoneEnabled(0, true);
+            schedule_manager.setGlobalEnabled(true);
+            device_server->send(200, "application/json", "{\"success\":true,\"message\":\"Schedule saved to EEPROM\"}");
+        } else {
+            device_server->send(400, "application/json", "{\"success\":false,\"error\":\"No events saved\"}");
+        }
+    });
+
+#endif
+    // POST /api/schedule (create/replace full schedule), PUT /api/schedule (idempotent replace)
+    device_server->on("/api/schedule", HTTP_POST, []() {
+        String body = device_server->arg("plain");
+        if (body.length() == 0) body = device_server->arg("scheduleData");
+        if (body.length() == 0) {
+            device_server->send(400, "application/json", "{\"success\":false,\"error\":\"No data\"}");
+            return;
+        }
+        StaticJsonDocument<4096> doc;
+        DeserializationError err = deserializeJson(doc, body);
+        if (err) {
+            device_server->send(400, "application/json", "{\"success\":false,\"error\":\"Invalid JSON\"}");
+            return;
+        }
+        schedule_manager.clearSchedule(0);
+        bool any = false;
+        auto appendEvent = [&](JsonObject obj) {
+            ScheduleEvent ev{};
+            ev.enabled = obj["enabled"].is<bool>() ? obj["enabled"].as<bool>() : true;
+            ev.zone_id = 0;
+            ev.event_type = SCHEDULE_TEMP_SETPOINT;
+            ev.value1 = obj["setpoint"].is<float>() ? obj["setpoint"].as<float>() : 24.0f;
+            ev.value2 = obj["delta"].is<float>() ? obj["delta"].as<float>() : 1.0f;
+            ev.day_mask = obj["days"].is<uint8_t>() ? obj["days"].as<uint8_t>() : (1 << 0);
+            const char* timeStr = obj["time"].is<const char*>() ? obj["time"].as<const char*>() : "00:00";
+            ev.time_minutes = schedule_manager.parseTimeToMinutes(String(timeStr));
+            const char* desc = obj["description"].is<const char*>() ? obj["description"].as<const char*>() : "Schedule Event";
+            strncpy(ev.description, desc, sizeof(ev.description)-1);
+            ev.description[sizeof(ev.description)-1] = '\0';
+            ev.temp_mode = (TempControlMode)1; // AUTO default
+            if (schedule_manager.addEvent(0, ev)) any = true;
+        };
+        if (doc.is<JsonArray>()) {
+            for (JsonObject e : doc.as<JsonArray>()) appendEvent(e);
+        } else if (doc.is<JsonObject>()) {
+            appendEvent(doc.as<JsonObject>());
+        }
+        if (any) {
+            schedule_manager.setZoneEnabled(0, true);
+            schedule_manager.setGlobalEnabled(true);
+            device_server->send(200, "application/json", "{\"success\":true,\"message\":\"Schedule saved to EEPROM\"}");
+        } else {
+            device_server->send(400, "application/json", "{\"success\":false,\"error\":\"No events saved\"}");
+        }
+    });
+    device_server->on("/api/schedule", HTTP_PUT, []() {
+        String body = device_server->arg("plain");
+        if (body.length() == 0) body = device_server->arg("scheduleData");
+        if (body.length() == 0) {
+            device_server->send(400, "application/json", "{\"success\":false,\"error\":\"No data\"}");
+            return;
+        }
+        StaticJsonDocument<4096> doc;
+        DeserializationError err = deserializeJson(doc, body);
+        if (err) {
+            device_server->send(400, "application/json", "{\"success\":false,\"error\":\"Invalid JSON\"}");
+            return;
+        }
+        schedule_manager.clearSchedule(0);
+        bool any = false;
+        auto appendEvent = [&](JsonObject obj) {
+            ScheduleEvent ev{};
+            ev.enabled = obj["enabled"].is<bool>() ? obj["enabled"].as<bool>() : true;
+            ev.zone_id = 0;
+            ev.event_type = SCHEDULE_TEMP_SETPOINT;
+            ev.value1 = obj["setpoint"].is<float>() ? obj["setpoint"].as<float>() : 24.0f;
+            ev.value2 = obj["delta"].is<float>() ? obj["delta"].as<float>() : 1.0f;
+            ev.day_mask = obj["days"].is<uint8_t>() ? obj["days"].as<uint8_t>() : (1 << 0);
+            const char* timeStr = obj["time"].is<const char*>() ? obj["time"].as<const char*>() : "00:00";
+            ev.time_minutes = schedule_manager.parseTimeToMinutes(String(timeStr));
+            const char* desc = obj["description"].is<const char*>() ? obj["description"].as<const char*>() : "Schedule Event";
+            strncpy(ev.description, desc, sizeof(ev.description)-1);
+            ev.description[sizeof(ev.description)-1] = '\0';
+            ev.temp_mode = (TempControlMode)1;
+            if (schedule_manager.addEvent(0, ev)) any = true;
+        };
+        if (doc.is<JsonArray>()) {
+            for (JsonObject e : doc.as<JsonArray>()) appendEvent(e);
+        } else if (doc.is<JsonObject>()) {
+            appendEvent(doc.as<JsonObject>());
+        }
+        if (any) {
+            schedule_manager.setZoneEnabled(0, true);
+            schedule_manager.setGlobalEnabled(true);
+            device_server->send(200, "application/json", "{\"success\":true,\"message\":\"Schedule saved to EEPROM\"}");
+        } else {
+            device_server->send(400, "application/json", "{\"success\":false,\"error\":\"No events saved\"}");
+        }
+    });
+    device_server->on("/api/schedule", HTTP_DELETE, []() {
+        schedule_manager.clearSchedule(0);
+        device_server->send(200, "application/json", "{\"success\":true,\"message\":\"Schedule cleared\"}");
+    });
+
     // Schedule backup and restore endpoints
     device_server->on("/api/schedule/export", []() {
         if (device_server->hasArg("zone")) {
@@ -2830,6 +3015,7 @@ void setupDeviceWebServer() {
         }
     });
     
+#if 0
     // Simplified schedule API endpoints for new UI
     device_server->on("/api/schedule/toggle", HTTP_POST, []() {
         bool enabled = false;
@@ -2866,7 +3052,9 @@ void setupDeviceWebServer() {
         device_server->send(200, "application/json", out);
     });
     
-    device_server->on("/api/schedule/save", HTTP_POST, []() {
+#endif
+#if 0
+    // legacy endpoints removed
         String json_data = device_server->arg("plain");
         if (json_data.length() == 0) {
             // Try to read from request body
@@ -2910,6 +3098,7 @@ void setupDeviceWebServer() {
         device_server->send(200, "application/json", json);
     });
     
+#endif
     // ========== COMPREHENSIVE RESTful API ENDPOINTS ==========
     
     // API Info and Documentation
