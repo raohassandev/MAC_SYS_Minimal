@@ -540,7 +540,7 @@ const char temperature_html[] PROGMEM = R"rawliteral(
                     <label>Setpoint: <span id="setpointValue">24.0</span>°C</label>
                     <div class="slider-container">
                         <input type="range" class="slider" id="setpointSlider" 
-                               min="16" max="30" step="0.5" value="24" 
+                               min="16" max="40" step="0.5" value="24" 
                                oninput="updateSetpoint()">
                     </div>
                 </div>
@@ -559,14 +559,6 @@ const char temperature_html[] PROGMEM = R"rawliteral(
                     <input type="range" class="slider" id="compensationSlider" 
                            min="-5" max="5" step="0.5" value="0" 
                            oninput="updateCompensation()">
-                </div>
-                <div class="control-group">
-                    <label>Min On Time (min)</label>
-                    <input type="number" id="minOnTime" value="3" min="1" max="10" onchange="updateTiming()">
-                </div>
-                <div class="control-group">
-                    <label>Min Off Time (min)</label>
-                    <input type="number" id="minOffTime" value="3" min="1" max="10" onchange="updateTiming()">
                 </div>
             </div>
             
@@ -789,20 +781,6 @@ const char temperature_html[] PROGMEM = R"rawliteral(
             const result = await fetchAPI('/temperature/compensation', 'POST', { compensation });
             if (result) {
                 showNotification('Compensation updated');
-            }
-        }
-        
-        async function updateTiming() {
-            const minOnTime = parseInt(document.getElementById('minOnTime').value) * 60000;
-            const minOffTime = parseInt(document.getElementById('minOffTime').value) * 60000;
-            
-            const result = await fetchAPI('/temperature/timing', 'POST', {
-                min_on_time: minOnTime,
-                min_off_time: minOffTime
-            });
-            
-            if (result) {
-                showNotification('Timing protection updated');
             }
         }
         

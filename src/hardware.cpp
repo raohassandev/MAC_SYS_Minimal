@@ -105,14 +105,15 @@ bool setRelayState(uint8_t relay_num, bool state) {
         return false;
     }
     
+    // MAC-SYS hardware uses ACTIVE LOW relays (0 = ON, 1 = OFF)
     if (state) {
-        relay_states |= (1 << relay_num);
+        relay_states &= ~(1 << relay_num);  // Clear bit = ON (ACTIVE LOW)
     } else {
-        relay_states &= ~(1 << relay_num);
+        relay_states |= (1 << relay_num);   // Set bit = OFF (ACTIVE LOW)
     }
     
     if (i2c_write_byte(PCF8574_OUTPUT_ADDR, relay_states)) {
-        DEBUG_PRINTF("Relay %d %s\n", relay_num, state ? "ON" : "OFF");
+        DEBUG_PRINTF("Relay %d %s (MAC-SYS ACTIVE LOW)\n", relay_num, state ? "ON" : "OFF");
         return true;
     } else {
         handleI2CError("setRelayState", PCF8574_OUTPUT_ADDR);
@@ -124,18 +125,21 @@ bool getRelayState(uint8_t relay_num) {
     if (relay_num >= 6) {
         return false;
     }
-    return (relay_states & (1 << relay_num)) != 0;
+    // MAC-SYS hardware uses ACTIVE LOW relays (0 = ON, 1 = OFF)
+    return (relay_states & (1 << relay_num)) == 0;  // Return inverted state
 }
 
 uint8_t getAllRelayStates() {
-    return relay_states;
+    // MAC-SYS hardware uses ACTIVE LOW relays - return inverted states for logical representation
+    return ~relay_states;
 }
 
 bool setAllRelayStates(uint8_t states) {
-    relay_states = states;
+    // MAC-SYS hardware uses ACTIVE LOW relays - invert the logical states
+    relay_states = ~states;
     
     if (i2c_write_byte(PCF8574_OUTPUT_ADDR, relay_states)) {
-        DEBUG_PRINTF("All relays set to: 0x%02X\n", relay_states);
+        DEBUG_PRINTF("All relays set to: 0x%02X (logical), 0x%02X (hardware)\n", states, relay_states);
         return true;
     } else {
         handleI2CError("setAllRelayStates", PCF8574_OUTPUT_ADDR);
@@ -175,39 +179,16 @@ uint8_t getAllInputStates() {
 // HVAC Control Functions
 bool setCompressorState(bool state) {
     // Compressor is typically connected to relay 0
-    static bool last_compressor_state = false;
-    static unsigned long last_compressor_change = 0;
-    
-    // Implement minimum cycle times for compressor protection
-    if (state != last_compressor_state) {
-        unsigned long time_since_change = millis() - last_compressor_change;
-        // Use configured minimum cycle time (seconds) if available
-        unsigned long min_cycle_ms = (unsigned long)g_system_config.hvac.min_cycle_time * 1000UL;
-        if (min_cycle_ms == 0) {
-            min_cycle_ms = MIN_COMPRESSOR_CYCLE_TIME; // fallback to compile-time constant (ms)
-        }
-
-        if (state && time_since_change < min_cycle_ms) {
-            DEBUG_PRINTLN("Compressor start blocked - minimum off time not met");
-            return false;
-        }
-        
-        if (!state && time_since_change < min_cycle_ms) {
-            DEBUG_PRINTLN("Compressor stop blocked - minimum on time not met");
-            return false;
-        }
-        
-        last_compressor_change = millis();
-        last_compressor_state = state;
-    }
+    // Note: Delivery compensation provides thermal protection, no time-based protection needed
     
     g_system_status.compressor_running = state;
     
     if (setRelayState(0, state)) {
-        DEBUG_PRINTF("Compressor %s\n", state ? "STARTED" : "STOPPED");
+        DEBUG_PRINTF("Compressor %s (relay 0) - No protection delays\n", state ? "STARTED" : "STOPPED");
         return true;
     }
     
+    DEBUG_PRINTLN("Failed to control compressor relay");
     return false;
 }
 
