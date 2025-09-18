@@ -22,7 +22,8 @@ enum ScheduleEventType {
 struct ScheduleEvent {
     bool enabled;                    // Event enabled/disabled
     uint8_t day_mask;               // Days of week (bit 0=Sunday, 1=Monday, etc.)
-    uint16_t time_minutes;          // Time in minutes since midnight (0-1439)
+    uint16_t time_minutes;          // Start time in minutes since midnight (0-1439)
+    uint16_t end_time_minutes;      // End time in minutes since midnight (0-1439)
     ScheduleEventType event_type;   // Type of scheduled event
     uint8_t zone_id;               // Target zone (0-3) or relay number
     float value1;                  // Primary value (temperature, relay state, etc.)

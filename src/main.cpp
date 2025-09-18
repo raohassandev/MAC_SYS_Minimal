@@ -1,4 +1,5 @@
 #include "config.h"
+#include "schedule_html.h"
 #include "hardware.h"
 #include "network.h"
 #include "auth.h"
@@ -2451,7 +2452,9 @@ void setupDeviceWebServer() {
     });
     REMOVED CONFLICTING ROUTE - END */
 
-    device_server->on("/schedule", []() {
+    /*
+/* Old schedule page disabled
+device_server->on("/schedule", []() {
         String html = "<!DOCTYPE html><html><head><title>MAC-SYS Schedule</title>";
         html += "<meta name='viewport' content='width=device-width, initial-scale=1.0'>";
         html += "<meta charset='UTF-8'>";
@@ -2726,8 +2729,14 @@ void setupDeviceWebServer() {
         html += "</body></html>";
         device_server->send(200, "text/html", html);
     });
-    
-#if 0
+*/
+
+    // New clean schedule page using template
+    device_server->on("/schedule", []() {
+        device_server->send(200, "text/html", FPSTR(schedule_html));
+    });
+
+/*
     // Schedule API endpoints
     device_server->on("/api/schedule/global", HTTP_POST, []() {
         if (device_server->hasArg("enabled")) {
@@ -2803,7 +2812,7 @@ void setupDeviceWebServer() {
         }
     });
     
-#endif
+*/
     // New schedule GET endpoint (returns persisted schedules for zone 0)
     device_server->on("/api/schedule", HTTP_GET, []() {
         StaticJsonDocument<2048> doc;
@@ -2820,6 +2829,7 @@ void setupDeviceWebServer() {
             JsonObject e = events.createNestedObject();
             e["enabled"] = ev.enabled;
             e["time"] = schedule_manager.formatTimeFromMinutes(ev.time_minutes);
+            e["end_time"] = schedule_manager.formatTimeFromMinutes(ev.end_time_minutes);
             e["setpoint"] = ev.value1;
             e["delta"] = ev.value2;
             e["days"] = ev.day_mask;
@@ -2831,7 +2841,7 @@ void setupDeviceWebServer() {
         device_server->send(200, "application/json", out);
     });
 
-#if 0
+/*
     // (Removed legacy) /api/schedule/save (disabled)
         if (body.length() == 0) body = device_server->arg("scheduleData");
         if (body.length() == 0) {
@@ -2860,6 +2870,8 @@ void setupDeviceWebServer() {
             ev.day_mask = obj["days"].is<uint8_t>() ? obj["days"].as<uint8_t>() : (1 << 0);
             const char* timeStr = obj["time"].is<const char*>() ? obj["time"].as<const char*>() : "00:00";
             ev.time_minutes = schedule_manager.parseTimeToMinutes(String(timeStr));
+            const char* endTimeStr = obj["end_time"].is<const char*>() ? obj["end_time"].as<const char*>() : "23:59";
+            ev.end_time_minutes = schedule_manager.parseTimeToMinutes(String(endTimeStr));
             const char* desc = obj["description"].is<const char*>() ? obj["description"].as<const char*>() : "Schedule Event";
             strncpy(ev.description, desc, sizeof(ev.description)-1);
             ev.description[sizeof(ev.description)-1] = '\0';
@@ -2882,7 +2894,7 @@ void setupDeviceWebServer() {
         }
     });
 
-#endif
+*/
     // POST /api/schedule (create/replace full schedule), PUT /api/schedule (idempotent replace)
     device_server->on("/api/schedule", HTTP_POST, []() {
         String body = device_server->arg("plain");
@@ -2909,6 +2921,8 @@ void setupDeviceWebServer() {
             ev.day_mask = obj["days"].is<uint8_t>() ? obj["days"].as<uint8_t>() : (1 << 0);
             const char* timeStr = obj["time"].is<const char*>() ? obj["time"].as<const char*>() : "00:00";
             ev.time_minutes = schedule_manager.parseTimeToMinutes(String(timeStr));
+            const char* endTimeStr = obj["end_time"].is<const char*>() ? obj["end_time"].as<const char*>() : "23:59";
+            ev.end_time_minutes = schedule_manager.parseTimeToMinutes(String(endTimeStr));
             const char* desc = obj["description"].is<const char*>() ? obj["description"].as<const char*>() : "Schedule Event";
             strncpy(ev.description, desc, sizeof(ev.description)-1);
             ev.description[sizeof(ev.description)-1] = '\0';
@@ -2953,6 +2967,8 @@ void setupDeviceWebServer() {
             ev.day_mask = obj["days"].is<uint8_t>() ? obj["days"].as<uint8_t>() : (1 << 0);
             const char* timeStr = obj["time"].is<const char*>() ? obj["time"].as<const char*>() : "00:00";
             ev.time_minutes = schedule_manager.parseTimeToMinutes(String(timeStr));
+            const char* endTimeStr = obj["end_time"].is<const char*>() ? obj["end_time"].as<const char*>() : "23:59";
+            ev.end_time_minutes = schedule_manager.parseTimeToMinutes(String(endTimeStr));
             const char* desc = obj["description"].is<const char*>() ? obj["description"].as<const char*>() : "Schedule Event";
             strncpy(ev.description, desc, sizeof(ev.description)-1);
             ev.description[sizeof(ev.description)-1] = '\0';
@@ -3015,7 +3031,7 @@ void setupDeviceWebServer() {
         }
     });
     
-#if 0
+/*
     // Simplified schedule API endpoints for new UI
     device_server->on("/api/schedule/toggle", HTTP_POST, []() {
         bool enabled = false;
@@ -3052,8 +3068,8 @@ void setupDeviceWebServer() {
         device_server->send(200, "application/json", out);
     });
     
-#endif
-#if 0
+*/
+/*
     // legacy endpoints removed
         String json_data = device_server->arg("plain");
         if (json_data.length() == 0) {
@@ -3098,7 +3114,7 @@ void setupDeviceWebServer() {
         device_server->send(200, "application/json", json);
     });
     
-#endif
+*/
     // ========== COMPREHENSIVE RESTful API ENDPOINTS ==========
     
     // API Info and Documentation
