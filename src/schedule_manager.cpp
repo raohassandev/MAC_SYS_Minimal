@@ -1,6 +1,12 @@
 #include "schedule_manager.h"
 #include "config.h"
 #include <EEPROM.h>
+#include <stddef.h>
+
+static_assert(sizeof(SystemConfig) <= SCHEDULE_CONFIG_ADDR,
+              "SystemConfig overlaps schedule storage region");
+static_assert((SCHEDULE_CONFIG_ADDR + sizeof(ScheduleConfig)) <= CONFIG_EEPROM_SIZE,
+              "ScheduleConfig does not fit in configured EEPROM size");
 
 // Global schedule manager instance
 ScheduleManager schedule_manager;
@@ -34,31 +40,30 @@ ScheduleManager::ScheduleManager() {
 
 bool ScheduleManager::begin() {
     DEBUG_PRINTLN("Initializing Schedule Manager...");
+    // Do not erase EEPROM here; preserve persisted schedules across reboots
     loadConfig();
     DEBUG_PRINTF("[OK] Schedule Manager initialized (%d zones)\n", MAX_ZONES);
     return true;
 }
 
 void ScheduleManager::loadConfig() {
-    // Check if EEPROM has valid config
-    uint16_t stored_checksum;
-    EEPROM.get(SCHEDULE_CONFIG_ADDR, stored_checksum);
+    DEBUG_PRINTLN("Loading schedule config from EEPROM...");
     
-    if (stored_checksum != 0) {  // Config exists
-        EEPROM.get(SCHEDULE_CONFIG_ADDR, config);
-        uint16_t calculated_checksum = calculateChecksum();
-        
-        if (config.checksum == calculated_checksum) {
-            config_loaded = true;
-            DEBUG_PRINTLN("[OK] Schedule config loaded from EEPROM");
-            DEBUG_PRINTF("📅 %d zones configured, global: %s\n", 
-                        MAX_ZONES, config.global_enabled ? "ON" : "OFF");
-        } else {
-            DEBUG_PRINTLN("⚠️ Schedule config checksum mismatch, using defaults");
-            resetToDefaults();
-        }
+    // Load the full config structure from EEPROM first
+    ScheduleConfig temp_config;
+    EEPROM.get(SCHEDULE_CONFIG_ADDR, temp_config);
+    
+    // Robust validation: verify checksum instead of timestamp heuristics
+    uint16_t calc = calculateChecksum(temp_config);
+    bool checksum_ok = (calc == temp_config.checksum);
+    
+    if (checksum_ok) {
+        config = temp_config;
+        config_loaded = true;
+        DEBUG_PRINTLN("[OK] Schedule config loaded from EEPROM");
+        DEBUG_PRINTF("Zone 0 has %d events\n", config.zones[0].active_events);
     } else {
-        DEBUG_PRINTLN("⚠️ No schedule config in EEPROM, using defaults");
+        DEBUG_PRINTLN("No valid schedule config found (checksum mismatch), using defaults");
         resetToDefaults();
     }
 }
@@ -67,10 +72,17 @@ void ScheduleManager::saveConfig() {
     config.last_update = rtc_manager.getUnixTime();
     config.checksum = calculateChecksum();
     
-    EEPROM.put(SCHEDULE_CONFIG_ADDR, config);
-    EEPROM.commit();
+    DEBUG_PRINTF("Saving schedule config: %d events, timestamp=%lu\n", 
+                 config.zones[0].active_events, config.last_update);
     
-    DEBUG_PRINTLN("[OK] Schedule config saved to EEPROM");
+    EEPROM.put(SCHEDULE_CONFIG_ADDR, config);
+    bool commit_result = EEPROM.commit();
+    
+    if (commit_result) {
+        DEBUG_PRINTLN("[OK] Schedule config saved to EEPROM");
+    } else {
+        DEBUG_PRINTLN("[ERROR] Failed to commit schedule config to EEPROM");
+    }
 }
 
 void ScheduleManager::resetToDefaults() {
@@ -130,15 +142,26 @@ void ScheduleManager::resetToDefaults() {
 }
 
 uint16_t ScheduleManager::calculateChecksum() {
+    return calculateChecksum(config);
+}
+
+// Overload: calculate checksum for an arbitrary ScheduleConfig (used during load)
+uint16_t ScheduleManager::calculateChecksum(const ScheduleConfig& cfg) {
+    const uint8_t* data = reinterpret_cast<const uint8_t*>(&cfg);
+    const size_t size = sizeof(ScheduleConfig);
+    const size_t checksum_offset = offsetof(ScheduleConfig, checksum);
+    const size_t checksum_end = checksum_offset + sizeof(cfg.checksum);
+
     uint16_t checksum = 0;
-    uint8_t* data = (uint8_t*)&config;
-    size_t size = sizeof(ScheduleConfig) - sizeof(uint16_t); // Exclude checksum field
-    
+
     for (size_t i = 0; i < size; i++) {
+        if (i >= checksum_offset && i < checksum_end) {
+            continue; // skip checksum field bytes
+        }
         checksum ^= data[i];
         checksum = (checksum << 1) | (checksum >> 15); // Rotate left
     }
-    
+
     return checksum;
 }
 
@@ -291,11 +314,45 @@ bool ScheduleManager::isEventActive(const ScheduleEvent& event, int current_day,
     
     // Check if today is in the day mask
     if (!(event.day_mask & (1 << current_day))) {
+        // If the event spans midnight, also check if it began yesterday
+        if (event.time_minutes > event.end_time_minutes) {
+            int previous_day = (current_day + 6) % 7;
+            if (!(event.day_mask & (1 << previous_day))) {
+                return false;
+            }
+            // For events that started yesterday and wrap past midnight,
+            // they remain active until end_time_minutes on the current day
+            return current_minutes < event.end_time_minutes;
+        }
         return false;
     }
     
-    // Check if current time matches event time (within 1 minute window)
-    return (abs(current_minutes - (int)event.time_minutes) <= 1);
+    uint16_t start = event.time_minutes;
+    uint16_t end = event.end_time_minutes;
+
+    if (start == end) {
+        // Treat equal start/end as an instantaneous trigger
+        return current_minutes == start;
+    }
+
+    if (start < end) {
+        // Standard same-day window
+        return current_minutes >= start && current_minutes < end;
+    }
+
+    // Event wraps past midnight: active from start -> 24:00 on listed day,
+    // and from 00:00 -> end on the next day
+    if (current_minutes >= start) {
+        return true;
+    }
+
+    // If we're here, current_minutes < start. The only way it is active is
+    // if we're on the following calendar day and still before end time.
+    int previous_day = (current_day + 6) % 7;
+    if (event.day_mask & (1 << previous_day)) {
+        return current_minutes < end;
+    }
+    return false;
 }
 
 void ScheduleManager::executeEvent(const ScheduleEvent& event) {

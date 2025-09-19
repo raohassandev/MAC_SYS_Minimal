@@ -20,7 +20,7 @@ const char temperature_html[] PROGMEM = R"rawliteral(
             background: #0B1426;
             color: #E5E7EB;
             line-height: 1.6;
-            padding-top: 6rem;
+            padding-top: 6.5rem;
         }
         
         .header {
@@ -35,12 +35,35 @@ const char temperature_html[] PROGMEM = R"rawliteral(
             box-shadow: 0 2px 10px rgba(0,0,0,0.3);
         }
         
+        .header-top {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1.5rem;
+        }
+        
         .header h1 {
             font-size: 1.5rem;
             margin: 0;
             display: flex;
             align-items: center;
             gap: 0.75rem;
+        }
+        
+        .header-info {
+            text-align: right;
+        }
+        
+        .header-time {
+            font-size: 1.15rem;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+        }
+        
+        .header-date {
+            font-size: 0.85rem;
+            color: #dbeafe;
+            margin-top: 0.2rem;
         }
         
         .nav-links {
@@ -62,13 +85,96 @@ const char temperature_html[] PROGMEM = R"rawliteral(
         .nav-links a:hover {
             background: rgba(255,255,255,0.2);
         }
-        
+
         .nav-links a.active {
             background: #00D4FF;
             color: #0B1426;
             font-weight: 600;
         }
-        
+
+        .setpoint-source {
+            margin-top: 1rem;
+            padding: 1rem;
+            background: #1f2937;
+            border: 1px solid #374151;
+            border-radius: 0.75rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .setpoint-info {
+            display: flex;
+            flex-direction: column;
+            gap: 0.35rem;
+        }
+
+        .setpoint-title {
+            font-size: 1rem;
+            font-weight: 600;
+            color: #E5E7EB;
+        }
+
+        .setpoint-subtitle {
+            font-size: 0.85rem;
+            color: #9CA3AF;
+        }
+
+        .toggle-switch {
+            position: relative;
+            display: inline-block;
+            width: 52px;
+            height: 28px;
+        }
+
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .toggle-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #374151;
+            transition: .2s;
+            border-radius: 34px;
+        }
+
+        .toggle-slider:before {
+            position: absolute;
+            content: "";
+            height: 22px;
+            width: 22px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            transition: .2s;
+            border-radius: 50%;
+        }
+
+        .toggle-switch input:checked + .toggle-slider {
+            background-color: #2563EB;
+        }
+
+        .toggle-switch input:checked + .toggle-slider:before {
+            transform: translateX(24px);
+        }
+
+        .setpoint-status {
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: #E5E7EB;
+        }
+
+        .setpoint-status.schedule { color: #38bdf8; }
+        .setpoint-status.direct { color: #facc15; }
+
         .container {
             max-width: 1400px;
             margin: 1rem auto;
@@ -214,7 +320,28 @@ const char temperature_html[] PROGMEM = R"rawliteral(
             color: #E5E7EB;
             margin-top: 0.5rem;
         }
-        
+
+        .setpoint-tag {
+            display: inline-block;
+            margin-left: 8px;
+            padding: 2px 10px;
+            border-radius: 999px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            background: #374151;
+            color: #E5E7EB;
+        }
+
+        .setpoint-tag.schedule {
+            background: #0369a1;
+            color: #e0f2fe;
+        }
+
+        .setpoint-tag.direct {
+            background: #92400e;
+            color: #fef9c3;
+        }
+
         .control-group {
             margin-bottom: 0.5rem;
         }
@@ -478,7 +605,13 @@ const char temperature_html[] PROGMEM = R"rawliteral(
 <body>
     <!-- Professional Navigation Header -->
     <div class='header'>
-        <h1>Temperature Control System</h1>
+        <div class='header-top'>
+            <h1>Temperature Control System</h1>
+            <div class='header-info'>
+                <div class='header-time' id='headerTime'>--:--:--</div>
+                <div class='header-date' id='headerDate'>--</div>
+            </div>
+        </div>
         <div class='nav-links'>
             <a href='/'>Dashboard</a>
             <a href='/system'>System</a>
@@ -503,7 +636,11 @@ const char temperature_html[] PROGMEM = R"rawliteral(
                         Compensated: <span id="compensatedTemp">--</span>°C
                     </div>
                     <div class="temp-setpoint">
-                        Setpoint: <span id="setpointDisplay">--</span>°C
+                        Active Setpoint: <span id="activeSetpointDisplay">--</span>°C
+                        <span class="setpoint-tag direct" id="setpointSourceTag">Direct</span>
+                    </div>
+                    <div class="temp-compensated">
+                        Manual Setpoint: <span id="manualSetpointDisplay">--</span>°C
                     </div>
                 </div>
                 <div class="state-indicators">
@@ -550,6 +687,19 @@ const char temperature_html[] PROGMEM = R"rawliteral(
                            min="0.5" max="3" step="0.5" value="1" 
                            oninput="updateDelta()">
                 </div>
+                <div class="setpoint-source">
+                    <div class="setpoint-info">
+                        <div class="setpoint-title">Setpoint Source</div>
+                        <div class="setpoint-subtitle">Switch between manual control and schedule automation</div>
+                    </div>
+                    <div style="display:flex;align-items:center;gap:12px">
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="setpointToggle" />
+                            <span class="toggle-slider"></span>
+                        </label>
+                        <span class="setpoint-status direct" id="setpointStatus">Direct</span>
+                    </div>
+                </div>
             </div>
             
             <div class="card">
@@ -595,7 +745,17 @@ const char temperature_html[] PROGMEM = R"rawliteral(
     <script>
         let currentMode = 0;
         let updateInterval;
-        
+        let setpointMode = 0; // 0=Direct, 1=Schedule
+
+        function updateHeaderClock() {
+            const elTime = document.getElementById('headerTime');
+            const elDate = document.getElementById('headerDate');
+            if (!elTime || !elDate) return;
+            const now = new Date();
+            elTime.textContent = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            elDate.textContent = now.toLocaleDateString([], { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' });
+        }
+
         function showNotification(message, isError = false) {
             const notification = document.getElementById('notification');
             notification.textContent = message;
@@ -639,8 +799,18 @@ const char temperature_html[] PROGMEM = R"rawliteral(
             const compensatedTemp = document.getElementById('compensatedTemp');
             if (compensatedTemp) compensatedTemp.textContent = status.compensated_temp.toFixed(1);
             
-            const setpointDisplay = document.getElementById('setpointDisplay');
-            if (setpointDisplay) setpointDisplay.textContent = status.setpoint.toFixed(1);
+            const activeSetpoint = status.active_setpoint !== undefined ? status.active_setpoint : status.setpoint;
+            const manualSetpoint = status.manual_setpoint !== undefined ? status.manual_setpoint : status.setpoint;
+            const activeSetpointDisplay = document.getElementById('activeSetpointDisplay');
+            if (activeSetpointDisplay) activeSetpointDisplay.textContent = activeSetpoint.toFixed(1);
+            const manualSetpointDisplay = document.getElementById('manualSetpointDisplay');
+            if (manualSetpointDisplay) manualSetpointDisplay.textContent = manualSetpoint.toFixed(1);
+            const sourceTag = document.getElementById('setpointSourceTag');
+            if (sourceTag) {
+                const label = status.setpoint_source === 'schedule' ? 'Schedule' : 'Direct';
+                sourceTag.textContent = label;
+                sourceTag.className = 'setpoint-tag ' + (status.setpoint_source === 'schedule' ? 'schedule' : 'direct');
+            }
             
             // Update location
             const locationDisplay = document.getElementById('locationDisplay');
@@ -676,10 +846,10 @@ const char temperature_html[] PROGMEM = R"rawliteral(
             const systemEnable = document.getElementById('systemEnable');
             if (systemEnable) systemEnable.checked = status.enabled;
             const setpointSlider = document.getElementById('setpointSlider');
-            if (setpointSlider) setpointSlider.value = status.setpoint;
+            if (setpointSlider) setpointSlider.value = manualSetpoint;
             
             const setpointValue = document.getElementById('setpointValue');
-            if (setpointValue) setpointValue.textContent = status.setpoint.toFixed(1);
+            if (setpointValue) setpointValue.textContent = manualSetpoint.toFixed(1);
             
             const deltaSlider = document.getElementById('deltaSlider');
             if (deltaSlider) deltaSlider.value = status.delta;
@@ -710,6 +880,18 @@ const char temperature_html[] PROGMEM = R"rawliteral(
                 
                 const maxTemp = document.getElementById('maxTemp');
                 if (maxTemp) maxTemp.textContent = status.stats.max_temp.toFixed(1) + '°C';
+            }
+
+            if (status.operation_mode !== undefined) {
+                setpointMode = Number(status.operation_mode) === 1 ? 1 : 0;
+                updateSetpointModeUI();
+                const statusChip = document.getElementById('setpointStatus');
+                if (statusChip) {
+                    const usingSchedule = status.setpoint_source === 'schedule';
+                    let chipText = setpointMode === 1 ? (usingSchedule ? 'Schedule' : 'Schedule (inactive)') : 'Direct';
+                    statusChip.textContent = chipText;
+                    statusChip.className = 'setpoint-status ' + (usingSchedule ? 'schedule' : 'direct');
+                }
             }
         }
         
@@ -757,10 +939,13 @@ const char temperature_html[] PROGMEM = R"rawliteral(
         async function updateSetpoint() {
             const setpoint = parseFloat(document.getElementById('setpointSlider').value);
             document.getElementById('setpointValue').textContent = setpoint.toFixed(1);
+            const manualDisplay = document.getElementById('manualSetpointDisplay');
+            if (manualDisplay) manualDisplay.textContent = setpoint.toFixed(1);
             
             const result = await fetchAPI('/temperature/setpoint', 'POST', { setpoint });
             if (result) {
                 showNotification('Setpoint updated');
+                updateStatus();
             }
         }
         
@@ -783,7 +968,44 @@ const char temperature_html[] PROGMEM = R"rawliteral(
                 showNotification('Compensation updated');
             }
         }
-        
+
+        function updateSetpointModeUI() {
+            const toggle = document.getElementById('setpointToggle');
+            const status = document.getElementById('setpointStatus');
+            if (!toggle || !status) return;
+            toggle.checked = setpointMode === 1;
+            status.textContent = setpointMode === 1 ? 'Schedule' : 'Direct';
+            status.className = 'setpoint-status ' + (setpointMode === 1 ? 'schedule' : 'direct');
+        }
+
+        async function setSetpointMode(mode) {
+            const desired = mode === 1 ? 1 : 0;
+            const toggle = document.getElementById('setpointToggle');
+            if (toggle) toggle.disabled = true;
+            try {
+                const res = await fetch('/api/schedule/setpoint-mode', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ mode: desired === 1 ? 'schedule' : 'direct' })
+                });
+                if (!res.ok) throw new Error('Request failed (' + res.status + ')');
+                const data = await res.json();
+                if (data && data.operation_mode !== undefined) {
+                    setpointMode = Number(data.operation_mode) === 1 ? 1 : 0;
+                } else {
+                    setpointMode = desired;
+                }
+                updateSetpointModeUI();
+            } catch (err) {
+                console.error(err);
+                showNotification('Failed to change mode', true);
+                updateSetpointModeUI();
+            } finally {
+                if (toggle) toggle.disabled = false;
+                updateStatus();
+            }
+        }
+
         async function emergencyStop() {
             if (confirm('Activate emergency stop?')) {
                 const result = await fetchAPI('/temperature/emergency/stop', 'POST');
@@ -806,9 +1028,22 @@ const char temperature_html[] PROGMEM = R"rawliteral(
         document.addEventListener('DOMContentLoaded', () => {
             updateStatus();
             loadConfig();
-            
+            updateHeaderClock();
+            updateSetpointModeUI();
+
+            const toggle = document.getElementById('setpointToggle');
+            if (toggle) {
+                toggle.addEventListener('change', () => {
+                    const target = toggle.checked ? 1 : 0;
+                    if (target !== setpointMode) {
+                        setSetpointMode(target);
+                    }
+                });
+            }
+
             // Update every 2 seconds
             updateInterval = setInterval(updateStatus, 2000);
+            setInterval(updateHeaderClock, 1000);
         });
     </script>
 </body>

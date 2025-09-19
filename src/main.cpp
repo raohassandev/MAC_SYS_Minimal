@@ -8,6 +8,7 @@
 #include "temperature.h"
 #include "relay_control.h"
 #include "temperature_control.h"
+#include "simple_temp_control.h"
 #include "rtc_manager.h"
 #include "schedule_manager.h"
 #include "modbus_manager.h"
@@ -50,19 +51,34 @@ static unsigned long g_cached_status_at = 0;
 
 static inline void refreshStatusJson() {
     // Rebuild cached JSON from current status; keep it small and fast
-    StaticJsonDocument<256> doc;
+    StaticJsonDocument<512> doc;
+
+    const float manual_setpoint = g_system_config.ac_setpoint;
+    const float schedule_setpoint = simple_temp.getConfig().setpoint;
+    const bool schedule_global = schedule_manager.isScheduleActive();
+    const WeeklySchedule& zone_schedule = schedule_manager.getZoneSchedule(0);
+    const bool schedule_ready = zone_schedule.enabled && zone_schedule.active_events > 0;
+    const bool using_schedule = (g_system_config.operation_mode == 1) && schedule_global && schedule_ready;
+    const float active_setpoint = using_schedule ? schedule_setpoint : manual_setpoint;
+
     doc["temperature"] = g_system_status.current_temperature;
     doc["state"] = g_system_status.state;
     doc["uptime"] = g_system_status.uptime;
     doc["free_memory"] = g_system_status.free_memory;
     doc["current_time"] = rtc_manager.getFormattedDateTime();
+
     // Control context for dashboard
     doc["operation_mode"] = g_system_config.operation_mode; // 0=Direct, 1=Schedule
-    doc["setpoint"] = g_system_config.ac_setpoint;
-    // Control context and AC status
-    doc["operation_mode"] = g_system_config.operation_mode; // 0=Direct,1=Schedule
-    doc["setpoint"] = g_system_config.ac_setpoint;
+    doc["setpoint_source"] = using_schedule ? "schedule" : "direct";
+    doc["active_setpoint"] = active_setpoint;
+    doc["setpoint"] = active_setpoint;
+    doc["manual_setpoint"] = manual_setpoint;
+    doc["schedule_setpoint"] = schedule_setpoint;
+    doc["schedule_active"] = schedule_global;
+    doc["schedule_ready"] = schedule_ready;
     doc["ac_on"] = g_system_status.compressor_running;
+    doc["relay0"] = relay_controller.getRelayState(0);
+
     if (WiFi.status() == WL_CONNECTED) {
         doc["wifi_ssid"] = WiFi.SSID();
         doc["ip_address"] = WiFi.localIP().toString();
@@ -72,6 +88,7 @@ static inline void refreshStatusJson() {
         doc["ip_address"] = "0.0.0.0";
         doc["rssi"] = -100;
     }
+
     String tmp;
     serializeJson(doc, tmp);
     g_cached_status_json = tmp;
@@ -604,7 +621,7 @@ void setupDeviceWebServer() {
         html += "<meta name='viewport' content='width=device-width, initial-scale=1'>";
         html += "<meta charset='UTF-8'>";
         html += "<style>* { margin: 0; padding: 0; box-sizing: border-box; }";
-        html += "body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #0B1426; color: #E5E7EB; line-height: 1.6; padding-top: 6rem; }";
+        html += "body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #0B1426; color: #E5E7EB; line-height: 1.6; padding-top: 6.5rem; }";
         html += ".container { max-width: 1200px; margin: 0 auto; padding: 1.5rem; }";
         // Hero metrics section
         html += ".hero-metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.5rem; margin-bottom: 2rem; }";
@@ -614,6 +631,9 @@ void setupDeviceWebServer() {
         html += ".metric-title { font-size: 1.1rem; font-weight: 600; color: #F3F4F6; }";
         html += ".metric-value { font-size: 2rem; font-weight: 700; color: #00D4FF; margin-bottom: 0.5rem; }";
         html += ".metric-subtitle { font-size: 0.9rem; color: #9CA3AF; }";
+        html += ".setpoint-tag{display:inline-block;margin-left:8px;padding:2px 10px;border-radius:999px;font-size:0.75rem;font-weight:600;background:#374151;color:#e5e7eb;}";
+        html += ".setpoint-tag.schedule{background:#0369a1;color:#e0f2fe;}";
+        html += ".setpoint-tag.direct{background:#92400e;color:#fef9c3;}";
         html += ".status-indicator { display: inline-block; width: 12px; height: 12px; border-radius: 50%; margin-right: 0.5rem; }";
         html += ".status-running { background: #10B981; box-shadow: 0 0 8px rgba(16,185,129,0.4); }";
         html += ".status-idle { background: #6B7280; }";
@@ -622,7 +642,7 @@ void setupDeviceWebServer() {
         html += ".control-panel { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem; margin-bottom: 2rem; }";
         html += ".control-card { background: #1f2937; border: 1px solid #374151; border-radius: 8px; padding: 1rem; }";
         html += ".control-card h3 { color: #F9FAFB; margin-bottom: 1rem; font-size: 1rem; }";
-        html += ".control-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }";
+        html += ".control-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; }";
         html += ".btn { border: none; padding: 0.5rem 1rem; border-radius: 6px; cursor: pointer; font-weight: 500; transition: all 0.2s; }";
         html += ".btn-primary { background: #3B82F6; color: white; }";
         html += ".btn-primary:hover { background: #2563EB; transform: translateY(-1px); }";
@@ -649,9 +669,17 @@ void setupDeviceWebServer() {
         html += ".info-item { display: flex; justify-content: space-between; padding: 0.5rem 0; border-bottom: 1px solid #374151; }";
         html += ".info-label { color: #9CA3AF; }";
         html += ".info-value { color: #F3F4F6; font-weight: 500; }";
+        html += ".relay-pill{display:inline-block;padding:0.35rem 0.85rem;border-radius:999px;font-weight:600;font-size:0.85rem;background:#6B7280;color:#E5E7EB;}";
+        html += ".relay-pill.on{background:#10B981;color:#d1fae5;}";
+        html += ".relay-pill.off{background:#6B7280;color:#E5E7EB;}";
+        html += ".control-note{font-size:0.75rem;color:#9CA3AF;margin-top:0.5rem;}";
         // Professional navigation styles to match other pages
         html += ".header{position:fixed;top:0;left:0;right:0;z-index:1000;background:linear-gradient(135deg,#1e3a8a 0%,#3b82f6 100%);color:white;padding:1rem 2rem;box-shadow:0 2px 10px rgba(0,0,0,0.3)}";
+        html += ".header-top{display:flex;align-items:center;justify-content:space-between;gap:1.5rem}";
         html += ".header h1{font-size:1.5rem;margin:0;display:flex;align-items:center;gap:0.75rem}";
+        html += ".header-info{text-align:right}";
+        html += ".header-time{font-size:1.15rem;font-weight:600;letter-spacing:0.5px}";
+        html += ".header-date{font-size:0.85rem;color:#dbeafe;margin-top:0.2rem}";
         html += ".nav-links{margin-top:0.75rem;display:flex;gap:1.5rem;flex-wrap:wrap}";
         html += ".nav-links a{color:#dbeafe;text-decoration:none;padding:0.375rem 0.75rem;border-radius:0.375rem;transition:all 0.2s;font-size:0.875rem}";
         html += ".nav-links a:hover{background:rgba(255,255,255,0.2)}";
@@ -660,7 +688,10 @@ void setupDeviceWebServer() {
         
         // Professional navigation header
         html += "<div class='header'>";
+        html += "<div class='header-top'>";
         html += "<h1>MAC-SYS Industrial Controller</h1>";
+        html += "<div class='header-info'><div class='header-time' id='headerTime'>--:--:--</div><div class='header-date' id='headerDate'>--</div></div>";
+        html += "</div>";
         html += "<div class='nav-links'>";
         html += "<a href='/' class='active'>Dashboard</a>";
         html += "<a href='/system'>System</a>";
@@ -691,7 +722,7 @@ void setupDeviceWebServer() {
         html += "<span class='metric-title'>System Status</span>";
         html += "</div>";
         html += "<div class='metric-value' id='systemStatusValue'>" + String(g_system_status.state == 1 ? "ACTIVE" : "IDLE") + "</div>";
-        html += "<div class='metric-subtitle' id='setpointSubtitle'>Setpoint: " + String(g_system_config.ac_setpoint,1) + "°C</div>";
+        html += "<div class='metric-subtitle'>Active setpoint: <span id='activeSetpointLabel'>" + String(g_system_config.ac_setpoint,1) + "</span>°C <span class='setpoint-tag direct' id='setpointSourceTag'>Direct</span></div>";
         html += "</div>";
         // AC Status Card
         html += "<div class='metric-card'>";
@@ -752,12 +783,34 @@ void setupDeviceWebServer() {
         html += "<button class='btn btn-primary' onclick=\"location.href='/schedule'\">Schedule Editor</button>";
         // Toggle Mode button removed from dashboard
         html += "</div>";
+        html += "<div class='control-note' id='scheduleModeNote'>Mode: Direct (manual setpoint)</div>";
+        html += "</div>";
+        html += "<div class='control-card'>";
+        html += "<h3>🧊 Compressor Relay</h3>";
+        html += "<div class='control-actions'>";
+        html += "<span class='relay-pill off' id='relay0Indicator'>--</span>";
+        html += "<button class='btn btn-secondary' id='relay0Button' onclick='toggleRelay0()'>Toggle</button>";
+        html += "</div>";
+        html += "<div class='control-note'>Relay 1 follows the active setpoint. Use this toggle for quick diagnostics.</div>";
         html += "</div>";
         html += "</div>";
         
         
         // JavaScript for API calls
         html += "<script>";
+        html += "const $ = id => document.getElementById(id);";
+        html += "let relay0State = false;";
+        html += "let tempHistory = [];";
+        html += "function updateRelayCard(){ const pill=$('relay0Indicator'); if(!pill) return; pill.textContent = relay0State ? 'ON' : 'OFF'; pill.className='relay-pill ' + (relay0State ? 'on' : 'off'); const btn=$('relay0Button'); if(btn){ btn.textContent = relay0State ? 'Turn Off Relay' : 'Turn On Relay'; btn.disabled = false; }}";
+        html += "function toggleRelay0(){ const btn=$('relay0Button'); if(btn){ btn.disabled=true; btn.textContent='Working...'; } const newState = !relay0State; fetch('/api/relays/control',{ method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body:'relay=0&state=' + (newState?1:0)}).then(r=>r.json()).then(resp=>{ if(resp && resp.success){ relay0State = newState; } else { alert('Failed to toggle relay'); } }).catch(()=>alert('Failed to toggle relay')).finally(()=>{ updateRelayCard(); refreshData(); }); }";
+        html += "function updateHeaderClock(){";
+        html += "  const t=document.getElementById('headerTime');";
+        html += "  const d=document.getElementById('headerDate');";
+        html += "  if(!t||!d) return;";
+        html += "  const now=new Date();";
+        html += "  t.textContent=now.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit', second:'2-digit'});";
+        html += "  d.textContent=now.toLocaleDateString([], {weekday:'short', year:'numeric', month:'short', day:'numeric'});";
+        html += "}";
         
         // API test functions with visual feedback
         html += "function testSystemAPI() {";
@@ -842,22 +895,33 @@ void setupDeviceWebServer() {
         html += "}";
         html += "function refreshData(){";
         html += "  fetch('/api/status',{cache:'no-store'}).then(r=>r.json()).then(data=>{";
-        html += "    const $=id=>document.getElementById(id);";
+        html += "    if(!data) return;";
         html += "    if($('tempValue')) $('tempValue').textContent=(data.temperature||0).toFixed(1)+'°C';";
+        html += "    const tempValue=data.temperature||0; tempHistory.push(tempValue); if(tempHistory.length>24) tempHistory.shift();";
         html += "    const modeName=(data.operation_mode===1?'Schedule':'Direct');";
+        html += "    const sourceLabel=(data.setpoint_source==='schedule'?'Schedule':'Direct');";
+        html += "    const activeSetpoint=(data.active_setpoint!==undefined?data.active_setpoint:(data.setpoint||0));";
         html += "    if($('modeSubtitle')) $('modeSubtitle').textContent='Mode: '+modeName;";
         html += "    if($('modeLabel')) $('modeLabel').textContent=modeName;";
-        html += "    if($('setpointSubtitle')) $('setpointSubtitle').textContent='Setpoint: '+(data.setpoint||0).toFixed(1)+'°C';";
+        html += "    if($('activeSetpointLabel')) $('activeSetpointLabel').textContent=activeSetpoint.toFixed(1);";
+        html += "    const sourceTag=$('setpointSourceTag'); if(sourceTag){ sourceTag.textContent=sourceLabel; sourceTag.className='setpoint-tag '+(data.setpoint_source==='schedule'?'schedule':'direct'); }";
+        html += "    if($('scheduleModeNote')) $('scheduleModeNote').textContent='Mode: '+modeName+' – '+(sourceLabel==='Schedule'?'following schedule':'manual setpoint')+' ('+activeSetpoint.toFixed(1)+'°C)';";
         html += "    if($('acStatusValue')) $('acStatusValue').textContent = (data.ac_on?'ON':'OFF');";
         html += "    if($('uptimeValue')) $('uptimeValue').textContent=Math.floor((data.uptime||0)/3600)+'h';";
         html += "    if($('uptimeSubtitle')) $('uptimeSubtitle').textContent=(data.uptime||0)+' seconds';";
         html += "    if($('freeMemValue')) $('freeMemValue').textContent=Math.floor((data.free_memory||0)/1024)+'KB';";
         html += "    if($('freeMemSubtitle')) $('freeMemSubtitle').textContent=(data.free_memory||0)+' bytes available';";
+        html += "    relay0State = !!data.relay0;";
+        html += "    updateRelayCard();";
+        html += "    const graphContent=$('temp-graph-content'); if(graphContent && graphContent.style.display !== 'none'){ drawTempChart(); }";
         html += "  }).catch(()=>{});";
         html += "}";
         html += "console.log('Starting auto-refresh...');";
         html += "setInterval(refreshData, 2000);";
         html += "setTimeout(refreshData, 1000);";
+        html += "updateHeaderClock();";
+        html += "setInterval(updateHeaderClock, 1000);";
+        html += "updateRelayCard();";
         
         html += "</script>";
         
@@ -1017,9 +1081,13 @@ void setupDeviceWebServer() {
         // Enhanced CSS for sensor configuration
         html += "<style>";
         html += "* { margin: 0; padding: 0; box-sizing: border-box; }";
-        html += "body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #0B1426; color: #E5E7EB; line-height: 1.6; padding-top: 6rem; }";
+        html += "body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #0B1426; color: #E5E7EB; line-height: 1.6; padding-top: 6.5rem; }";
         html += ".header { position: fixed; top: 0; left: 0; right: 0; z-index: 1000; background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%); color: white; padding: 1rem 2rem; box-shadow: 0 2px 10px rgba(0,0,0,0.3); }";
+        html += ".header-top { display: flex; align-items: center; justify-content: space-between; gap: 1.5rem; }";
         html += ".header h1 { font-size: 1.5rem; margin: 0; display: flex; align-items: center; gap: 0.75rem; }";
+        html += ".header-info { text-align: right; }";
+        html += ".header-time { font-size: 1.15rem; font-weight: 600; letter-spacing: 0.5px; }";
+        html += ".header-date { font-size: 0.85rem; color: #dbeafe; margin-top: 0.2rem; }";
         html += ".nav-links { margin-top: 0.75rem; display: flex; gap: 1.5rem; flex-wrap: wrap; }";
         html += ".nav-links a { color: #dbeafe; text-decoration: none; padding: 0.375rem 0.75rem; border-radius: 0.375rem; transition: all 0.2s; font-size: 0.875rem; }";
         html += ".nav-links a:hover { background: rgba(255,255,255,0.2); }";
@@ -1054,7 +1122,10 @@ void setupDeviceWebServer() {
         
         // Header with navigation
         html += "<div class='header'>";
+        html += "<div class='header-top'>";
         html += "<h1>Sensor Configuration</h1>";
+        html += "<div class='header-info'><div class='header-time' id='headerTime'>--:--:--</div><div class='header-date' id='headerDate'>--</div></div>";
+        html += "</div>";
         html += "<div class='nav-links'>";
         html += "<a href='/'>Dashboard</a>";
         html += "<a href='/system'>System</a>";
@@ -1216,6 +1287,14 @@ void setupDeviceWebServer() {
         
         // JavaScript for sensor configuration
         html += "<script>";
+        html += "function updateHeaderClock(){";
+        html += "  const t=document.getElementById('headerTime');";
+        html += "  const d=document.getElementById('headerDate');";
+        html += "  if(!t||!d) return;";
+        html += "  const now=new Date();";
+        html += "  t.textContent=now.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit', second:'2-digit'});";
+        html += "  d.textContent=now.toLocaleDateString([], {weekday:'short', year:'numeric', month:'short', day:'numeric'});";
+        html += "}";
         html += "function testSensor(type, pin) {";
         html += "  fetch('/api/sensors/test?type=' + type + '&pin=' + pin)";
         html += "    .then(response => response.text())";
@@ -1319,6 +1398,8 @@ void setupDeviceWebServer() {
         html += "}";
         html += "document.addEventListener('DOMContentLoaded', function() {";
         html += "  setTimeout(updateSensorStatus, 500);";
+        html += "  updateHeaderClock();";
+        html += "  setInterval(updateHeaderClock, 1000);";
         html += "  document.getElementById('ds18b20_enabled').addEventListener('change', updateSensorStatus);";
         html += "  document.getElementById('am2302_enabled').addEventListener('change', updateSensorStatus);";
         html += "  document.getElementById('lm35_enabled').addEventListener('change', updateSensorStatus);";
@@ -1546,9 +1627,13 @@ void setupDeviceWebServer() {
         html += "<meta charset='UTF-8'>";
         html += "<style>";
         html += "* { margin: 0; padding: 0; box-sizing: border-box; }";
-        html += "body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #0B1426; color: #E5E7EB; line-height: 1.6; padding-top: 6rem; }";
+        html += "body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #0B1426; color: #E5E7EB; line-height: 1.6; padding-top: 6.5rem; }";
         html += ".header { position: fixed; top: 0; left: 0; right: 0; z-index: 1000; background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%); color: white; padding: 1rem 2rem; box-shadow: 0 2px 10px rgba(0,0,0,0.3); }";
+        html += ".header-top { display: flex; align-items: center; justify-content: space-between; gap: 1.5rem; }";
         html += ".header h1 { font-size: 1.5rem; margin: 0; display: flex; align-items: center; gap: 0.75rem; }";
+        html += ".header-info { text-align: right; }";
+        html += ".header-time { font-size: 1.15rem; font-weight: 600; letter-spacing: 0.5px; }";
+        html += ".header-date { font-size: 0.85rem; color: #dbeafe; margin-top: 0.2rem; }";
         html += ".nav-links { margin-top: 0.75rem; display: flex; gap: 1.5rem; flex-wrap: wrap; }";
         html += ".nav-links a { color: #dbeafe; text-decoration: none; padding: 0.375rem 0.75rem; border-radius: 0.375rem; transition: all 0.2s; font-size: 0.875rem; }";
         html += ".nav-links a:hover { background: rgba(255,255,255,0.2); }";
@@ -1900,9 +1985,13 @@ void setupDeviceWebServer() {
         html += "<meta name='viewport' content='width=device-width, initial-scale=1'>";
         html += "<style>";
         html += "* { margin: 0; padding: 0; box-sizing: border-box; }";
-        html += "body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #0B1426; color: #E5E7EB; line-height: 1.6; padding-top: 6rem; }";
+        html += "body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #0B1426; color: #E5E7EB; line-height: 1.6; padding-top: 6.5rem; }";
         html += ".header { position: fixed; top: 0; left: 0; right: 0; z-index: 1000; background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%); color: white; padding: 1rem 2rem; box-shadow: 0 2px 10px rgba(0,0,0,0.3); }";
+        html += ".header-top { display: flex; align-items: center; justify-content: space-between; gap: 1.5rem; }";
         html += ".header h1 { font-size: 1.5rem; margin: 0; display: flex; align-items: center; gap: 0.75rem; }";
+        html += ".header-info { text-align: right; }";
+        html += ".header-time { font-size: 1.15rem; font-weight: 600; letter-spacing: 0.5px; }";
+        html += ".header-date { font-size: 0.85rem; color: #dbeafe; margin-top: 0.2rem; }";
         html += ".nav-links { margin-top: 0.75rem; display: flex; gap: 1.5rem; flex-wrap: wrap; }";
         html += ".nav-links a { color: #dbeafe; text-decoration: none; padding: 0.375rem 0.75rem; border-radius: 0.375rem; transition: all 0.2s; font-size: 0.875rem; }";
         html += ".nav-links a:hover { background: rgba(255,255,255,0.2); }";
@@ -1929,7 +2018,10 @@ void setupDeviceWebServer() {
         
         // Header with navigation
         html += "<div class='header'>";
+        html += "<div class='header-top'>";
         html += "<h1>System Status</h1>";
+        html += "<div class='header-info'><div class='header-time' id='headerTime'>--:--:--</div><div class='header-date' id='headerDate'>--</div></div>";
+        html += "</div>";
         html += "<div class='nav-links'>";
         html += "<a href='/'>Dashboard</a>";
         html += "<a href='/system' class='active'>System</a>";
@@ -2068,6 +2160,14 @@ void setupDeviceWebServer() {
         
         // JavaScript
         html += "<script>";
+        html += "function updateHeaderClock(){";
+        html += "  const t=document.getElementById('headerTime');";
+        html += "  const d=document.getElementById('headerDate');";
+        html += "  if(!t||!d) return;";
+        html += "  const now=new Date();";
+        html += "  t.textContent=now.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit', second:'2-digit'});";
+        html += "  d.textContent=now.toLocaleDateString([], {weekday:'short', year:'numeric', month:'short', day:'numeric'});";
+        html += "}";
         html += "function testSystemAPI() {";
         html += "  fetch('/api/system').then(r => r.json()).then(data => {";
         html += "    document.getElementById('api-result').style.display = 'block';";
@@ -2089,6 +2189,8 @@ void setupDeviceWebServer() {
         html += "}";
         // Auto-refresh disabled for better user interaction - use manual refresh
         // html += "setInterval(() => location.reload(), 10000);";
+        html += "updateHeaderClock();";
+        html += "setInterval(updateHeaderClock, 1000);";
         html += "</script>";
         html += "</body></html>";
         
@@ -2133,7 +2235,10 @@ void setupDeviceWebServer() {
         
         // Header with navigation
         html += "<div class='header'>";
+        html += "<div class='header-top'>";
         html += "<h1>Relay Control System</h1>";
+        html += "<div class='header-info'><div class='header-time' id='headerTime'>--:--:--</div><div class='header-date' id='headerDate'>--</div></div>";
+        html += "</div>";
         html += "<div class='nav-links'>";
         html += "<a href='/'>Dashboard</a>";
         html += "<a href='/system'>System</a>";
@@ -2189,6 +2294,14 @@ void setupDeviceWebServer() {
         
         // JavaScript
         html += "<script>";
+        html += "function updateHeaderClock(){";
+        html += "  const t=document.getElementById('headerTime');";
+        html += "  const d=document.getElementById('headerDate');";
+        html += "  if(!t||!d) return;";
+        html += "  const now=new Date();";
+        html += "  t.textContent=now.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit', second:'2-digit'});";
+        html += "  d.textContent=now.toLocaleDateString([], {weekday:'short', year:'numeric', month:'short', day:'numeric'});";
+        html += "}";
         html += "function controlRelay(relay, state) {";
         html += "  const button = event.target;";
         html += "  button.disabled = true;";
@@ -2238,6 +2351,8 @@ void setupDeviceWebServer() {
         html += "}";
         // Auto-refresh disabled for better user interaction
         // html += "setInterval(() => location.reload(), 5000);";
+        html += "updateHeaderClock();";
+        html += "setInterval(updateHeaderClock, 1000);";
         html += "</script>";
         html += "</body></html>";
         
@@ -2820,6 +2935,7 @@ device_server->on("/schedule", []() {
 
         doc["global_enabled"] = schedule_manager.isScheduleActive();
         doc["zone_enabled"] = sched.enabled;
+        doc["setpoint_mode"] = g_system_config.operation_mode; // 0=Direct, 1=Schedule
         doc["zone_name"] = String(sched.zone_name);
         doc["active_events"] = sched.active_events;
 
@@ -3115,6 +3231,65 @@ device_server->on("/schedule", []() {
     });
     
 */
+    // Direct vs Schedule setpoint mode control
+    device_server->on("/api/schedule/setpoint-mode", HTTP_POST, []() {
+        int current = g_system_config.operation_mode;
+        int desired = current;
+        bool provided = false;
+
+        auto parseModeString = [&](const String& modeStr) {
+            String lower = modeStr;
+            lower.toLowerCase();
+            if (lower == "schedule" || lower == "1" || lower == "on" || lower == "true") {
+                return 1;
+            }
+            if (lower == "direct" || lower == "0" || lower == "off" || lower == "false") {
+                return 0;
+            }
+            return current;
+        };
+
+        if (device_server->hasArg("mode")) {
+            desired = parseModeString(device_server->arg("mode"));
+            provided = true;
+        } else if (device_server->hasArg("operation_mode")) {
+            desired = parseModeString(device_server->arg("operation_mode"));
+            provided = true;
+        } else if (device_server->hasArg("plain")) {
+            StaticJsonDocument<128> body;
+            if (deserializeJson(body, device_server->arg("plain")) == DeserializationError::Ok) {
+                if (body.containsKey("mode")) {
+                    desired = parseModeString(body["mode"].as<String>());
+                    provided = true;
+                } else if (body.containsKey("operation_mode")) {
+                    desired = parseModeString(body["operation_mode"].as<String>());
+                    provided = true;
+                }
+            }
+        }
+
+        if (!provided) {
+            desired = (current == 0) ? 1 : 0; // Toggle as fallback
+        }
+
+        desired = desired ? 1 : 0;
+
+        if (desired != current) {
+            g_system_config.operation_mode = desired;
+            saveConfiguration();
+            refreshStatusJson();
+        }
+
+        StaticJsonDocument<160> resp;
+        resp["success"] = true;
+        resp["operation_mode"] = g_system_config.operation_mode;
+        resp["setpoint_mode"] = (g_system_config.operation_mode == 1) ? "SCHEDULE" : "DIRECT";
+        resp["message"] = (g_system_config.operation_mode == 1) ? "Setpoint mode switched to SCHEDULE" : "Setpoint mode switched to DIRECT";
+        String out;
+        serializeJson(resp, out);
+        device_server->send(200, "application/json", out);
+    });
+
     // ========== COMPREHENSIVE RESTful API ENDPOINTS ==========
     
     // API Info and Documentation
@@ -3220,6 +3395,7 @@ device_server->on("/schedule", []() {
                     json += "\"message\":\"Relay " + String(relayId + 1) + " set to " + String(state ? "ON" : "OFF") + "\"";
                     json += "}";
                     statusCode = 200;
+                    refreshStatusJson();
                 } else {
                     json = "{\"success\":false,\"error\":\"Failed to control relay " + String(relayId + 1) + "\"}";
                     statusCode = 500;

@@ -72,7 +72,7 @@
 #define WATCHDOG_TIMEOUT 30000       // Watchdog timeout (ms)
 
 // Memory Management
-#define CONFIG_EEPROM_SIZE 512
+#define CONFIG_EEPROM_SIZE 4096
 #define CONFIG_EEPROM_ADDR 0
 #define CONFIG_MAGIC_NUMBER 0xAC55   // Configuration validity check
 

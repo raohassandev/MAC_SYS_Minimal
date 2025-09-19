@@ -6,9 +6,9 @@
 #include "simple_temp_control.h"
 
 // Schedule configuration
-#define MAX_SCHEDULE_EVENTS 24    // Maximum events per day per zone
+#define MAX_SCHEDULE_EVENTS 12    // Maximum events per day per zone (fits EEPROM constraints)
 #define MAX_ZONES 4              // Maximum temperature zones
-#define SCHEDULE_CONFIG_ADDR 512  // EEPROM address for schedule config
+#define SCHEDULE_CONFIG_ADDR 1024  // EEPROM address for schedule config (after SystemConfig)
 
 // Schedule event types
 enum ScheduleEventType {
@@ -66,6 +66,7 @@ private:
     void executeEvent(const ScheduleEvent& event);
     ScheduleEvent* findNextEvent(uint8_t zone, int& next_day, int& next_minutes);
     uint16_t calculateChecksum();
+    uint16_t calculateChecksum(const ScheduleConfig& cfg);
     void sortEvents(uint8_t zone);
     
 public:

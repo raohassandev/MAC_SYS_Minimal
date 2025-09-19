@@ -2,6 +2,7 @@
 #include <ArduinoJson.h>
 #include "simple_temp_control.h"
 #include "relay_control.h"
+#include "schedule_manager.h"
 #include "config.h"
 #include "temperature_html.h"
 #include "wifi_professional.h"
@@ -17,23 +18,38 @@ void setupTemperatureAPI() {
     
     // GET /api/temperature/status - Get current status (system-config based)
     device_server->on("/api/temperature/status", HTTP_GET, []() {
-        StaticJsonDocument<512> doc;
+        StaticJsonDocument<640> doc;
         float raw = g_system_status.current_temperature;
         float comp = raw + g_system_config.delivery_compensation;
+        const float manual_setpoint = g_system_config.ac_setpoint;
+        const float schedule_setpoint = simple_temp.getConfig().setpoint;
+        const bool schedule_global = schedule_manager.isScheduleActive();
+        WeeklySchedule& schedule = schedule_manager.getZoneSchedule(0);
+        const bool schedule_ready = schedule.enabled && schedule.active_events > 0;
+        const bool using_schedule = (g_system_config.operation_mode == 1) && schedule_global && schedule_ready;
+        const float active_setpoint = using_schedule ? schedule_setpoint : manual_setpoint;
         doc["location"] = "Main Unit";
         doc["enabled"] = g_system_config.ac_control_enabled;
         doc["mode"] = g_system_config.ac_control_enabled ? 2 : 0; // 2=COOLING, 0=OFF
         doc["current_temp"] = raw;
         doc["compensated_temp"] = comp;
-        doc["setpoint"] = g_system_config.ac_setpoint;
+        doc["setpoint"] = active_setpoint;
+        doc["active_setpoint"] = active_setpoint;
+        doc["manual_setpoint"] = manual_setpoint;
+        doc["schedule_setpoint"] = schedule_setpoint;
         doc["delta"] = g_system_config.delta_temperature;
         doc["compensation"] = g_system_config.delivery_compensation;
         doc["sensor_valid"] = (raw > -50 && raw < 100);
         doc["emergency_stop"] = (g_system_status.state == STATE_ERROR);
+        doc["operation_mode"] = g_system_config.operation_mode;
+        doc["setpoint_source"] = using_schedule ? "schedule" : "direct";
+        doc["schedule_active"] = schedule_global;
+        doc["schedule_ready"] = schedule_ready;
         JsonObject state = doc.createNestedObject("state");
         state["compressor"] = g_system_status.compressor_running;
         state["heater"] = relay_controller.getRelayState(2);
         state["fan"] = relay_controller.getRelayState(1);
+        doc["relay0"] = relay_controller.getRelayState(simple_temp.getConfig().compressor_relay);
         JsonObject stats = doc.createNestedObject("stats");
         stats["runtime_hours"] = 0.0;
         stats["cycles"] = 0;
