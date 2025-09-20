@@ -263,7 +263,7 @@ void ScheduleManager::process() {
     unsigned long now = millis();
 
     // Only check once per minute to avoid excessive processing
-    if (now - last_execution_check < 60000) {
+    if (last_execution_check != 0 && now - last_execution_check < 60000) {
         return;
     }
 

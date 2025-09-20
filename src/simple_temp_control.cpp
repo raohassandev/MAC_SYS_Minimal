@@ -3,7 +3,7 @@
 #include <EEPROM.h>
 #include <ArduinoJson.h>
 
-#define SIMPLE_TEMP_CONFIG_ADDR 512
+#define SIMPLE_TEMP_CONFIG_ADDR 640
 
 SimpleTempController simple_temp;
 

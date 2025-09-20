@@ -24,7 +24,8 @@ static const char PROGMEM schedule_html[] = R"HTML(
     .card{background:#111827;border:1px solid #1f2937;border-radius:10px;padding:16px}
     .row-active{background:rgba(37,99,235,0.12)}
     .row-active td{border-bottom-color:#2563eb}
-    table{width:100%;border-collapse:collapse;margin-top:8px}
+    .table-wrapper{width:100%;overflow-x:auto;margin-top:8px}
+    table{width:100%;border-collapse:collapse;min-width:720px}
     thead th{font-weight:600;color:#9ca3af;border-bottom:1px solid #1f2937;padding:10px;text-align:left}
     tbody td{border-bottom:1px solid #1f2937;padding:10px}
     .row{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}
@@ -49,6 +50,23 @@ static const char PROGMEM schedule_html[] = R"HTML(
     .mode-toggle-status{font-size:14px;font-weight:600;color:#e5e7eb;margin-left:12px}
     .mode-toggle-status.schedule{color:#38bdf8}
     .mode-toggle-status.direct{color:#facc15}
+
+    @media (max-width: 768px){
+      body{padding-top:140px}
+      .header{padding:14px 16px}
+      .container{padding:12px}
+      h1{font-size:18px}
+      .card{padding:12px}
+      .mode-toggle{flex-direction:column;align-items:flex-start;gap:12px}
+      .mode-toggle-left{width:100%}
+      .mode-toggle-sub{font-size:12px}
+      .nav-links{gap:10px}
+      .nav-links a{font-size:12px;padding:4px 10px}
+      table{min-width:620px}
+      .row{flex-direction:column;gap:10px}
+      .btn{width:100%;text-align:center}
+      .btn.secondary,.btn.danger{width:100%}
+    }
   </style>
 </head>
 <body>
@@ -89,19 +107,21 @@ static const char PROGMEM schedule_html[] = R"HTML(
           <span class="mode-toggle-status direct" id="setpointStatus">Direct</span>
         </div>
       </div>
-      <table id="scheduleTable">
-        <thead>
-          <tr>
-            <th>Day</th>
-            <th>Enabled</th>
-            <th>Start Time</th>
-            <th>End Time</th>
-            <th>Temperature (°C)</th>
-            <th>Status</th>
-          </tr>
-        </thead>
-        <tbody id="scheduleBody"></tbody>
-      </table>
+      <div class="table-wrapper">
+        <table id="scheduleTable">
+          <thead>
+            <tr>
+              <th>Day</th>
+              <th>Enabled</th>
+              <th>Start Time</th>
+              <th>End Time</th>
+              <th>Temperature (°C)</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="scheduleBody"></tbody>
+        </table>
+      </div>
       <div class="row">
         <button id="saveBtn" class="btn">Save Schedule</button>
         <button id="updateBtn" class="btn secondary">Update Schedule</button>

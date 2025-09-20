@@ -45,9 +45,81 @@ unsigned long last_led_toggle = 0;
 // Web server for device management
 WebServer* device_server = nullptr;
 
+// EEPROM slot for persisting setpoint source (0=Direct,1=Schedule)
+constexpr uint16_t SETPOINT_MODE_ADDR = 1018;
+constexpr uint16_t SETPOINT_MODE_ADDR_LEGACY = 1016;
+
 // Cached status JSON for ultra-fast /api/status responses
 static String g_cached_status_json;
 static unsigned long g_cached_status_at = 0;
+
+static inline uint8_t readSetpointModeSlot(uint16_t addr) {
+    uint8_t value = EEPROM.read(addr);
+    return (value <= 1) ? value : 0xFF;
+}
+
+static inline void persistSetpointMode(uint8_t mode) {
+    EEPROM.write(SETPOINT_MODE_ADDR, mode ? 1 : 0);
+    EEPROM.write(SETPOINT_MODE_ADDR_LEGACY, mode ? 1 : 0); // keep legacy slot in sync for older builds
+    EEPROM.commit();
+}
+
+static inline uint8_t syncOperationModeFromStorage(bool update_eeprom_if_changed) {
+    uint8_t persisted = readSetpointModeSlot(SETPOINT_MODE_ADDR);
+    if (persisted <= 1) {
+        if (g_system_config.operation_mode != persisted) {
+            g_system_config.operation_mode = persisted;
+            if (update_eeprom_if_changed) {
+                saveConfiguration();
+            }
+        }
+        return persisted;
+    }
+
+    // Try legacy location
+    uint8_t legacy = readSetpointModeSlot(SETPOINT_MODE_ADDR_LEGACY);
+    if (legacy <= 1) {
+        if (g_system_config.operation_mode != legacy) {
+            g_system_config.operation_mode = legacy;
+            if (update_eeprom_if_changed) {
+                saveConfiguration();
+            }
+        }
+        persistSetpointMode(legacy); // migrate forward
+        return legacy;
+    }
+
+    // Nothing stored yet; persist the current configuration value
+    persistSetpointMode(g_system_config.operation_mode);
+    return g_system_config.operation_mode;
+}
+
+static inline void syncTempControlFromStorage(bool update_eeprom_if_changed) {
+    // Sync temperature control settings from SimpleTempController's persisted config
+    const SimpleTempConfig& temp_config = simple_temp.getConfig();
+    
+    bool changed = false;
+    if (g_system_config.ac_setpoint != temp_config.setpoint) {
+        g_system_config.ac_setpoint = temp_config.setpoint;
+        changed = true;
+    }
+    if (g_system_config.delta_temperature != temp_config.delta_temp) {
+        g_system_config.delta_temperature = temp_config.delta_temp;
+        changed = true;
+    }
+    if (g_system_config.delivery_compensation != temp_config.delivery_compensation) {
+        g_system_config.delivery_compensation = temp_config.delivery_compensation;
+        changed = true;
+    }
+    if (g_system_config.ac_control_enabled != temp_config.enabled) {
+        g_system_config.ac_control_enabled = temp_config.enabled;
+        changed = true;
+    }
+    
+    if (changed && update_eeprom_if_changed) {
+        saveConfiguration();
+    }
+}
 
 static inline void refreshStatusJson() {
     // Rebuild cached JSON from current status; keep it small and fast
@@ -58,7 +130,8 @@ static inline void refreshStatusJson() {
     const bool schedule_global = schedule_manager.isScheduleActive();
     const WeeklySchedule& zone_schedule = schedule_manager.getZoneSchedule(0);
     const bool schedule_ready = zone_schedule.enabled && zone_schedule.active_events > 0;
-    const bool using_schedule = (g_system_config.operation_mode == 1) && schedule_global && schedule_ready;
+    const uint8_t op_mode = syncOperationModeFromStorage(false);
+    const bool using_schedule = (op_mode == 1) && schedule_global && schedule_ready;
     const float active_setpoint = using_schedule ? schedule_setpoint : manual_setpoint;
 
     doc["temperature"] = g_system_status.current_temperature;
@@ -68,7 +141,7 @@ static inline void refreshStatusJson() {
     doc["current_time"] = rtc_manager.getFormattedDateTime();
 
     // Control context for dashboard
-    doc["operation_mode"] = g_system_config.operation_mode; // 0=Direct, 1=Schedule
+    doc["operation_mode"] = op_mode; // 0=Direct, 1=Schedule
     doc["setpoint_source"] = using_schedule ? "schedule" : "direct";
     doc["active_setpoint"] = active_setpoint;
     doc["setpoint"] = active_setpoint;
@@ -139,10 +212,13 @@ void setup() {
         DEBUG_PRINTLN("ERROR: Failed to initialize EEPROM");
         g_system_status.last_error = ERROR_MEMORY;
     }
-    
+
+    // Load persisted temperature controller settings before syncing configuration
+    simple_temp.begin();
+
     // Load system configuration
     loadConfiguration();
-    
+
     // Initialize system components
     initializeSystem();
     
@@ -169,12 +245,7 @@ void setup() {
     
     // Initialize temperature control system
     temp_controller.begin();
-    
-    // Initialize simple temperature controller for API consistency
-    simple_temp.begin();
-    // Align compensation with system config at startup
-    simple_temp.setCompensation(g_system_config.delivery_compensation);
-    
+
     // Set up initial zone configuration (Zone 0 as example)
     temp_controller.getZoneConfig(0).enabled = true;
     temp_controller.getZoneConfig(0).mode = TEMP_MODE_HEATING;
@@ -359,9 +430,18 @@ void loadConfiguration() {
     if (!validateConfiguration()) {
         DEBUG_PRINTLN("Invalid configuration, loading defaults");
         loadDefaultConfiguration();
+        // Sync operation mode from separate EEPROM storage before saving
+        syncOperationModeFromStorage(false);
+        // Sync temperature control settings from SimpleTempController's persisted config
+        syncTempControlFromStorage(false);
         saveConfiguration();
+        persistSetpointMode(g_system_config.operation_mode);
     } else {
         DEBUG_PRINTLN("Valid configuration loaded");
+        DEBUG_PRINTF("operation_mode=%d (0=Direct,1=Schedule)\n", g_system_config.operation_mode);
+        syncOperationModeFromStorage(true);
+        // Sync temperature control settings even when config is valid
+        syncTempControlFromStorage(true);
     }
 }
 
@@ -673,6 +753,21 @@ void setupDeviceWebServer() {
         html += ".relay-pill.on{background:#10B981;color:#d1fae5;}";
         html += ".relay-pill.off{background:#6B7280;color:#E5E7EB;}";
         html += ".control-note{font-size:0.75rem;color:#9CA3AF;margin-top:0.5rem;}";
+        html += "@media (max-width: 768px){";
+        html += "  body { padding-top: 130px; }";
+        html += "  .header { padding: 14px 16px; }";
+        html += "  .header h1 { font-size: 1.1rem; }";
+        html += "  .header-info { text-align: left; margin-top: 8px; }";
+        html += "  .header-top { flex-direction: column; align-items: flex-start; gap: 8px; }";
+        html += "  .nav-links { gap: 10px; }";
+        html += "  .nav-links a { font-size: 0.75rem; padding: 4px 10px; }";
+        html += "  .container { padding: 0.75rem; }";
+        html += "  .hero-metrics { grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 0.75rem; }";
+        html += "  .control-panel { grid-template-columns: 1fr; }";
+        html += "  .control-actions { width: 100%; flex-direction: column; align-items: stretch; }";
+        html += "  .control-actions .btn { width: 100%; text-align: center; }";
+        html += "  .relay-pill { width: 100%; text-align: center; }";
+        html += "}";
         // Professional navigation styles to match other pages
         html += ".header{position:fixed;top:0;left:0;right:0;z-index:1000;background:linear-gradient(135deg,#1e3a8a 0%,#3b82f6 100%);color:white;padding:1rem 2rem;box-shadow:0 2px 10px rgba(0,0,0,0.3)}";
         html += ".header-top{display:flex;align-items:center;justify-content:space-between;gap:1.5rem}";
@@ -1117,7 +1212,21 @@ void setupDeviceWebServer() {
         html += ".save-button { background: #00D4FF; color: #0B1426; padding: 0.75rem 1.5rem; border: none; border-radius: 0.375rem; cursor: pointer; margin: 1rem 0.5rem; font-size: 0.875rem; font-weight: 600; }";
         html += ".reset-button { background: #EF4444; color: white; padding: 0.75rem 1.5rem; border: none; border-radius: 0.375rem; cursor: pointer; margin: 1rem 0.5rem; font-size: 0.875rem; font-weight: 600; }";
         html += ".back-button { background: #374151; color: #E5E7EB; padding: 0.5rem 1rem; border: 1px solid #4B5563; border-radius: 0.375rem; cursor: pointer; margin: 0.5rem; text-decoration: none; font-size: 0.875rem; }";
-        html += "@media (max-width: 768px) { .sensors-grid { grid-template-columns: 1fr; } }";
+        html += "@media (max-width: 768px) {";
+        html += "  body { padding-top: 130px; }";
+        html += "  .header { padding: 1rem; }";
+        html += "  .header-top { flex-direction: column; align-items: flex-start; gap: 8px; }";
+        html += "  .header h1 { font-size: 1.2rem; }";
+        html += "  .nav-links { gap: 0.75rem; }";
+        html += "  .nav-links a { font-size: 0.75rem; padding: 0.35rem 0.6rem; }";
+        html += "  .container { padding: 0 0.75rem; }";
+        html += "  .sensors-grid { grid-template-columns: 1fr; }";
+        html += "  .sensor-card { padding: 1.25rem; }";
+        html += "  .config-row { flex-direction: column; align-items: stretch; }";
+        html += "  .config-control { width: 100%; }";
+        html += "  .save-button, .reset-button { width: 100%; margin: 0.5rem 0; }";
+        html += "  .back-button { display: inline-block; width: 100%; text-align: center; }";
+        html += "}";
         html += "</style></head><body>";
         
         // Header with navigation
@@ -1675,11 +1784,28 @@ void setupDeviceWebServer() {
         html += ".loading { display: none; text-align: center; padding: 2rem; color: #9CA3AF; }";
         html += ".success-message { background: rgba(16, 185, 129, 0.1); border: 1px solid #10B981; color: #34D399; padding: 1rem; border-radius: 0.5rem; margin: 1rem 0; }";
         html += ".error-message { background: rgba(239, 68, 68, 0.1); border: 1px solid #EF4444; color: #FCA5A5; padding: 1rem; border-radius: 0.5rem; margin: 1rem 0; }";
+        html += "@media (max-width: 768px){";
+        html += "  body { padding-top: 130px; }";
+        html += "  .header { padding: 1rem; }";
+        html += "  .header-top { flex-direction: column; align-items: flex-start; gap: 8px; }";
+        html += "  .header h1 { font-size: 1.1rem; }";
+        html += "  .nav-links { gap: 0.75rem; }";
+        html += "  .nav-links a { font-size: 0.75rem; padding: 0.35rem 0.6rem; }";
+        html += "  .container { padding: 0 0.75rem; }";
+        html += "  .network-grid { grid-template-columns: 1fr; }";
+        html += "  .network-card { padding: 1.1rem; }";
+        html += "  .btn { width: 100%; text-align: center; }";
+        html += "  .network-entry { flex-direction: column; align-items: flex-start; gap: 0.5rem; }";
+        html += "  .network-actions { width: 100%; display: flex; flex-direction: column; gap: 0.5rem; }";
+        html += "}";
         html += "</style></head><body>";
         
         // Header with navigation
         html += "<div class='header'>";
+        html += "<div class='header-top'>";
         html += "<h1>🌐 Professional Network Management</h1>";
+        html += "<div class='header-info'><div class='header-time' id='headerTime'>--:--:--</div><div class='header-date' id='headerDate'>--</div></div>";
+        html += "</div>";
         html += "<div class='nav-links'>";
         html += "<a href='/'>Dashboard</a>";
         html += "<a href='/system'>System</a>";
@@ -1815,6 +1941,15 @@ void setupDeviceWebServer() {
         html += "  });";
         html += "});";
         
+        html += "function updateHeaderClock(){";
+        html += "  const t=document.getElementById('headerTime');";
+        html += "  const d=document.getElementById('headerDate');";
+        html += "  if(!t||!d) return;";
+        html += "  const now=new Date();";
+        html += "  t.textContent=now.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit', second:'2-digit'});";
+        html += "  d.textContent=now.toLocaleDateString([], {weekday:'short', year:'numeric', month:'short', day:'numeric'});";
+        html += "}";
+
         // Refresh current status
         html += "function refreshStatus() {";
         html += "  fetch('/api/wifi/status').then(r => r.json()).then(data => {";
@@ -1925,7 +2060,9 @@ void setupDeviceWebServer() {
         
         // Auto-refresh every 30 seconds
         html += "setInterval(refreshStatus, 30000);";
-        
+        html += "updateHeaderClock();";
+        html += "setInterval(updateHeaderClock, 1000);";
+
         html += "</script>";
         html += "</body></html>";
         
@@ -2013,7 +2150,18 @@ void setupDeviceWebServer() {
         html += ".btn-danger { background: #EF4444; color: white; }";
         html += ".btn-secondary { background: #374151; color: #E5E7EB; border: 1px solid #4B5563; }";
         html += ".api-result { background: #111827; border: 1px solid #374151; border-radius: 0.5rem; padding: 1rem; margin-top: 1rem; font-family: monospace; font-size: 0.75rem; max-height: 200px; overflow-y: auto; display: none; }";
-        html += "@media (max-width: 768px) { .status-grid { grid-template-columns: 1fr; } }";
+        html += "@media (max-width: 768px) {";
+        html += "  body { padding-top: 130px; }";
+        html += "  .header { padding: 1rem; }";
+        html += "  .header-top { flex-direction: column; align-items: flex-start; gap: 8px; }";
+        html += "  .header h1 { font-size: 1.2rem; }";
+        html += "  .nav-links { gap: 0.75rem; }";
+        html += "  .nav-links a { font-size: 0.75rem; padding: 0.35rem 0.6rem; }";
+        html += "  .main-content { padding: 0 0.75rem; }";
+        html += "  .status-grid { grid-template-columns: 1fr; }";
+        html += "  .action-buttons { flex-direction: column; }";
+        html += "  .action-buttons .btn { width: 100%; }";
+        html += "}";
         html += "</style></head><body>";
         
         // Header with navigation
@@ -2230,7 +2378,19 @@ void setupDeviceWebServer() {
         html += ".btn-danger { background: #EF4444; color: white; }";
         html += ".global-controls { background: linear-gradient(135deg, #1f2937 0%, #374151 100%); border-radius: 0.75rem; padding: 1.5rem; margin: 1.5rem 0; border: 1px solid #374151; }";
         html += ".global-title { color: #00D4FF; font-size: 1.125rem; font-weight: 600; margin-bottom: 1rem; }";
-        html += "@media (max-width: 768px) { .relay-grid { grid-template-columns: 1fr; } }";
+        html += "@media (max-width: 768px) {";
+        html += "  body { padding-top: 130px; }";
+        html += "  .header { padding: 1rem; }";
+        html += "  .header-top { flex-direction: column; align-items: flex-start; gap: 8px; }";
+        html += "  .header h1 { font-size: 1.2rem; }";
+        html += "  .nav-links { gap: 0.75rem; }";
+        html += "  .nav-links a { font-size: 0.75rem; padding: 0.35rem 0.6rem; }";
+        html += "  .main-content { padding: 0 0.75rem; }";
+        html += "  .relay-grid { grid-template-columns: 1fr; }";
+        html += "  .global-controls { padding: 1rem; }";
+        html += "  .control-buttons { flex-direction: column; align-items: stretch; }";
+        html += "  .control-buttons .btn { width: 100%; }";
+        html += "}";
         html += "</style></head><body>";
         
         // Header with navigation
@@ -2933,6 +3093,8 @@ device_server->on("/schedule", []() {
         StaticJsonDocument<2048> doc;
         WeeklySchedule& sched = schedule_manager.getZoneSchedule(0);
 
+        syncOperationModeFromStorage(false);
+
         doc["global_enabled"] = schedule_manager.isScheduleActive();
         doc["zone_enabled"] = sched.enabled;
         doc["setpoint_mode"] = g_system_config.operation_mode; // 0=Direct, 1=Schedule
@@ -3277,7 +3439,11 @@ device_server->on("/schedule", []() {
         if (desired != current) {
             g_system_config.operation_mode = desired;
             saveConfiguration();
+            persistSetpointMode(desired);
             refreshStatusJson();
+        } else {
+            // Ensure persisted copy is in sync even if unchanged
+            persistSetpointMode(desired);
         }
 
         StaticJsonDocument<160> resp;

@@ -92,9 +92,19 @@ void setupTemperatureAPI() {
             device_server->send(400, "application/json", "{\"status\":\"error\",\"message\":\"Invalid JSON\"}");
             return;
         }
-        if (doc.containsKey("setpoint")) g_system_config.ac_setpoint = CONSTRAIN_TEMP(doc["setpoint"].as<float>());
-        if (doc.containsKey("delta")) g_system_config.delta_temperature = doc["delta"].as<float>();
-        if (doc.containsKey("compensation")) g_system_config.delivery_compensation = doc["compensation"].as<float>();
+        if (doc.containsKey("setpoint")) {
+            g_system_config.ac_setpoint = CONSTRAIN_TEMP(doc["setpoint"].as<float>());
+            simple_temp.setSetpoint(g_system_config.ac_setpoint);
+        }
+        if (doc.containsKey("delta")) {
+            g_system_config.delta_temperature = doc["delta"].as<float>();
+            simple_temp.setDelta(g_system_config.delta_temperature);
+        }
+        if (doc.containsKey("compensation")) {
+            g_system_config.delivery_compensation = doc["compensation"].as<float>();
+            simple_temp.setCompensation(g_system_config.delivery_compensation);
+        }
+        simple_temp.saveConfig();
         saveConfiguration();
         device_server->send(200, "application/json", "{\"status\":\"success\"}");
     });
@@ -140,8 +150,17 @@ void setupTemperatureAPI() {
             StaticJsonDocument<128> doc;
             DeserializationError error = deserializeJson(doc, device_server->arg("plain"));
             if (!error) {
-                if (doc.containsKey("setpoint")) g_system_config.ac_setpoint = CONSTRAIN_TEMP(doc["setpoint"].as<float>());
-                if (doc.containsKey("delta")) g_system_config.delta_temperature = doc["delta"].as<float>();
+                if (doc.containsKey("setpoint")) {
+                    float setpoint = CONSTRAIN_TEMP(doc["setpoint"].as<float>());
+                    g_system_config.ac_setpoint = setpoint;
+                    simple_temp.setSetpoint(setpoint);
+                }
+                if (doc.containsKey("delta")) {
+                    float delta = doc["delta"].as<float>();
+                    g_system_config.delta_temperature = delta;
+                    simple_temp.setDelta(delta);
+                }
+                // simple_temp setters persist automatically
                 saveConfiguration();
                 device_server->send(200, "application/json", "{\"status\":\"success\"}");
             } else {
@@ -168,6 +187,8 @@ void setupTemperatureAPI() {
             DeserializationError error = deserializeJson(doc, device_server->arg("plain"));
             if (!error && doc.containsKey("compensation")) {
                 g_system_config.delivery_compensation = doc["compensation"].as<float>();
+                simple_temp.setCompensation(g_system_config.delivery_compensation);
+                simple_temp.saveConfig();
                 saveConfiguration();
                 device_server->send(200, "application/json", "{\"status\":\"success\"}");
             } else {
@@ -203,8 +224,15 @@ void setupTemperatureAPI() {
             StaticJsonDocument<128> doc;
             DeserializationError error = deserializeJson(doc, device_server->arg("plain"));
             if (!error) {
-                if (doc.containsKey("enabled")) g_system_config.ac_control_enabled = doc["enabled"].as<bool>();
-                if (doc.containsKey("mode") && doc["mode"].as<int>() == 0) g_system_config.ac_control_enabled = false;
+                if (doc.containsKey("enabled")) {
+                    bool enabled = doc["enabled"].as<bool>();
+                    g_system_config.ac_control_enabled = enabled;
+                    simple_temp.setEnabled(enabled);
+                }
+                if (doc.containsKey("mode") && doc["mode"].as<int>() == 0) {
+                    g_system_config.ac_control_enabled = false;
+                    simple_temp.setEnabled(false);
+                }
                 saveConfiguration();
                 device_server->send(200, "application/json", "{\"status\":\"success\"}");
             } else {
@@ -217,13 +245,17 @@ void setupTemperatureAPI() {
     
     // POST /api/temperature/enable - Enable system
     device_server->on("/api/temperature/enable", HTTP_POST, []() {
-        g_system_config.ac_control_enabled = true; saveConfiguration();
+        g_system_config.ac_control_enabled = true;
+        simple_temp.setEnabled(true);
+        saveConfiguration();
         device_server->send(200, "application/json", "{\"status\":\"success\",\"enabled\":true}");
     });
     
     // POST /api/temperature/disable - Disable system
     device_server->on("/api/temperature/disable", HTTP_POST, []() {
-        g_system_config.ac_control_enabled = false; saveConfiguration();
+        g_system_config.ac_control_enabled = false;
+        simple_temp.setEnabled(false);
+        saveConfiguration();
         device_server->send(200, "application/json", "{\"status\":\"success\",\"enabled\":false}");
     });
     

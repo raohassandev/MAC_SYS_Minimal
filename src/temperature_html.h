@@ -180,6 +180,81 @@ const char temperature_html[] PROGMEM = R"rawliteral(
             margin: 1rem auto;
             padding: 0 1rem;
         }
+
+        @media (max-width: 768px) {
+            body {
+                padding-top: 140px;
+            }
+
+            .header {
+                padding: 1rem;
+            }
+
+            .header h1 {
+                font-size: 1.2rem;
+            }
+
+            .nav-links {
+                gap: 0.75rem;
+            }
+
+            .nav-links a {
+                font-size: 0.75rem;
+                padding: 0.35rem 0.6rem;
+            }
+
+            .container {
+                padding: 0 0.75rem;
+            }
+
+            .main-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .control-group {
+                margin-bottom: 0.75rem;
+            }
+
+            .setpoint-source {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 0.75rem;
+            }
+
+            .setpoint-info {
+                width: 100%;
+            }
+
+            .setpoint-status {
+                font-size: 0.8rem;
+            }
+
+            .state-indicators {
+                justify-content: space-around;
+            }
+
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .emergency-section {
+                padding: 1rem;
+            }
+
+            .emergency-info {
+                grid-template-columns: 1fr;
+            }
+
+            .control-actions {
+                flex-direction: column;
+                gap: 0.5rem;
+            }
+
+            .control-actions .mode-btn,
+            .emergency-btn {
+                width: 100%;
+            }
+        }
         
         .temp-card {
             background: linear-gradient(135deg, #1f2937 0%, #374151 100%);

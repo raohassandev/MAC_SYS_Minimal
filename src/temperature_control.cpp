@@ -3,7 +3,7 @@
 #include <EEPROM.h>
 
 // EEPROM address for temperature control config
-#define TEMP_CONFIG_ADDR 256
+#define TEMP_CONFIG_ADDR 760
 
 // Global temperature controller instance
 TemperatureController temp_controller;

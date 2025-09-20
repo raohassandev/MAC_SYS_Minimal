@@ -132,6 +132,9 @@ void ModbusRegisterManager::updateSystemStatus() {
 }
 
 void ModbusRegisterManager::updateConfiguration() {
+    // Mirror system enable state into the control coil so Modbus doesn't override on boot
+    setBit(coils, ModbusRegisters::SYSTEM_ENABLE, simple_temp.getConfig().enabled);
+
     // Temperature control configuration (Holding Registers 40001-40030)
     holding_registers[ModbusRegisters::TEMP_SETPOINT] = floatToModbus(simple_temp.getConfig().setpoint);
     holding_registers[ModbusRegisters::TEMP_DELTA] = floatToModbus(simple_temp.getConfig().delta_temp);

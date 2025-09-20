@@ -15,7 +15,7 @@
 #define DEFAULT_LM35_PIN 35        // Analog temperature sensor (ADC)
 
 // EEPROM storage addresses
-#define SENSOR_CONFIG_EEPROM_ADDR 100
+#define SENSOR_CONFIG_EEPROM_ADDR 544
 #define SENSOR_CONFIG_MAGIC 0xA5C3  // Magic number to validate config
 
 // Sensor configuration structure
