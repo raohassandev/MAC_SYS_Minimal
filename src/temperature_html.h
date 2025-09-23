@@ -788,29 +788,6 @@ const char temperature_html[] PROGMEM = R"rawliteral(
             </div>
             
             <div class="card">
-                <h2>Statistics</h2>
-                <div class="stats-grid">
-                    <div class="stat-item">
-                        <div class="stat-label">Runtime</div>
-                        <div class="stat-value" id="runtime">-- hrs</div>
-                    </div>
-                    <div class="stat-item">
-                        <div class="stat-label">Cycles</div>
-                        <div class="stat-value" id="cycles">--</div>
-                    </div>
-                    <div class="stat-item">
-                        <div class="stat-label">Min Temp</div>
-                        <div class="stat-value" id="minTemp">--°C</div>
-                    </div>
-                    <div class="stat-item">
-                        <div class="stat-label">Max Temp</div>
-                        <div class="stat-value" id="maxTemp">--°C</div>
-                    </div>
-                </div>
-                <div class="emergency-section">
-                    <button class="emergency-btn emergency-stop" onclick="emergencyStop()">EMERGENCY STOP</button>
-                    <button class="emergency-btn emergency-clear" onclick="emergencyClear()">Clear Emergency</button>
-                </div>
             </div>
         </div>
     </div>

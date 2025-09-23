@@ -882,14 +882,6 @@ void setupDeviceWebServer() {
         html += "</div>";
         html += "<div class='control-note' id='scheduleModeNote'>Mode: Direct (manual setpoint)</div>";
         html += "</div>";
-        html += "<div class='control-card'>";
-        html += "<h3>🧊 Compressor Relay</h3>";
-        html += "<div class='control-actions'>";
-        html += "<span class='relay-pill off' id='relay0Indicator'>--</span>";
-        html += "<button class='btn btn-secondary' id='relay0Button' onclick='toggleRelay0()'>Toggle</button>";
-        html += "</div>";
-        html += "<div class='control-note'>Relay 1 follows the active setpoint. Use this toggle for quick diagnostics.</div>";
-        html += "</div>";
         html += "</div>";
         
         
