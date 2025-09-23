@@ -268,4 +268,21 @@ extern SystemStatus g_system_status;
   #define DEBUG_PRINTF(format, ...)
 #endif
 
+// User authentication configuration for role-based access
+#define USER_CREDENTIALS_ADDR 900
+
+// User roles
+enum UserRole {
+    ROLE_USER = 0,
+    ROLE_ADMIN = 1
+};
+
+// Simple session structure for role-based access
+struct SimpleUserSession {
+    bool is_authenticated;
+    UserRole role;
+    char username[16];
+    unsigned long login_time;
+};
+
 #endif // CONFIG_H

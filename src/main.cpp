@@ -14,6 +14,8 @@
 #include "modbus_manager.h"
 #include "utils.h"
 #include "webserver_api.h"
+#include "auth_manager.h"
+#include "login_html.h"
 #include <EEPROM.h>
 #include <esp_task_wdt.h>
 #include <WiFi.h>
@@ -220,6 +222,9 @@ void setup() {
 
     // Load system configuration
     loadConfiguration();
+
+    // Initialize simple authentication system
+    initializeSimpleAuth();
 
     // Initialize system components
     initializeSystem();
@@ -698,7 +703,21 @@ void setupDeviceWebServer() {
     device_server = new WebServer(80);
     
     // Main device status page
+    // Authentication routes
+    setupAuthAPI(device_server);
+    
+    // Login page
+    device_server->on("/login", []() {
+        device_server->send(200, "text/html", login_html);
+    });
+    
+    // Main dashboard - accessible to both admin and user
     device_server->on("/", []() {
+        if (!isAuthenticated()) {
+            device_server->sendHeader("Location", "/login");
+            device_server->send(302, "text/plain", "Redirecting to login");
+            return;
+        }
         String html = "<!DOCTYPE html><html><head><title>MAC-SYS Device Status</title>";
         html += "<meta name='viewport' content='width=device-width, initial-scale=1'>";
         html += "<meta charset='UTF-8'>";
@@ -789,15 +808,70 @@ void setupDeviceWebServer() {
         html += "<h1>MAC-SYS Industrial Controller</h1>";
         html += "<div class='header-info'><div class='header-time' id='headerTime'>--:--:--</div><div class='header-date' id='headerDate'>--</div></div>";
         html += "</div>";
-        html += "<div class='nav-links'>";
-        html += "<a href='/' class='active'>Dashboard</a>";
-        html += "<a href='/system'>System</a>";
-        html += "<a href='/relays'>Relays</a>";
-        html += "<a href='/temperature'>Temperature</a>";
-        html += "<a href='/schedule'>Schedule</a>";
-        html += "<a href='/sensors'>Sensors</a>";
-        html += "<a href='/wifi-config'>WiFi Config</a>";
+        html += "<div class='nav-links' id='mainNavigation'>";
+        // Fallback, always-visible navigation (enhanced by JS after load)
+        html += "<a id='dashboard' href='/' class='active'>Dashboard</a>";
+        html += "<a id='temperature' href='/temperature'>Temperature</a>";
+        html += "<a id='schedule' href='/schedule'>Schedule</a>";
+        if (isAdmin()) {
+            html += "<a id='relays' href='/relays'>Relays</a>";
+            html += "<a id='system' href='/system'>System</a>";
+            html += "<a id='sensors' href='/sensors'>Sensors</a>";
+            html += "<a id='wifi' href='/wifi-config'>Network</a>";
+        }
+        html += "<a id='logout' href='#' onclick=\"logout(); return false;\">Logout</a>";
         html += "</div>";
+        
+        html += "<script>";
+        html += "function createNavigation(currentPage = 'dashboard') {";
+        html += "  const userRole = localStorage.getItem('userRole') || 'user';";
+        html += "  const nav = document.getElementById('mainNavigation');";
+        html += "  if (!nav) return;";
+        html += "  ";
+        html += "  // Base navigation for all authenticated users";
+        html += "  let navItems = [";
+        html += "    {href: '/', text: 'Dashboard', id: 'dashboard'},";
+        html += "    {href: '/temperature', text: 'Temperature', id: 'temperature'},";
+        html += "    {href: '/schedule', text: 'Schedule', id: 'schedule'}";
+        html += "  ];";
+        html += "  ";
+        html += "  // Add admin-only navigation items";
+        html += "  if (userRole === 'admin') {";
+        html += "    navItems.push(";
+        html += "      {href: '/relays', text: 'Relays', id: 'relays'},";
+        html += "      {href: '/system', text: 'System', id: 'system'},";
+        html += "      {href: '/sensors', text: 'Sensors', id: 'sensors'},";
+        html += "      {href: '/wifi-config', text: 'WiFi Config', id: 'wifi'}";
+        html += "    );";
+        html += "  }";
+        html += "  ";
+        html += "  // Add logout button";
+        html += "  navItems.push({href: '#', text: 'Logout', id: 'logout', onclick: 'logout()'});";
+        html += "  ";
+        html += "  // Build navigation HTML";
+        html += "  nav.innerHTML = navItems.map(function(item){";
+        html += "    var extra = item.onclick ? \" onclick=\\\"\" + item.onclick + \"; return false;\\\"\" : '';";
+        html += "    var active = (item.id === currentPage) ? 'active' : '';";
+        html += "    return \"<a id=\\\"\" + item.id + \"\\\" href=\\\"\" + item.href + \"\\\" class=\\\"\" + active + \"\\\"\" + extra + \">\" + item.text + \"</a>\";";
+        html += "  }).join('');";
+        html += "  // Attach logout click handler defensively";
+        html += "  var lo = document.getElementById('logout');";
+        html += "  if (lo) { lo.addEventListener('click', function(e){ e.preventDefault(); try{ logout(); }catch(err){} }); }";
+        html += "}";
+        html += "function logout() {";
+        html += "    if (confirm('Are you sure you want to logout?')) {";
+        html += "        localStorage.removeItem('isAuthenticated');";
+        html += "        localStorage.removeItem('userRole');";
+        html += "        localStorage.removeItem('username');";
+        html += "        localStorage.removeItem('loginTime');";
+        html += "        fetch('/api/auth/logout', {method: 'POST'}).finally(() => {";
+        html += "            window.location.href = '/login';";
+        html += "        });";
+        html += "    }";
+        html += "}";
+        html += "// Initialize navigation when page loads";
+        html += "document.addEventListener('DOMContentLoaded', () => createNavigation('dashboard'));";
+        html += "</script>";
         
         // Mode toggle moved to Temperature page
         html += "</div>";
@@ -2339,8 +2413,16 @@ void setupDeviceWebServer() {
         device_server->send(200, "text/html", html);
     });
 
-    // Dedicated Relay Control page
+    // Dedicated Relay Control page - ADMIN ONLY
     device_server->on("/relays", []() {
+        if (!isAdmin()) {
+            device_server->send(403, "text/html", 
+                "<!DOCTYPE html><html><head><title>Access Denied</title></head>"
+                "<body style='font-family:Arial;text-align:center;margin-top:100px;'>"
+                "<h1>Access Denied</h1><p>Admin access required for relay control.</p>"
+                "<a href='/'>Return to Dashboard</a></body></html>");
+            return;
+        }
         String html = "<!DOCTYPE html><html><head>";
         html += "<title>Relay Control - MAC-SYS Industrial Controller</title>";
         html += "<meta name='viewport' content='width=device-width, initial-scale=1'>";
@@ -2516,7 +2598,13 @@ void setupDeviceWebServer() {
     // Schedule management endpoints
     // Temperature route removed - using professional interface from webserver_api.h
     /* REMOVED CONFLICTING ROUTE - START
+    // Temperature page - accessible to both admin and user
     device_server->on("/temperature", []() {
+        if (!isAuthenticated()) {
+            device_server->sendHeader("Location", "/login");
+            device_server->send(302, "text/plain", "Redirecting to login");
+            return;
+        }
         String html = "<!DOCTYPE html><html><head>";
         html += "<title>Temperature Control - MAC-SYS Industrial Controller</title>";
         html += "<meta name='viewport' content='width=device-width, initial-scale=1'>";
@@ -3000,8 +3088,23 @@ device_server->on("/schedule", []() {
     });
 */
 
-    // New clean schedule page using template
+    // Temperature page - accessible to both admin and user (serves professional UI)
+    device_server->on("/temperature", []() {
+        if (!isAuthenticated()) {
+            device_server->sendHeader("Location", "/login");
+            device_server->send(302, "text/plain", "Redirecting to login");
+            return;
+        }
+        device_server->send(200, "text/html", FPSTR(temperature_html));
+    });
+
+    // Schedule page - accessible to both admin and user
     device_server->on("/schedule", []() {
+        if (!isAuthenticated()) {
+            device_server->sendHeader("Location", "/login");
+            device_server->send(302, "text/plain", "Redirecting to login");
+            return;
+        }
         device_server->send(200, "text/html", FPSTR(schedule_html));
     });
 

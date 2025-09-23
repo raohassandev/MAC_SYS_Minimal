@@ -687,14 +687,8 @@ const char temperature_html[] PROGMEM = R"rawliteral(
                 <div class='header-date' id='headerDate'>--</div>
             </div>
         </div>
-        <div class='nav-links'>
-            <a href='/'>Dashboard</a>
-            <a href='/system'>System</a>
-            <a href='/relays'>Relays</a>
-            <a href='/temperature' class='active'>Temperature</a>
-            <a href='/schedule'>Schedule</a>
-            <a href='/sensors'>Sensors</a>
-            <a href='/wifi-config'>Network</a>
+        <div class='nav-links' id='tempNavigation'>
+            <!-- Navigation will be populated by JavaScript based on user role -->
         </div>
     </div>
 
@@ -1076,8 +1070,58 @@ const char temperature_html[] PROGMEM = R"rawliteral(
             }
         }
         
+        // Navigation function for role-based access
+        function createNavigation(currentPage = 'temperature') {
+            const userRole = localStorage.getItem('userRole') || 'user';
+            const nav = document.getElementById('tempNavigation');
+            if (!nav) return;
+            
+            // Base navigation for all authenticated users
+            let navItems = [
+                {href: '/', text: 'Dashboard', id: 'dashboard'},
+                {href: '/temperature', text: 'Temperature', id: 'temperature'},
+                {href: '/schedule', text: 'Schedule', id: 'schedule'}
+            ];
+            
+            // Add admin-only navigation items
+            if (userRole === 'admin') {
+                navItems.push(
+                    {href: '/relays', text: 'Relays', id: 'relays'},
+                    {href: '/system', text: 'System', id: 'system'},
+                    {href: '/sensors', text: 'Sensors', id: 'sensors'},
+                    {href: '/wifi-config', text: 'Network', id: 'wifi'}
+                );
+            }
+            
+            // Add logout button
+            navItems.push({href: '#', text: 'Logout', id: 'logout', onclick: 'logout()'});
+            
+            // Build navigation HTML (safe quoting using string concatenation)
+            nav.innerHTML = navItems.map(function(item){
+                var extra = item.onclick ? " onclick=\"" + item.onclick + "; return false;\"" : '';
+                var active = (item.id === currentPage) ? 'active' : '';
+                return "<a href=\"" + item.href + "\" class=\"" + active + "\"" + extra + ">" + item.text + "</a>";
+            }).join('');
+            // Attach logout click handler defensively
+            var lo = document.getElementById('logout');
+            if (lo) { lo.addEventListener('click', function(e){ e.preventDefault(); try{ logout(); }catch(err){} }); }
+        }
+        
+        function logout() {
+            if (confirm('Are you sure you want to logout?')) {
+                localStorage.removeItem('isAuthenticated');
+                localStorage.removeItem('userRole');
+                localStorage.removeItem('username');
+                localStorage.removeItem('loginTime');
+                fetch('/api/auth/logout', {method: 'POST'}).finally(() => {
+                    window.location.href = '/login';
+                });
+            }
+        }
+
         // Initialize
         document.addEventListener('DOMContentLoaded', () => {
+            createNavigation('temperature');
             updateStatus();
             loadConfig();
             updateHeaderClock();
