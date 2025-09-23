@@ -1116,8 +1116,8 @@ const char temperature_html[] PROGMEM = R"rawliteral(
                 });
             }
 
-            // Update every 2 seconds
-            updateInterval = setInterval(updateStatus, 2000);
+            // Update every 4 seconds
+            updateInterval = setInterval(updateStatus, 4000);
             setInterval(updateHeaderClock, 1000);
         });
     </script>

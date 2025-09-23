@@ -350,7 +350,9 @@ void runTemperatureControl() {
         bool globalOn = schedule_manager.isScheduleActive();
         WeeklySchedule& z0 = schedule_manager.getZoneSchedule(0);
         bool zoneReady = z0.enabled && z0.active_events > 0;
-        if (globalOn && zoneReady) {
+        bool eventActive = schedule_manager.hasActiveEvent(0);
+
+        if (globalOn && zoneReady && eventActive) {
             // schedule_manager applies events to simple_temp; use its current setpoint
             targetSetpoint = simple_temp.getConfig().setpoint;
             shouldProceedWithControl = true;
@@ -421,13 +423,13 @@ void runTemperatureControl() {
 }
 
 bool shouldStartCooling(float currentTemp, float setpoint, float delta) {
-    // Start cooling when temperature exceeds setpoint
-    return currentTemp > setpoint;
+    // Start cooling only when we drift delta degrees above the target
+    return currentTemp >= (setpoint + delta);
 }
 
-bool shouldStopCooling(float currentTemp, float setpoint, float delta) {
-    // Stop cooling when temperature drops to (setpoint - delta)
-    return currentTemp <= (setpoint - delta);
+bool shouldStopCooling(float currentTemp, float setpoint, float /*delta*/) {
+    // Stop cooling as soon as we reach the target again
+    return currentTemp <= setpoint;
 }
 
 float applyDeliveryCompensation(float rawTemp, float compensation) {

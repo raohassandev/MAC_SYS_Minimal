@@ -98,6 +98,7 @@ public:
     
     // Query functions
     bool isScheduleActive() { return config.global_enabled && !config.holiday_mode; }
+    bool hasActiveEvent(uint8_t zone);
     WeeklySchedule& getZoneSchedule(uint8_t zone);
     ScheduleEvent* getEvent(uint8_t zone, uint8_t event_index);
     uint8_t getEventCount(uint8_t zone);

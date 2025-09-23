@@ -355,6 +355,27 @@ bool ScheduleManager::isEventActive(const ScheduleEvent& event, int current_day,
     return false;
 }
 
+bool ScheduleManager::hasActiveEvent(uint8_t zone) {
+    if (!isScheduleActive() || zone >= MAX_ZONES) {
+        return false;
+    }
+
+    WeeklySchedule& schedule = config.zones[zone];
+    if (!schedule.enabled || schedule.active_events == 0) {
+        return false;
+    }
+
+    int current_day = rtc_manager.getCurrentDayOfWeek();
+    int current_minutes = rtc_manager.getCurrentTimeMinutes();
+
+    for (uint8_t i = 0; i < schedule.active_events; i++) {
+        if (isEventActive(schedule.events[i], current_day, current_minutes)) {
+            return true;
+        }
+    }
+    return false;
+}
+
 void ScheduleManager::executeEvent(const ScheduleEvent& event) {
     DEBUG_PRINTF("🕒 Executing schedule event: %s\n", event.description);
     

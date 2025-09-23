@@ -131,7 +131,8 @@ static inline void refreshStatusJson() {
     const WeeklySchedule& zone_schedule = schedule_manager.getZoneSchedule(0);
     const bool schedule_ready = zone_schedule.enabled && zone_schedule.active_events > 0;
     const uint8_t op_mode = syncOperationModeFromStorage(false);
-    const bool using_schedule = (op_mode == 1) && schedule_global && schedule_ready;
+    const bool schedule_event_active = schedule_manager.hasActiveEvent(0);
+    const bool using_schedule = (op_mode == 1) && schedule_global && schedule_ready && schedule_event_active;
     const float active_setpoint = using_schedule ? schedule_setpoint : manual_setpoint;
 
     doc["temperature"] = g_system_status.current_temperature;
@@ -149,6 +150,7 @@ static inline void refreshStatusJson() {
     doc["schedule_setpoint"] = schedule_setpoint;
     doc["schedule_active"] = schedule_global;
     doc["schedule_ready"] = schedule_ready;
+    doc["schedule_event_active"] = schedule_event_active;
     doc["ac_on"] = g_system_status.compressor_running;
     doc["relay0"] = relay_controller.getRelayState(0);
 
@@ -1012,7 +1014,7 @@ void setupDeviceWebServer() {
         html += "  }).catch(()=>{});";
         html += "}";
         html += "console.log('Starting auto-refresh...');";
-        html += "setInterval(refreshData, 2000);";
+        html += "setInterval(refreshData, 4000);";
         html += "setTimeout(refreshData, 1000);";
         html += "updateHeaderClock();";
         html += "setInterval(updateHeaderClock, 1000);";
